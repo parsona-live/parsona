@@ -35,6 +35,7 @@ interface Profile {
   beta_features: string[];
   account_id: string | null;
   account_role: AccountRole | null;
+  is_super_admin: boolean;
 }
 
 interface AccountSummary {
@@ -116,6 +117,8 @@ interface AuthContextValue {
    *  while loading or when no account is resolved, so callers can use
    *  it unconditionally. */
   defaultCurrency: string;
+  /** True if the caller has platform super admin privileges. */
+  isSuperAdmin: boolean;
   /** True if `accountRole === 'owner'`. */
   isOwner: boolean;
   /** True if `accountRole === 'admin'` (does NOT include owner — use canManageMembers for "admin or above"). */
@@ -152,6 +155,7 @@ interface ProfileRow {
   beta_features: string[] | null;
   account_id: string | null;
   account_role: string | null;
+  is_super_admin?: boolean | null;
 }
 
 /**
@@ -192,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const result = await supabase
           .from("profiles")
           .select(
-            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin",
           )
           .eq("user_id", userId)
           .maybeSingle();
@@ -200,6 +204,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!result.error) {
           data = result.data;
           break;
+        }
+
+        if (result.error.code === "42703") {
+          // is_super_admin column not migrated in DB yet — graceful fallback
+          const fallback = await supabase
+            .from("profiles")
+            .select(
+              "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
+            )
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (!fallback.error && fallback.data) {
+            data = { ...fallback.data, is_super_admin: false };
+            break;
+          }
         }
 
         const error = result.error;
@@ -280,6 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           beta_features: data.beta_features ?? [],
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          is_super_admin: Boolean(data.is_super_admin),
         });
         setAccount(accountRow);
         if (!data.account_id || !accountRole) {
@@ -403,6 +423,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       accountRole: role,
       accountId: profile?.account_id ?? null,
+      isSuperAdmin: profile?.is_super_admin ?? false,
       isOwner: role === "owner",
       isAdmin: role === "admin",
       isAgent: role === "agent",
@@ -474,6 +495,7 @@ export function useAuth(): AuthContextValue {
       accountStatusDetail: null,
       accountId: null,
       accountRole: null,
+      isSuperAdmin: false,
       isOwner: false,
       isAdmin: false,
       isAgent: false,

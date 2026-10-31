@@ -79,6 +79,14 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
+  // Super Admin pages - redirect to login with return redirect if unauthenticated
+  if (!user && request.nextUrl.pathname.startsWith('/admin')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('redirect', request.nextUrl.pathname)
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   // API routes that need auth (not webhooks)
   if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
       !request.nextUrl.pathname.includes('/webhook')) {

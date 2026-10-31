@@ -77,9 +77,12 @@ function LoginPageInner() {
     // back to /login — which looks like the page "just refreshing"
     // instead of signing in (issue #365). Mirrors the deliberate full
     // reload the invite-accept flow already uses in join/[token].
+    const redirectParam = searchParams.get("redirect");
     const destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
-      : "/dashboard";
+      : redirectParam && redirectParam.startsWith("/")
+        ? redirectParam
+        : "/dashboard";
     window.location.href = destination;
   };
 

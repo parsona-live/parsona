@@ -26,6 +26,7 @@
 // ============================================================
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
@@ -117,11 +118,28 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     throw new UnauthorizedError();
   }
 
-  const { data, error } = await supabase
+  let data: { account_id: string | null; account_role: string | null; is_super_admin?: boolean } | null = null;
+  let error: { code?: string; message?: string } | null = null;
+
+  const resWithAdmin = await supabase
     .from("profiles")
-    .select("account_id, account_role")
+    .select("account_id, account_role, is_super_admin")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (resWithAdmin.error && resWithAdmin.error.code === "42703") {
+    // Column not migrated yet in DB — fall back cleanly
+    const resFallback = await supabase
+      .from("profiles")
+      .select("account_id, account_role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    data = resFallback.data ? { ...resFallback.data, is_super_admin: false } : null;
+    error = resFallback.error;
+  } else {
+    data = resWithAdmin.data;
+    error = resWithAdmin.error;
+  }
 
   if (error) {
     console.error("[getCurrentAccount] profile fetch error:", error);
@@ -140,6 +158,23 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     throw new ForbiddenError(`Unknown account role: ${data.account_role}`);
   }
 
+  let resolvedAccountId = data.account_id;
+  let resolvedRole: AccountRole = data.account_role as AccountRole;
+
+  // Super Admin impersonation override: if a valid cookie is present, switch tenant context
+  if (data.is_super_admin) {
+    try {
+      const cookieStore = await cookies();
+      const impersonatedId = cookieStore.get("wapp_impersonate_account_id")?.value;
+      if (impersonatedId && impersonatedId !== data.account_id) {
+        resolvedAccountId = impersonatedId;
+        resolvedRole = "owner";
+      }
+    } catch {
+      // Cookies may be unreadable in certain test/isolated environments
+    }
+  }
+
   // Load the account with a plain point lookup by id rather than an
   // embedded FK join (`account:accounts!inner(...)`). The embed forces
   // PostgREST to resolve the profiles.account_id → accounts.id
@@ -153,7 +188,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   const { data: account, error: accountErr } = await supabase
     .from("accounts")
     .select("id, name")
-    .eq("id", data.account_id)
+    .eq("id", resolvedAccountId)
     .maybeSingle();
 
   if (accountErr) {
@@ -169,8 +204,8 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   return {
     supabase,
     userId: user.id,
-    accountId: data.account_id,
-    role: data.account_role,
+    accountId: resolvedAccountId,
+    role: resolvedRole,
     account: { id: account.id, name: account.name },
   };
 }
@@ -190,4 +225,58 @@ export async function requireRole(min: AccountRole): Promise<AccountContext> {
     );
   }
   return ctx;
+}
+
+// ------------------------------------------------------------
+// Super Admin context
+// ------------------------------------------------------------
+
+export interface SuperAdminContext {
+  supabase: SupabaseClient;
+  userId: string;
+  email: string;
+  profile: {
+    id: string;
+    fullName: string;
+    email: string;
+    isSuperAdmin: boolean;
+  };
+}
+
+/**
+ * Gate route execution to platform Super Admins only.
+ * Throws UnauthorizedError if no session, ForbiddenError if user is not a super admin.
+ */
+export async function requireSuperAdmin(): Promise<SuperAdminContext> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser();
+  if (userErr || !user) {
+    throw new UnauthorizedError();
+  }
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, is_super_admin")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || !profile || !profile.is_super_admin) {
+    throw new ForbiddenError(t("forbidden"));
+  }
+
+  return {
+    supabase,
+    userId: user.id,
+    email: user.email ?? profile.email,
+    profile: {
+      id: profile.id,
+      fullName: profile.full_name,
+      email: profile.email,
+      isSuperAdmin: true,
+    },
+  };
 }

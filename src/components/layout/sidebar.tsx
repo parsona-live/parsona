@@ -18,6 +18,7 @@ import {
   Radio,
   Settings,
   Shield,
+  ShieldAlert,
   User,
   UserCog,
   Users,
@@ -116,7 +117,7 @@ import { useTranslations } from "next-intl";
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const { profile, profileLoading, account, accountRole, signOut, isSuperAdmin } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   // Only surface the account-name strip when it actually carries
@@ -271,6 +272,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="my-4 border-t border-border" />
 
           <ul className="flex flex-col gap-1">
+            {isSuperAdmin && (
+              <li>
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 mb-1"
+                >
+                  <ShieldAlert className="h-4 w-4 text-amber-400" />
+                  <span>Super Admin</span>
+                </Link>
+              </li>
+            )}
             {bottomNavItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
