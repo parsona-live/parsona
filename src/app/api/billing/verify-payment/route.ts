@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = body;
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !planId) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: "Missing required payment fields" }, { status: 400 });
     }
 
@@ -23,24 +23,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
     }
 
-    // Load plan details to update account limits
-    const { data: plan } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", planId)
-      .single();
+    let planName = "Custom Business Plan";
+    let amountInr = 0;
 
-    if (!plan) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    if (!planId || planId === "custom") {
+      // Negotiated plan
+      const { data: acc } = await supabase
+        .from("accounts")
+        .select("negotiated_price_inr")
+        .eq("id", accountId)
+        .single();
+      amountInr = Number(acc?.negotiated_price_inr ?? 0);
+      planName = `Custom Monthly Plan (₹${amountInr.toLocaleString("en-IN")})`;
+    } else {
+      // Standard plan
+      const { data: plan } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", planId)
+        .single();
+
+      if (plan) {
+        amountInr = plan.price_inr;
+        planName = plan.name;
+      }
     }
 
     // Record payment transaction
     await supabase.from("payment_transactions").insert({
       account_id: accountId,
-      plan_id: planId,
+      plan_id: planId && planId !== "custom" ? planId : null,
       razorpay_payment_id,
       razorpay_order_id,
-      amount_inr: plan.price_inr,
+      amount_inr: amountInr,
       currency: "INR",
       status: "captured",
     });
@@ -51,30 +66,25 @@ export async function POST(request: NextRequest) {
 
     await supabase.from("account_subscriptions").insert({
       account_id: accountId,
-      plan_id: planId,
+      plan_id: planId && planId !== "custom" ? planId : null,
       status: "active",
       current_period_start: currentPeriodStart.toISOString(),
       current_period_end: currentPeriodEnd.toISOString(),
     });
 
-    // Update account status and limits
+    // Update account status to active
     await supabase
       .from("accounts")
       .update({
-        plan_tier: planId,
         status: "active",
-        max_contacts: plan.max_contacts,
-        max_broadcasts_per_month: plan.max_broadcasts_per_month,
-        max_agents: plan.max_agents,
-        ai_enabled: plan.ai_enabled,
+        billing_status: "active",
         updated_at: new Date().toISOString(),
       })
       .eq("id", accountId);
 
-    return NextResponse.json({ success: true, plan: plan.name });
+    return NextResponse.json({ success: true, plan: planName });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Payment verification failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

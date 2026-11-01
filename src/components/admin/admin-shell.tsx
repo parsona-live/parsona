@@ -15,6 +15,10 @@ import {
   Menu,
   X,
   CreditCard,
+  UserPlus,
+  PlaySquare,
+  ShieldCheck,
+  PlusCircle,
 } from "lucide-react";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -29,8 +33,11 @@ interface AdminShellProps {
 const adminNavItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/tenants", label: "Tenants & Businesses", icon: Building2 },
+  { href: "/admin/tenants/new", label: "Onboard Client", icon: PlusCircle },
+  { href: "/admin/admins", label: "Admin Management", icon: ShieldCheck },
   { href: "/admin/automations", label: "Master Automations", icon: Workflow },
-  { href: "/admin/billing", label: "Billing & Plans", icon: CreditCard },
+  { href: "/admin/executions", label: "Execution Monitor", icon: PlaySquare },
+  { href: "/admin/billing", label: "Billing & Revenue", icon: CreditCard },
   { href: "/admin/system", label: "System & Routing", icon: Activity },
 ];
 

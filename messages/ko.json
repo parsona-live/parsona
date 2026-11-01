@@ -1959,6 +1959,7 @@
     },
     "sections": {
       "overview": "개요",
+      "billing": "요금제 및 결제",
       "profile": "내 프로필",
       "security": "로그인 & 보안",
       "appearance": "화면 설정",

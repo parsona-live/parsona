@@ -1959,6 +1959,7 @@
     },
     "sections": {
       "overview": "Overview",
+      "billing": "Plans & Billing",
       "profile": "Your profile",
       "security": "Login & security",
       "appearance": "Appearance",

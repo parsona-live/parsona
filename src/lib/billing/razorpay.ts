@@ -7,7 +7,7 @@ const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || "";
 export interface CreateOrderParams {
   amountInr: number;
   accountId: string;
-  planId: string;
+  planId?: string;
   receipt?: string;
 }
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Building2,
   Search,
@@ -13,6 +14,8 @@ import {
   PowerOff,
   Power,
   RotateCw,
+  Plus,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +162,7 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
+      {/* Search, Filters, and New Client Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -171,19 +174,29 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
           />
         </div>
 
-        {/* Status Filter Buttons */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {["all", "active", "suspended", "past_due"].map((status) => (
-            <Button
-              key={status}
-              size="sm"
-              variant={statusFilter === status ? "default" : "outline"}
-              onClick={() => setStatusFilter(status)}
-              className="text-xs capitalize h-8"
-            >
-              {status === "all" ? "All Accounts" : status.replace("_", " ")}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          {/* Status Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            {["all", "active", "suspended", "past_due"].map((status) => (
+              <Button
+                key={status}
+                size="sm"
+                variant={statusFilter === status ? "default" : "outline"}
+                onClick={() => setStatusFilter(status)}
+                className="text-xs capitalize h-8"
+              >
+                {status === "all" ? "All Accounts" : status.replace("_", " ")}
+              </Button>
+            ))}
+          </div>
+
+          <Link
+            href="/admin/tenants/new"
+            className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-500 transition-colors shrink-0 h-8 gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Onboard Client
+          </Link>
         </div>
       </div>
 
@@ -213,7 +226,12 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
                             <Building2 className="h-4 w-4" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-medium text-foreground truncate">{tenant.name}</div>
+                            <Link
+                              href={`/admin/tenants/${tenant.id}`}
+                              className="font-medium text-foreground hover:text-amber-400 hover:underline transition-colors block truncate"
+                            >
+                              {tenant.name}
+                            </Link>
                             <div className="text-[11px] text-muted-foreground font-mono truncate">{tenant.id}</div>
                           </div>
                         </div>
@@ -251,6 +269,16 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* View / Manage Tenant Detail */}
+                          <Link
+                            href={`/admin/tenants/${tenant.id}`}
+                            className="inline-flex items-center justify-center rounded-md border border-border bg-card px-2.5 h-8 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                            title="Manage Tenant Details & Automations"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                            Manage
+                          </Link>
+
                           {/* Assign Automation Flow */}
                           <Button
                             size="sm"

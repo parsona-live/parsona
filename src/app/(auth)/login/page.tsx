@@ -78,11 +78,28 @@ function LoginPageInner() {
     // instead of signing in (issue #365). Mirrors the deliberate full
     // reload the invite-accept flow already uses in join/[token].
     const redirectParam = searchParams.get("redirect");
-    const destination = inviteToken
+    let destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
       : redirectParam && redirectParam.startsWith("/")
         ? redirectParam
         : "/dashboard";
+
+    if (!redirectParam && !inviteToken) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_super_admin")
+          .eq("email", email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (profile?.is_super_admin) {
+          destination = "/admin";
+        }
+      } catch {
+        // Fallback cleanly
+      }
+    }
+
     window.location.href = destination;
   };
 

@@ -16,7 +16,7 @@ import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, isSuperAdmin, loading } = useAuth();
   const router = useRouter();
   const t = useTranslations("DashboardShell");
 
@@ -28,8 +28,19 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
+      return;
     }
-  }, [user, loading, router]);
+
+    // Admins without an active impersonation session stay in the Super Admin portal
+    if (!loading && user && isSuperAdmin) {
+      const isImpersonating =
+        typeof document !== "undefined" &&
+        document.cookie.split(";").some((c) => c.trim().startsWith("wapp_impersonate_account_id="));
+      if (!isImpersonating) {
+        window.location.href = "/admin";
+      }
+    }
+  }, [user, isSuperAdmin, loading, router]);
 
   if (loading) {
     return (

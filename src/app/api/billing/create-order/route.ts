@@ -5,29 +5,58 @@ import { createRazorpayOrder } from "@/lib/billing/razorpay";
 export async function POST(request: NextRequest) {
   try {
     const { supabase, accountId } = await getCurrentAccount();
-    const body = await request.json();
-    const { planId } = body;
+    const body = await request.json().catch(() => ({}));
+    const { planId, isMonthlyPayment } = body;
 
-    if (!planId) {
-      return NextResponse.json({ error: "planId is required" }, { status: 400 });
-    }
+    let amountInr = 0;
+    let targetPlanId: string | null = planId || null;
+    let planDisplayName = "Monthly Business Subscription";
 
-    // Load plan details
-    const { data: plan, error: planErr } = await supabase
-      .from("subscription_plans")
-      .select("id, name, price_inr")
-      .eq("id", planId)
-      .eq("is_active", true)
-      .single();
+    if (isMonthlyPayment || !planId || planId === "custom") {
+      // Custom negotiated monthly payment for this tenant
+      const { data: account, error: accErr } = await supabase
+        .from("accounts")
+        .select("id, name, negotiated_price_inr, billing_status")
+        .eq("id", accountId)
+        .single();
 
-    if (planErr || !plan) {
-      return NextResponse.json({ error: "Subscription plan not found" }, { status: 404 });
+      if (accErr || !account) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      }
+
+      const price = Number(account.negotiated_price_inr ?? 0);
+      if (price <= 0) {
+        return NextResponse.json(
+          { error: "No custom monthly price has been set by your platform administrator yet." },
+          { status: 400 }
+        );
+      }
+
+      amountInr = price;
+      targetPlanId = "custom";
+      planDisplayName = `Custom Business Plan (₹${price.toLocaleString("en-IN")}/mo)`;
+    } else {
+      // Standard plan lookup
+      const { data: plan, error: planErr } = await supabase
+        .from("subscription_plans")
+        .select("id, name, price_inr")
+        .eq("id", planId)
+        .eq("is_active", true)
+        .single();
+
+      if (planErr || !plan) {
+        return NextResponse.json({ error: "Subscription plan not found" }, { status: 404 });
+      }
+
+      amountInr = plan.price_inr;
+      targetPlanId = plan.id;
+      planDisplayName = plan.name;
     }
 
     const order = await createRazorpayOrder({
-      amountInr: plan.price_inr,
+      amountInr,
       accountId,
-      planId: plan.id,
+      planId: targetPlanId || "custom",
     });
 
     return NextResponse.json({
@@ -35,11 +64,10 @@ export async function POST(request: NextRequest) {
       amount: order.amount,
       currency: order.currency,
       keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "",
-      planName: plan.name,
+      planName: planDisplayName,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to initiate payment";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
