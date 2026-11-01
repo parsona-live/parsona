@@ -9,7 +9,7 @@ import { HEARTBEAT_MS, IDLE_AFTER_MS, type StoredPresence } from "@/lib/presence
 /**
  * PresenceHeartbeat — headless. Mount ONCE per signed-in dashboard tab
  * (in the dashboard shell, below the auth gate). Reports this tab's
- * presence to the `member_presence` table via the `touch_presence` RPC
+ * presence to the `member_presence` table via the  `touch_presence` RPC
  * roughly every HEARTBEAT_MS.
  *
  * The client only ever reports 'online' or 'away':
@@ -56,13 +56,23 @@ export function PresenceHeartbeat() {
       const t = Date.now();
       if (t - lastBeatAt < 1_000) return;
       lastBeatAt = t;
-      const { error } = await supabase.rpc("touch_presence", {
-        p_status: currentStatus(),
-      });
-      if (error && !cancelled) {
-        // Non-fatal: presence is best-effort. Log once per failure so a
-        // misconfigured RPC is visible without spamming.
-        console.error("[PresenceHeartbeat] touch_presence failed:", error.message);
+      try {
+        const { error } = await supabase.rpc("touch_presence", {
+          p_status: currentStatus(),
+        });
+        if (error && !cancelled) {
+          // Non-fatal: presence is best-effort. If it's a transient network glitch / abort, log quietly
+          if (error.message?.includes('Failed to fetch') || error.message?.includes('AbortError')) {
+            console.debug("[PresenceHeartbeat] touch_presence network unavailable:", error.message);
+          } else {
+            console.warn("[PresenceHeartbeat] touch_presence failed:", error.message);
+          }
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.debug("[PresenceHeartbeat] touch_presence transient error:", msg);
+        }
       }
     };
 
