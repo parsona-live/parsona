@@ -32,12 +32,20 @@ export interface SendMessageNodeConfig {
   text: string;
   /** Auto-advance target after the message lands at Meta. */
   next_node_key: string;
+  /** Optional media or text header. */
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document';
+  header_text?: string;
+  header_media_url?: string;
+  header_filename?: string;
 }
 
 export interface SendButtonsNodeConfig {
   text: string;
   /** Optional header / footer lines around the buttons. */
   header_text?: string;
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document';
+  header_media_url?: string;
+  header_filename?: string;
   footer_text?: string;
   /** 1-3 buttons; Meta cap enforced in meta-api validation. */
   buttons: Array<{
@@ -55,6 +63,9 @@ export interface SendListNodeConfig {
   /** Label of the tap-to-expand button on the message bubble. */
   button_label: string;
   header_text?: string;
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document';
+  header_media_url?: string;
+  header_filename?: string;
   footer_text?: string;
   /** 1-10 rows TOTAL across sections; cap enforced in meta-api. */
   sections: Array<{

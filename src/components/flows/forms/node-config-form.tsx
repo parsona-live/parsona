@@ -49,7 +49,7 @@ import {
 import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
-import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
+import { NextNodeRow, NodeKeySelect, TextRow, HeaderMediaSelector } from "./fields";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -80,7 +80,14 @@ export function NodeConfigForm({
 
     case "send_message":
       return (
-        <>
+        <div className="space-y-3">
+          <HeaderMediaSelector
+            headerType={(cfg as any).header_type}
+            headerText={(cfg as any).header_text}
+            headerMediaUrl={(cfg as any).header_media_url}
+            headerFilename={(cfg as any).header_filename}
+            onChange={(patch) => onUpdateConfig(patch)}
+          />
           <TextRow
             label={t("textToCustomer")}
             value={(cfg as { text?: string }).text ?? ""}
@@ -94,7 +101,7 @@ export function NodeConfigForm({
             onChange={(v) => onUpdateConfig({ next_node_key: v })}
             label={t("advancesTo")}
           />
-        </>
+        </div>
       );
 
     case "send_buttons":
@@ -267,6 +274,10 @@ export function NodeConfigForm({
 
 interface SendButtonsCfg {
   text?: string;
+  header_text?: string;
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document';
+  header_media_url?: string;
+  header_filename?: string;
   footer_text?: string;
   buttons?: Array<{ reply_id: string; title: string; next_node_key: string }>;
 }
@@ -310,7 +321,14 @@ function SendButtonsForm({
     onUpdateConfig({ buttons: buttons.filter((_, i) => i !== idx) });
 
   return (
-    <>
+    <div className="space-y-3">
+      <HeaderMediaSelector
+        headerType={cfg.header_type || (cfg.header_text ? "text" : "none")}
+        headerText={cfg.header_text}
+        headerMediaUrl={cfg.header_media_url}
+        headerFilename={cfg.header_filename}
+        onChange={(patch) => onUpdateConfig(patch)}
+      />
       <TextRow
         label={t("bodyText")}
         value={cfg.text ?? ""}
@@ -388,7 +406,7 @@ function SendButtonsForm({
           </Button>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -399,6 +417,10 @@ function SendButtonsForm({
 interface SendListCfg {
   text?: string;
   button_label?: string;
+  header_text?: string;
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document';
+  header_media_url?: string;
+  header_filename?: string;
   footer_text?: string;
   sections?: Array<{
     title?: string;
@@ -501,7 +523,14 @@ function SendListForm({
     });
 
   return (
-    <>
+    <div className="space-y-3">
+      <HeaderMediaSelector
+        headerType={cfg.header_type || (cfg.header_text ? "text" : "none")}
+        headerText={cfg.header_text}
+        headerMediaUrl={cfg.header_media_url}
+        headerFilename={cfg.header_filename}
+        onChange={(patch) => onUpdateConfig(patch)}
+      />
       <TextRow
         label={t("bodyText")}
         value={cfg.text ?? ""}
@@ -627,7 +656,7 @@ function SendListForm({
           </Button>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

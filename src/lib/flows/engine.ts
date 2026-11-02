@@ -438,6 +438,9 @@ async function sendButtonsAndSuspend(
     contactId: run.contact_id!,
     bodyText: interpolateVars(cfg.text, run.vars),
     headerText: interpolateOptionalVars(cfg.header_text, run.vars),
+    headerType: cfg.header_type,
+    headerMediaUrl: cfg.header_media_url,
+    headerFilename: cfg.header_filename,
     footerText: interpolateOptionalVars(cfg.footer_text, run.vars),
     buttons: cfg.buttons.map((b) => ({
       id: b.reply_id,
@@ -480,6 +483,9 @@ async function sendListAndSuspend(
     bodyText: interpolateVars(cfg.text, run.vars),
     buttonLabel: interpolateVars(cfg.button_label, run.vars),
     headerText: interpolateOptionalVars(cfg.header_text, run.vars),
+    headerType: cfg.header_type,
+    headerMediaUrl: cfg.header_media_url,
+    headerFilename: cfg.header_filename,
     footerText: interpolateOptionalVars(cfg.footer_text, run.vars),
     sections: cfg.sections.map((s) => ({
       title: interpolateOptionalVars(s.title, run.vars),
@@ -717,13 +723,38 @@ async function advanceFromNodeKey(
     if (node.node_type === "send_message") {
       const cfg = node.config as unknown as SendMessageNodeConfig;
       try {
-        const { whatsapp_message_id } = await engineSendText({
-          accountId: run.account_id,
-    userId: run.user_id,
-          conversationId: run.conversation_id!,
-          contactId: run.contact_id!,
-          text: interpolateVars(cfg.text, run.vars),
-        });
+        let whatsapp_message_id: string;
+        if (
+          cfg.header_type &&
+          cfg.header_type !== "none" &&
+          cfg.header_type !== "text" &&
+          cfg.header_media_url
+        ) {
+          const res = await engineSendMedia({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            kind: cfg.header_type as "image" | "video" | "document",
+            link: cfg.header_media_url,
+            caption: interpolateVars(cfg.text, run.vars),
+            filename: cfg.header_filename,
+          });
+          whatsapp_message_id = res.whatsapp_message_id;
+        } else {
+          const textToSend =
+            cfg.header_type === "text" && cfg.header_text
+              ? `*${interpolateVars(cfg.header_text, run.vars)}*\n\n${interpolateVars(cfg.text, run.vars)}`
+              : interpolateVars(cfg.text, run.vars);
+          const res = await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            text: textToSend,
+          });
+          whatsapp_message_id = res.whatsapp_message_id;
+        }
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_message",
           whatsapp_message_id,

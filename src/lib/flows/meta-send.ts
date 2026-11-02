@@ -618,6 +618,9 @@ interface SendInteractiveButtonsEngineArgs {
   bodyText: string
   buttons: InteractiveButton[]
   headerText?: string
+  headerType?: 'none' | 'text' | 'image' | 'video' | 'document'
+  headerMediaUrl?: string
+  headerFilename?: string
   footerText?: string
 }
 
@@ -630,6 +633,9 @@ interface SendInteractiveListEngineArgs {
   buttonLabel: string
   sections: InteractiveListSection[]
   headerText?: string
+  headerType?: 'none' | 'text' | 'image' | 'video' | 'document'
+  headerMediaUrl?: string
+  headerFilename?: string
   footerText?: string
 }
 
@@ -729,6 +735,9 @@ async function sendInteractiveViaMeta(
         bodyText: input.bodyText,
         buttons: input.buttons,
         headerText: input.headerText,
+        headerType: input.headerType,
+        headerMediaUrl: input.headerMediaUrl,
+        headerFilename: input.headerFilename,
         footerText: input.footerText,
       })
       return r.messageId

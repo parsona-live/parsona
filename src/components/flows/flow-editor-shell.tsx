@@ -4,55 +4,34 @@
  * View-switcher + chrome for the flow editor.
  *
  * Lays the editor out as one app-like column that fills the dashboard
- * content area (toolbar → mode row → stage → validation bar), matching
- * the Flow Builder design handoff:
+ * content area (toolbar → mode row → stage → validation bar).
  *   - A segmented Canvas / List control on the left of the mode row.
- *   - A node-type legend on the right so the canvas's per-type colors
- *     are decodable at a glance.
- *   - The active view is mounted inside a rounded "stage" that owns its
- *     own scroll/overflow, so the canvas can fill available height and
- *     the list scrolls internally.
- *
- * Why a separate component:
- *   - The page itself stays trivially small (loading + error + this).
- *   - Either view can stay unaware of the other — they share data
- *     (`{flow, nodes}`) and nothing else.
- *
- * View choice persists per-browser via localStorage so a power user
- * who prefers the list isn't fighting the default on every load.
- * Canvas is the default for everyone else — the original user
- * feedback was that the list shape made flows "hard to understand".
+ *   - Preview Flow + Expand Fullscreen buttons on the right.
+ *   - Tags above the canvas are removed for a clean, professional workspace.
+ *   - The active view is mounted inside an expanded stage with increased height
+ *     and fullscreen expansion support.
  */
 
-import { useEffect, useState } from "react";
-import { GitFork, List } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { GitFork, List, Play, Maximize2, Minimize2 } from "lucide-react";
 
 import { FlowBuilder } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
-import { FlowEditorProvider } from "./flow-editor-state";
+import { FlowEditorProvider, useFlowEditor } from "./flow-editor-state";
 import { EditorHeader } from "./header";
 import { ValidationPanel } from "./validation-panel";
-import { NODE_META, nodeColors, type NodeType } from "./shared";
+import { FlowSimulator } from "./flow-simulator";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
+import type { BuilderNode } from "./shared";
 import { useTranslations } from "next-intl";
 
-/**
- * Below this viewport width we force list view and hide the toggle.
- * Canvas with drag-to-connect on a phone is unusable — handles are
- * ~10px and live finger drags from one node to another aren't a
- * practical workflow. Matches Tailwind's `md` breakpoint.
- */
 const MOBILE_BREAKPOINT = "(max-width: 767px)";
 
 type View = "canvas" | "list";
 
 const STORAGE_KEY = "wacrm.flowEditor.view";
-
-// Legend covers every node type, derived from NODE_META so a new type
-// can't silently go undocumented. NODE_META's key order already reads
-// the way a flow flows: start → talk → capture → branch → mutate → end.
-const LEGEND_TYPES = Object.keys(NODE_META) as NodeType[];
 
 interface Props {
   initialFlow: FlowRow;
@@ -60,13 +39,17 @@ interface Props {
 }
 
 export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
-  const t = useTranslations("Flows.builder");
+  return (
+    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes}>
+      <FlowEditorShellInner initialFlow={initialFlow} />
+    </FlowEditorProvider>
+  );
+}
 
-  // Read the persisted choice in the useState initializer. Safe even
-  // though this is a client component because the parent page only
-  // mounts us AFTER a client-side fetch resolves — there's no SSR
-  // pass for this subtree, so no hydration mismatch to worry about.
-  // Default to `canvas` (the new default) when nothing is saved.
+function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
+  const t = useTranslations("Flows.builder");
+  const { state } = useFlowEditor();
+
   const [view, setView] = useState<View>(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -77,10 +60,10 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
     return "canvas";
   });
 
-  // Live mobile detection. We don't render canvas under the
-  // breakpoint regardless of `view` — but we keep `view` itself
-  // intact so the user's preference comes back when they widen
-  // again (e.g. rotating a tablet, resizing a window).
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [simulatorNode, setSimulatorNode] = useState<string | null>(null);
+
   const isMobile = useMatchMedia(MOBILE_BREAKPOINT);
   const effectiveView: View = isMobile ? "list" : view;
 
@@ -93,92 +76,139 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
     }
   };
 
-  return (
-    <FlowEditorProvider initialFlow={initialFlow} initialNodes={initialNodes}>
-      <div className="flex h-full min-h-0 flex-col">
-        <EditorHeader />
+  // Escape key exits fullscreen
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isExpanded) {
+        setIsExpanded(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isExpanded]);
 
-        {/* ---- mode row: view toggle + node-type legend ----
-            Omitted entirely on mobile (canvas is unavailable there and
-            the legend is lg-only), so there's no empty band above the
-            stage on small screens. */}
-        {!isMobile && (
-          <div className="flex items-center gap-4 px-6 py-3.5">
-            <div
-              role="group"
-              aria-label={t("editorView")}
-              className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
+  const handleTestNode = useCallback((node: BuilderNode) => {
+    setSimulatorNode(node.node_key);
+    setSimulatorOpen(true);
+  }, []);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <EditorHeader />
+
+      {/* Mode row: view toggle + action controls (tags above canvas removed) */}
+      {!isMobile && (
+        <div className="flex items-center justify-between gap-4 px-6 py-3">
+          <div
+            role="group"
+            aria-label={t("editorView")}
+            className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
+          >
+            <SegButton
+              active={effectiveView === "canvas"}
+              onClick={() => choose("canvas")}
+              icon={<GitFork className="h-3.5 w-3.5" />}
+              label={t("canvasView")}
+            />
+            <SegButton
+              active={effectiveView === "list"}
+              onClick={() => choose("list")}
+              icon={<List className="h-3.5 w-3.5" />}
+              label={t("listView")}
+            />
+          </div>
+
+          {/* Right Toolbar Actions: Live Simulator Preview + Expand Canvas */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSimulatorNode(null);
+                setSimulatorOpen(true);
+              }}
+              className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold shadow-xs"
             >
-              <SegButton
-                active={effectiveView === "canvas"}
-                onClick={() => choose("canvas")}
-                icon={<GitFork className="h-3.5 w-3.5" />}
-                label={t("canvasView")}
-              />
-              <SegButton
-                active={effectiveView === "list"}
-                onClick={() => choose("list")}
-                icon={<List className="h-3.5 w-3.5" />}
-                label={t("listView")}
-              />
-            </div>
-            <div className="ml-auto hidden flex-wrap items-center gap-x-3.5 gap-y-1.5 lg:flex">
-              {LEGEND_TYPES.map((t_type) => (
-                <span
-                  key={t_type}
-                  className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: nodeColors(t_type).solid }}
-                  />
-                  {t(`nodes.${t_type}.label`)}
-                </span>
-              ))}
-            </div>
+              <Play className="h-3.5 w-3.5 fill-emerald-500 text-emerald-500" />
+              <span>Preview Flow</span>
+            </Button>
+
+            {effectiveView === "canvas" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold shadow-xs"
+                title={isExpanded ? "Exit Fullscreen (Esc)" : "Expand Canvas"}
+              >
+                {isExpanded ? (
+                  <>
+                    <Minimize2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Exit Fullscreen</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    <span>Expand Canvas</span>
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stage: canvas or linear list with comfortable height */}
+      <div
+        className={cn(
+          "relative mx-4 sm:mx-6 min-h-[580px] lg:min-h-[660px] h-[calc(100vh-270px)] overflow-hidden rounded-xl border border-border bg-card-2 transition-all duration-300 shadow-sm",
+          isExpanded &&
+            "fixed inset-0 z-50 m-0 h-screen w-screen min-h-screen rounded-none border-0"
+        )}
+      >
+        {isExpanded && (
+          <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-border shadow-xl">
+            <span className="text-xs font-medium text-muted-foreground">
+              Fullscreen mode (Esc to exit)
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsExpanded(false)}
+              className="h-7 px-2 text-xs font-semibold"
+            >
+              <Minimize2 className="h-3.5 w-3.5 mr-1" />
+              Exit
+            </Button>
           </div>
         )}
 
-        {/* ---- stage: the active view, owning its own overflow ---- */}
-        <div className="relative mx-6 min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card-2">
-          {effectiveView === "canvas" ? (
-            <FlowCanvas />
-          ) : (
-            <div className="absolute inset-0 overflow-y-auto">
-              <FlowBuilder />
-            </div>
-          )}
-        </div>
-
-        {/* ---- validation / activate-readiness bar ---- */}
-        <div className="px-6 pb-5 pt-3">
-          <ValidationPanel />
-        </div>
+        {effectiveView === "canvas" ? (
+          <FlowCanvas onTestNode={handleTestNode} />
+        ) : (
+          <div className="absolute inset-0 overflow-y-auto">
+            <FlowBuilder />
+          </div>
+        )}
       </div>
-    </FlowEditorProvider>
-  );
-}
 
-/**
- * Tiny `useMatchMedia` shim. We could pull in `react-responsive` but
- * this is the only consumer and matchMedia is one of those browser
- * APIs that doesn't need a dependency.
- */
-function useMatchMedia(query: string): boolean {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(query).matches;
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia(query);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    // Safari < 14 still uses addListener; addEventListener is the
-    // modern path. Both fire identically.
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [query]);
-  return matches;
+      {/* Validation / activate-readiness bar */}
+      <div className="px-6 pb-5 pt-3">
+        <ValidationPanel />
+      </div>
+
+      {/* WhatsApp Interactive Simulator */}
+      <FlowSimulator
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+        flow={initialFlow}
+        nodes={state.nodes}
+        initialNodeKey={simulatorNode}
+      />
+    </div>
+  );
 }
 
 function SegButton({
@@ -198,14 +228,29 @@ function SegButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          ? "bg-card text-foreground shadow-xs"
+          : "text-muted-foreground hover:text-foreground"
       )}
     >
       {icon}
-      {label}
+      <span>{label}</span>
     </button>
   );
+}
+
+function useMatchMedia(query: string): boolean {
+  const [matches, setMatches] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(query).matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [query]);
+  return matches;
 }

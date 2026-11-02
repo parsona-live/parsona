@@ -962,6 +962,10 @@ export interface SendInteractiveButtonsArgs {
   bodyText: string
   /** Optional plain-text header (≤ 60 chars). */
   headerText?: string
+  /** Optional header media type (image, video, document). */
+  headerType?: 'none' | 'text' | 'image' | 'video' | 'document'
+  headerMediaUrl?: string
+  headerFilename?: string
   /** Optional grey footer line under the buttons (≤ 60 chars). */
   footerText?: string
   /** 1–3 buttons. Validated against Meta's limits before sending. */
@@ -983,10 +987,12 @@ export async function sendInteractiveButtons(
 ): Promise<MetaSendResult> {
   const {
     phoneNumberId, accessToken, to,
-    bodyText, headerText, footerText, buttons, contextMessageId,
+    bodyText, headerText, headerType, headerMediaUrl, headerFilename, footerText, buttons, contextMessageId,
   } = args
   validateInteractiveBody(bodyText)
-  validateInteractiveHeaderFooter(headerText, footerText)
+  if (!headerType || headerType === 'text') {
+    validateInteractiveHeaderFooter(headerText, footerText)
+  }
   if (buttons.length < 1 || buttons.length > INTERACTIVE_LIMITS.maxButtons) {
     throw new Error(
       ti('buttonCount', { max: INTERACTIVE_LIMITS.maxButtons, got: buttons.length })
@@ -1020,7 +1026,23 @@ export async function sendInteractiveButtons(
       })),
     },
   }
-  if (headerText) interactive.header = { type: 'text', text: headerText }
+  if (headerType && headerType !== 'none' && headerType !== 'text') {
+    if (headerType === 'image' && headerMediaUrl) {
+      interactive.header = { type: 'image', image: { link: headerMediaUrl } }
+    } else if (headerType === 'video' && headerMediaUrl) {
+      interactive.header = { type: 'video', video: { link: headerMediaUrl } }
+    } else if (headerType === 'document' && headerMediaUrl) {
+      interactive.header = {
+        type: 'document',
+        document: {
+          link: headerMediaUrl,
+          ...(headerFilename ? { filename: headerFilename } : {}),
+        },
+      }
+    }
+  } else if (headerText) {
+    interactive.header = { type: 'text', text: headerText }
+  }
   if (footerText) interactive.footer = { text: footerText }
 
   const body: Record<string, unknown> = {
