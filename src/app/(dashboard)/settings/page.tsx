@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, type ReactNode } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -42,7 +42,6 @@ export default function SettingsPage() {
 }
 
 function SettingsPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { defaultCurrency } = useAuth();
   const { mode } = useTheme();
@@ -52,13 +51,23 @@ function SettingsPageInner() {
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  const [section, setSection] = useState<SettingsSection>(() =>
+    resolveSection(searchParams.get('tab')),
+  );
 
-  const go = (next: SettingsSection) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', next);
-    router.replace(`/settings?${params.toString()}`, { scroll: false });
-  };
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    setSection(resolveSection(tabParam));
+  }, [searchParams]);
+
+  const go = useCallback((next: SettingsSection) => {
+    setSection(next);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('tab', next);
+      window.history.replaceState(null, '', `/settings?${params.toString()}`);
+    }
+  }, []);
 
   // Cheap, fetch-free rail hints. The Overview landing carries the
   // full live status/counts; the rail just surfaces the two that are

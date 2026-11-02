@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
@@ -42,19 +42,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, isSuperAdmin, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">{t("loading")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Reports this tab's online/away presence once we know a user is
@@ -72,7 +59,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           {/* Above every page: writes are being rejected and here's why.
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />
-          {children}
+          {loading ? (
+            <div className="flex h-full min-h-[350px] items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="text-sm text-muted-foreground">{t("loading")}</p>
+              </div>
+            </div>
+          ) : !user ? null : (
+            children
+          )}
         </main>
       </div>
     </div>
@@ -80,9 +76,5 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
-    </AuthProvider>
-  );
+  return <DashboardShellInner>{children}</DashboardShellInner>;
 }

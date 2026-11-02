@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { AuthProvider } from "@/hooks/use-auth";
 import { ThemedToaster } from "@/components/themed-toaster";
 import {
   DEFAULT_MODE,
@@ -107,21 +108,21 @@ export default async function RootLayout({
       // children still surface.
       suppressHydrationWarning
     >
-      <head>
+      <body
+        className="min-h-full bg-background text-foreground font-sans"
+        suppressHydrationWarning
+      >
         <Script
           id="theme-boot"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
-      </head>
-      <body
-        className="min-h-full bg-background text-foreground font-sans"
-        suppressHydrationWarning
-      >
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
-            {children}
-            <ThemedToaster />
+            <AuthProvider>
+              {children}
+              <ThemedToaster />
+            </AuthProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
