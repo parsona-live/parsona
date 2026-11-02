@@ -18,6 +18,20 @@ export function normalizePhone(phone: string): string {
 }
 
 /**
+ * Format a phone number to always have a leading '+' prefix followed by digits.
+ * If input is falsy or contains no digits, returns ''.
+ * e.g. "917898297769" -> "+917898297769"
+ *      "+917898297769" -> "+917898297769"
+ *      "+91 78982 97769" -> "+917898297769"
+ */
+export function formatPhoneWithPlus(phone: string | null | undefined): string {
+  if (!phone) return ''
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return ''
+  return `+${digits}`
+}
+
+/**
  * Compare two phone numbers accounting for trunk prefix differences.
  * e.g. "370063949836" (with trunk 0) matches "37063949836" (without trunk 0)
  */

@@ -21,7 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
-import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import { formatPhoneWithPlus, parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
 import { resolveAuditUserId, ContactError } from '@/lib/api/v1/contacts';
 
@@ -96,13 +96,14 @@ export async function resolveConversationByPhone(
   if (existing) {
     contactId = existing.id;
   } else {
+    const formattedPhone = formatPhoneWithPlus(sanitized);
     const { data: created, error: createErr } = await db
       .from('contacts')
       .insert({
         account_id: accountId,
         user_id: ownerUserId,
-        phone: sanitized,
-        name: name || sanitized,
+        phone: formattedPhone,
+        name: name || formattedPhone,
       })
       .select('id')
       .single();

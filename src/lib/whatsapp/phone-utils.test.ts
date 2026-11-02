@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatPhoneWithPlus,
   isRecipientNotAllowedError,
   isValidE164,
   normalizePhone,
@@ -34,6 +35,26 @@ describe("normalizePhone", () => {
     for (const s of samples) {
       expect(normalizePhone(s)).toBe(sanitizePhoneForMeta(s));
     }
+  });
+});
+
+describe("formatPhoneWithPlus", () => {
+  it("adds '+' prefix to numbers that don't have it", () => {
+    expect(formatPhoneWithPlus("917898297769")).toBe("+917898297769");
+    expect(formatPhoneWithPlus("14155551212")).toBe("+14155551212");
+  });
+
+  it("preserves '+' on numbers that already have it while stripping internal noise", () => {
+    expect(formatPhoneWithPlus("+917898297769")).toBe("+917898297769");
+    expect(formatPhoneWithPlus("+1 (415) 555-1212")).toBe("+14155551212");
+    expect(formatPhoneWithPlus("+91 78982-97769")).toBe("+917898297769");
+  });
+
+  it("returns empty string for empty or non-digit input", () => {
+    expect(formatPhoneWithPlus("")).toBe("");
+    expect(formatPhoneWithPlus(null)).toBe("");
+    expect(formatPhoneWithPlus(undefined)).toBe("");
+    expect(formatPhoneWithPlus("abc")).toBe("");
   });
 });
 

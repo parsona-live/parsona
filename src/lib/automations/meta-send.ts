@@ -5,6 +5,7 @@ import {
   engineSendInteractiveList,
 } from '@/lib/flows/meta-send'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { formatPhoneWithPlus } from '@/lib/whatsapp/phone-utils'
 import {
   phoneVariants,
   isRecipientNotAllowedError,
@@ -217,7 +218,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   if (lastError) throw lastError
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    await db.from('contacts').update({ phone: formatPhoneWithPlus(workingPhone) }).eq('id', contact.id)
   }
 
   // Persist the sent message so it appears in the inbox with a real

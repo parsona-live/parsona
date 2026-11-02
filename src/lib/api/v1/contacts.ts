@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import { resolveImportTagIds } from '@/lib/contacts/resolve-import-tags';
 import { addContactTagAndDispatch } from '@/lib/contacts/tag-events';
-import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import { formatPhoneWithPlus, parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
 
 /** Row select that embeds the contact's tags for serialization. */
 export const CONTACT_SELECT = '*, contact_tags(tags(*))';
@@ -128,13 +128,14 @@ export async function findOrCreateContact(
   const existing = await findExistingContact(db, accountId, sanitized);
   if (existing) return { id: existing.id, created: false };
 
+  const formattedPhone = formatPhoneWithPlus(sanitized);
   const { data: created, error } = await db
     .from('contacts')
     .insert({
       account_id: accountId,
       user_id: auditUserId,
-      phone: sanitized,
-      name: input.name ?? sanitized,
+      phone: formattedPhone,
+      name: input.name ?? formattedPhone,
       email: input.email ?? null,
       company: input.company ?? null,
     })

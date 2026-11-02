@@ -719,6 +719,29 @@ describe('inbound webhook: business-scoped user IDs (#519)', () => {
     expect(h.state.upsertCalls).toHaveLength(1)
   })
 
+  it('creates contact with + prefixed phone when inbound message has phone', async () => {
+    h.state.contactByWaUserId = null
+    mockFindExistingContact.mockResolvedValue(null)
+
+    await runWebhook(
+      {
+        id: 'wamid.PHONE1',
+        from: '917898297769',
+        timestamp: '1700000000',
+        type: 'text',
+        text: { body: 'hello' },
+      },
+      [{ profile: { name: 'Test User' }, wa_id: '917898297769' }]
+    )
+
+    expect(h.state.contactInserts).toHaveLength(1)
+    expect(h.state.contactInserts[0]).toMatchObject({
+      account_id: 'acc-1',
+      phone: '+917898297769',
+      name: 'Test User',
+    })
+  })
+
   it('never looks the sender up by phone when there is no phone', async () => {
     h.state.contactByWaUserId = null
     mockFindExistingContact.mockResolvedValue(null)
@@ -809,7 +832,7 @@ describe('inbound webhook: business-scoped user IDs (#519)', () => {
     )
 
     expect(h.state.contactUpdates).toHaveLength(1)
-    expect(h.state.contactUpdates[0]).toMatchObject({ phone: '16505551234' })
+    expect(h.state.contactUpdates[0]).toMatchObject({ phone: '+16505551234' })
   })
 
   it('drops a delivery that carries neither key rather than inventing a contact', async () => {
