@@ -183,7 +183,7 @@ describe('identityDisplayName', () => {
     ).toBe('ada')
 
     expect(identityDisplayName(resolveInboundIdentity({ from: '15551230000' }))).toBe(
-      '15551230000'
+      '+15551230000'
     )
 
     expect(

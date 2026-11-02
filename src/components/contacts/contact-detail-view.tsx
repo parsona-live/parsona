@@ -43,7 +43,11 @@ import {
 import { useTranslations } from 'next-intl';
 import { planCustomValueWrites } from '@/lib/contacts/custom-value-writes';
 import { contactHandle } from '@/lib/whatsapp/wa-identity';
-import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import {
+  formatPhoneWithPlus,
+  isValidE164,
+  parseInternationalPhone,
+} from '@/lib/whatsapp/phone-utils';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -201,27 +205,34 @@ export function ContactDetailView({
   }
 
   async function saveDetails() {
-    if (!contactId || !editPhone.trim()) {
+    const trimmed = editPhone.trim();
+    if (!contactId || !trimmed) {
       toast.error(t('toastPhoneRequired'));
       return;
     }
 
-    // Same rule as the create form: a changed number must start with `+`
-    // and a country code (issue #586). Unchanged numbers — including the
-    // digits-only form the inbound webhook stores — are left alone so a
-    // name/email edit is never blocked by the phone field.
-    const phoneChanged = editPhone.trim() !== (contact?.phone ?? '');
-    if (phoneChanged && !parseInternationalPhone(editPhone)) {
+    // Same rule as the create form: normalize so '+' is kept or prepended
+    // when valid international digits were entered.
+    const formatted = trimmed.startsWith('+')
+      ? trimmed
+      : isValidE164(trimmed.replace(/\D/g, ''))
+      ? `+${trimmed.replace(/\D/g, '')}`
+      : trimmed;
+
+    const phoneChanged = formatted !== (contact?.phone ?? '');
+    if (phoneChanged && !parseInternationalPhone(formatted)) {
       toast.error(t('toastPhoneNeedsCountryCode'));
       return;
     }
+
+    const cleanPhone = formatPhoneWithPlus(formatted);
 
     setSavingDetails(true);
     const { error } = await supabase
       .from('contacts')
       .update({
         name: editName.trim() || null,
-        phone: editPhone.trim(),
+        phone: cleanPhone,
         email: editEmail.trim() || null,
         company: editCompany.trim() || null,
         updated_at: new Date().toISOString(),

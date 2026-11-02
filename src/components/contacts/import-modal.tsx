@@ -12,6 +12,7 @@ import {
   parseContactCsv,
   type ParsedContactRow,
 } from '@/lib/contacts/parse-contact-csv';
+import { formatPhoneWithPlus } from '@/lib/whatsapp/phone-utils';
 import {
   assignImportedContactTags,
   resolveImportTagIds,
@@ -285,7 +286,7 @@ export function ImportModal({
         const rows = chunk.map((row) => ({
           user_id: user.id,
           account_id: accountId,
-          phone: row.phone,
+          phone: formatPhoneWithPlus(row.phone),
           name: row.name || null,
           email: row.email || null,
           company: row.company || null,

@@ -12,7 +12,11 @@ import {
   isUniqueViolation,
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
-import { parseInternationalPhone } from '@/lib/whatsapp/phone-utils';
+import {
+  formatPhoneWithPlus,
+  isValidE164,
+  parseInternationalPhone,
+} from '@/lib/whatsapp/phone-utils';
 import {
   Dialog,
   DialogContent,
@@ -87,11 +91,16 @@ export function ContactForm({
   // Runs on blur so we don't query on every keystroke.
   async function checkDuplicate() {
     if (isEdit || !accountId) return;
-    const value = phone.trim();
-    if (!value) {
+    const trimmed = phone.trim();
+    if (!trimmed) {
       setDupMatch(null);
       return;
     }
+    const value = trimmed.startsWith('+')
+      ? trimmed
+      : isValidE164(trimmed.replace(/\D/g, ''))
+      ? `+${trimmed.replace(/\D/g, '')}`
+      : trimmed;
     setCheckingDup(true);
     try {
       const existing = await findExistingContact(supabase, accountId, value);
@@ -126,22 +135,28 @@ export function ContactForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!phone.trim()) {
+    const trimmed = phone.trim();
+    if (!trimmed) {
       toast.error(t('phoneRequired'));
       return;
     }
 
-    // A number typed here must carry its country code (leading `+`):
-    // "4155551212" reads as a US number to the person typing it but is
-    // delivered to +41 (Switzerland) by Meta (issue #586). Only checked
-    // when the number actually changed — contacts created by the inbound
-    // webhook store Meta's digits-only form, and editing their name must
-    // not be blocked by a phone the user never touched.
-    const phoneChanged = !isEdit || phone.trim() !== (contact?.phone ?? '');
-    if (phoneChanged && !parseInternationalPhone(phone)) {
+    // A number typed here must carry its country code (leading `+`).
+    // If the user typed digits starting with country code without '+',
+    // normalize it by prepending '+' so it is always preserved in +E.164.
+    const formatted = trimmed.startsWith('+')
+      ? trimmed
+      : isValidE164(trimmed.replace(/\D/g, ''))
+      ? `+${trimmed.replace(/\D/g, '')}`
+      : trimmed;
+
+    const phoneChanged = !isEdit || formatted !== (contact?.phone ?? '');
+    if (phoneChanged && !parseInternationalPhone(formatted)) {
       toast.error(t('phoneNeedsCountryCode'));
       return;
     }
+
+    const cleanPhone = formatPhoneWithPlus(formatted);
 
     // Hard-block an exact duplicate on create (the DB unique index is
     // the real backstop; this avoids a round-trip + a raw error toast).
@@ -167,7 +182,7 @@ export function ContactForm({
           .from('contacts')
           .update({
             name: name.trim() || null,
-            phone: phone.trim(),
+            phone: cleanPhone,
             email: email.trim() || null,
             company: company.trim() || null,
             updated_at: new Date().toISOString(),
@@ -181,7 +196,7 @@ export function ContactForm({
             user_id: user.id,
             account_id: accountId,
             name: name.trim() || null,
-            phone: phone.trim(),
+            phone: cleanPhone,
             email: email.trim() || null,
             company: company.trim() || null,
           })
@@ -272,7 +287,13 @@ export function ContactForm({
                 setPhone(e.target.value);
                 if (dupMatch) setDupMatch(null);
               }}
-              onBlur={checkDuplicate}
+              onBlur={() => {
+                const trimmed = phone.trim();
+                if (trimmed && !trimmed.startsWith('+') && isValidE164(trimmed.replace(/\D/g, ''))) {
+                  setPhone(`+${trimmed.replace(/\D/g, '')}`);
+                }
+                checkDuplicate();
+              }}
               placeholder={t('phonePlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />

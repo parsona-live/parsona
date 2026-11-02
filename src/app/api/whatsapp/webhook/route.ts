@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
-import { normalizePhone } from '@/lib/whatsapp/phone-utils'
+import { formatPhoneWithPlus, normalizePhone } from '@/lib/whatsapp/phone-utils'
 import {
   hasUsableIdentity,
   identityDisplayName,
@@ -1214,7 +1214,7 @@ function contactIdentityPatch(
   // send path's variant retry already owns correcting it, and Meta's
   // formatting differences are not a reason to rewrite it.
   if (identity.phone && !normalizePhone(existing.phone ?? '')) {
-    patch.phone = identity.phone
+    patch.phone = formatPhoneWithPlus(identity.phone)
   }
 
   return Object.keys(patch).length > 0 ? patch : null
@@ -1282,7 +1282,7 @@ async function findOrCreateContact(
     .insert({
       account_id: accountId,
       user_id: configOwnerUserId,
-      phone: identity.phone,
+      phone: formatPhoneWithPlus(identity.phone),
       name: identityDisplayName(identity),
       wa_user_id: identity.waUserId,
       wa_parent_user_id: identity.waParentUserId,

@@ -15,6 +15,7 @@ import {
 } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { formatPhoneWithPlus } from '@/lib/whatsapp/phone-utils'
 import {
   phoneVariants,
   isRecipientNotAllowedError,
@@ -158,7 +159,7 @@ export async function engineSendText(
   if (lastError) throw lastError
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    await db.from('contacts').update({ phone: formatPhoneWithPlus(workingPhone) }).eq('id', contact.id)
   }
 
   const { error: msgErr } = await db.from('messages').insert({
@@ -278,7 +279,7 @@ export async function engineSendMedia(
   if (lastError) throw lastError
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    await db.from('contacts').update({ phone: formatPhoneWithPlus(workingPhone) }).eq('id', contact.id)
   }
 
   // content_type='image'|'video'|'document' — these are already in the
@@ -787,7 +788,7 @@ async function sendInteractiveViaMeta(
   if (lastError) throw lastError
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    await db.from('contacts').update({ phone: formatPhoneWithPlus(workingPhone) }).eq('id', contact.id)
   }
 
   // Persist the bot's prompt to the messages table so it appears in

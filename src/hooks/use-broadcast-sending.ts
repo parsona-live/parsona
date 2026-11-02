@@ -12,6 +12,7 @@ import {
   type AudienceConfig,
 } from '@/lib/broadcast-audience';
 import { normalizeKey } from '@/lib/contacts/dedupe';
+import { formatPhoneWithPlus } from '@/lib/whatsapp/phone-utils';
 import {
   acquireWizardDeliveryLease,
   renewWizardDeliveryLease,
@@ -271,7 +272,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       .map((row) => ({
         user_id: user.id,
         account_id: accountId,
-        phone: row.phone,
+        phone: formatPhoneWithPlus(row.phone),
         name: row.name ?? null,
       }));
 

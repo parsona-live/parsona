@@ -28,6 +28,7 @@
  */
 
 import {
+  formatPhoneWithPlus,
   isValidE164,
   normalizePhone,
   sanitizePhoneForMeta,
@@ -139,7 +140,7 @@ export function hasUsableIdentity(identity: WaIdentity): boolean {
 export function identityDisplayName(identity: WaIdentity): string {
   if (identity.name) return identity.name
   if (identity.waUsername) return identity.waUsername
-  if (identity.phone) return identity.phone
+  if (identity.phone) return formatPhoneWithPlus(identity.phone)
   return identity.waUserId ?? ''
 }
 
