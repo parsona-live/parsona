@@ -229,6 +229,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               return (
                 <li key={item.href}>
                   <Link
+                    scroll={false}
                     href={item.href}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
@@ -290,6 +291,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               return (
                 <li key={item.href}>
                   <Link
+                    scroll={false}
                     href={item.href}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
