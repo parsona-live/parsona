@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 
 import { createClient } from '@/lib/supabase/client'
@@ -44,9 +44,14 @@ export default function DashboardPage() {
 
 function DashboardPageInner() {
   const t = useTranslations('Dashboard.overview')
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const range = parseOverviewRange(searchParams.get('range'))
+  const [range, setRange] = useState<OverviewRange>(() =>
+    parseOverviewRange(searchParams.get('range')),
+  )
+
+  useEffect(() => {
+    setRange(parseOverviewRange(searchParams.get('range')))
+  }, [searchParams])
   const { defaultCurrency, profile } = useAuth()
 
   const [overview, setOverview] = useState<DashboardOverview | null>(null)
@@ -112,12 +117,15 @@ function DashboardPageInner() {
 
   const handleRangeChange = useCallback(
     (next: OverviewRange) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('range', String(next))
+      setRange(next)
       setFailed(false)
-      router.replace(`/dashboard?${params.toString()}`, { scroll: false })
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        params.set('range', String(next))
+        window.history.replaceState(null, '', `/dashboard?${params.toString()}`)
+      }
     },
-    [router, searchParams],
+    [],
   )
 
   const data = overview?.days === range ? overview : null
