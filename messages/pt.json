@@ -458,7 +458,8 @@
       "downloadFailed": "Não foi possível baixar o anexo",
       "viewImage": "Ver imagem",
       "expandVideo": "Expandir vídeo",
-      "imageAlt": "Imagem compartilhada"
+      "imageAlt": "Imagem compartilhada",
+      "contactShared": "Contato compartilhado"
     },
     "mediaViewer": {
       "counter": "{index} de {total}",
@@ -1510,7 +1511,21 @@
         "cardButtonsHelp": "Botões do cartão — cada um direciona para uma etapa do fluxo",
         "cardButtonsMatchHint": "O WhatsApp exige que todos os cartões tenham o mesmo número de botões.",
         "cardButtonTitlePlaceholder": "Rótulo do botão (≤25 caracteres)",
-        "uploadCardImage": "Enviar imagem"
+        "uploadCardImage": "Enviar imagem",
+        "audioLabel": "Áudio (MP3, OGG, AAC, AMR)",
+        "voiceMemoLabel": "Enviar como mensagem de voz (com forma de onda)",
+        "latitudeLabel": "Latitude (obrigatório)",
+        "longitudeLabel": "Longitude (obrigatório)",
+        "locationNameLabel": "Nome do local (opcional)",
+        "locationAddressLabel": "Endereço (opcional)",
+        "contactFullNameLabel": "Nome completo (obrigatório)",
+        "contactPhoneLabel": "Número de telefone",
+        "contactPhoneTypeLabel": "Tipo de telefone",
+        "contactEmailLabel": "E-mail",
+        "contactCompanyLabel": "Empresa / Organização",
+        "addressRequestPromptLabel": "Texto da mensagem (obrigatório)",
+        "addressCountryLabel": "País (código ISO de 2 letras)",
+        "addressHeaderLabel": "Texto do cabeçalho (opcional)"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1561,6 +1576,18 @@
         "end": {
           "label": "Fim",
           "blurb": "Encerra o fluxo"
+        },
+        "send_location": {
+          "label": "Enviar localização",
+          "blurb": "Envia coordenadas com nome e endereço"
+        },
+        "send_contact": {
+          "label": "Enviar contato",
+          "blurb": "Envia cartão de contato com nome e telefone"
+        },
+        "request_address": {
+          "label": "Solicitar endereço",
+          "blurb": "Solicita o endereço de entrega do cliente"
         }
       }
     },
@@ -2673,7 +2700,18 @@
       "setTagNeedsTag": "O nó Marcar contato precisa de uma tag para aplicar.",
       "setTagNeedsNext": "O nó Marcar contato precisa apontar para um próximo nó.",
       "setTagMissingNext": "O nó Marcar contato aponta para um nó inexistente: \"{key}\".",
-      "unknownNodeType": "Tipo de nó desconhecido: \"{type}\"."
+      "unknownNodeType": "Tipo de nó desconhecido: \"{type}\".",
+      "sendLocationNeedsLatitude": "O nó de localização precisa de latitude.",
+      "sendLocationNeedsLongitude": "O nó de localização precisa de longitude.",
+      "sendLocationNeedsNext": "O nó de localização deve apontar para um próximo nó.",
+      "sendLocationMissingNext": "O nó de localização aponta para o nó inexistente \"{key}\".",
+      "sendContactNeedsName": "O nó de contato precisa de um nome completo.",
+      "sendContactNeedsNext": "O nó de contato deve apontar para um próximo nó.",
+      "sendContactMissingNext": "O nó de contato aponta para o nó inexistente \"{key}\".",
+      "requestAddressNeedsText": "O nó de solicitação de endereço precisa do texto do corpo da mensagem.",
+      "requestAddressNeedsCountry": "O nó de solicitação de endereço precisa de um código de país de 2 letras.",
+      "requestAddressNeedsNext": "O nó de solicitação de endereço deve apontar para um próximo nó.",
+      "requestAddressMissingNext": "O nó de solicitação de endereço aponta para o nó inexistente \"{key}\"."
     },
     "automations": {
       "needsStep": "automações ativas precisam de pelo menos uma etapa",

@@ -82,18 +82,90 @@ export interface SendListNodeConfig {
  * meaningful behavioural difference.
  */
 export interface SendMediaNodeConfig {
-  media_type: "image" | "video" | "document";
+  media_type: "image" | "video" | "document" | "audio";
   /** Public URL Meta will fetch. Uploaded via the builder's file picker. */
   media_url: string;
-  /** Optional caption shown under the media (Meta caps at 1024 chars). */
+  /** Optional caption shown under the media (Meta caps at 1024 chars). Audio ignores it. */
   caption?: string;
   /**
    * Filename shown in the recipient's chat. Documents only — Meta
-   * ignores it for image/video. Defaults to the file's original name
-   * at upload time; the user can edit it.
+   * ignores it for image/video/audio.
    */
   filename?: string;
+  /** Audio only: set true to send as an interactive voice message (waveform). */
+  voice?: boolean;
   /** Auto-advance target after the send lands at Meta. */
+  next_node_key: string;
+}
+
+export interface SendLocationNodeConfig {
+  /** Latitude in decimal degrees (e.g. 37.442162). */
+  latitude: string | number;
+  /** Longitude in decimal degrees (e.g. -122.161535). */
+  longitude: string | number;
+  /** Optional location name (e.g. "Philz Coffee"). */
+  name?: string;
+  /** Optional physical address (e.g. "101 Forest Ave, Palo Alto, CA"). */
+  address?: string;
+  next_node_key: string;
+}
+
+export interface ContactPhoneConfig {
+  phone: string;
+  type?: string;
+  wa_id?: string;
+}
+
+export interface ContactEmailConfig {
+  email: string;
+  type?: string;
+}
+
+export interface ContactAddressConfig {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  country_code?: string;
+  type?: string;
+}
+
+export interface ContactUrlConfig {
+  url: string;
+  type?: string;
+}
+
+export interface SendContactNodeConfig {
+  formatted_name: string;
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  prefix?: string;
+  suffix?: string;
+  company?: string;
+  department?: string;
+  title?: string;
+  birthday?: string;
+  phone?: string;
+  phone_type?: string;
+  wa_id?: string;
+  email?: string;
+  email_type?: string;
+  phones?: ContactPhoneConfig[];
+  emails?: ContactEmailConfig[];
+  addresses?: ContactAddressConfig[];
+  urls?: ContactUrlConfig[];
+  next_node_key: string;
+}
+
+export interface RequestAddressNodeConfig {
+  /** Prompt message asking for the delivery address. */
+  text: string;
+  /** Country code (ISO 2-letter, e.g. "IN"). */
+  country: string;
+  header_text?: string;
+  footer_text?: string;
   next_node_key: string;
 }
 
@@ -218,6 +290,9 @@ export type FlowNodeConfig =
   | { node_type: "send_list"; config: SendListNodeConfig }
   | { node_type: "send_media"; config: SendMediaNodeConfig }
   | { node_type: "send_carousel"; config: SendCarouselNodeConfig }
+  | { node_type: "send_location"; config: SendLocationNodeConfig }
+  | { node_type: "send_contact"; config: SendContactNodeConfig }
+  | { node_type: "request_address"; config: RequestAddressNodeConfig }
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
@@ -406,6 +481,9 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "start",
   "send_message",
   "send_media",
+  "send_location",
+  "send_contact",
+  "request_address",
   "condition",
   "set_tag",
 ]);

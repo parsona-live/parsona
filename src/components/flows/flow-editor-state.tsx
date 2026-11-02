@@ -215,6 +215,34 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
           },
         ],
       };
+    case "send_location":
+      return {
+        latitude: "",
+        longitude: "",
+        name: "",
+        address: "",
+        next_node_key: "",
+      };
+    case "send_contact":
+      return {
+        formatted_name: "",
+        first_name: "",
+        last_name: "",
+        phone: "",
+        phone_type: "CELL",
+        email: "",
+        company: "",
+        title: "",
+        next_node_key: "",
+      };
+    case "request_address":
+      return {
+        text: "",
+        country: "IN",
+        header: "",
+        footer: "",
+        next_node_key: "",
+      };
     case "collect_input":
       return {
         prompt_text: "",

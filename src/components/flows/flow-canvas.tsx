@@ -141,14 +141,9 @@ function FlowNodeCard({ data, selected }: NodeProps) {
   const tSummary = useTranslations('Flows.summary');
   const summary = summarizeNode(node, tSummary);
   const slots = outgoingSlots(node);
-  // Start nodes are entry-only; nothing ever targets them, so they
-  // don't need an incoming Handle. Every other node type accepts
-  // incoming edges (including terminal handoff / end — they're the
-  // common targets).
-  const hasTarget = node.node_type !== 'start';
   // Single-slot nodes get a single source handle floated on the right
   // edge of the card. Multi-slot nodes (condition, send_buttons,
-  // send_list) render slot rows inline so each handle visually sits
+  // send_list, send_carousel) render slot rows inline so each handle visually sits
   // next to the slot it represents.
   const isMultiSlot = slots.length > 1;
   return (
@@ -176,13 +171,11 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         isFlashed && '!border-amber-400 ring-2 ring-amber-400/60'
       )}
     >
-      {hasTarget && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!bg-card !h-2.5 !w-2.5 !border-2 !border-[var(--nc-ring)]"
-        />
-      )}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-card !h-2.5 !w-2.5 !border-2 !border-[var(--nc-ring)]"
+      />
 
       <div className="flex items-center gap-2">
         <NodeIconChip
@@ -698,6 +691,9 @@ const ADD_NODE_TYPES: NodeType[] = [
   'send_carousel',
   'send_message',
   'send_media',
+  'send_location',
+  'send_contact',
+  'request_address',
   'collect_input',
   'condition',
   'set_tag',

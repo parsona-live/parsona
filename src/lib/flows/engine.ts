@@ -34,9 +34,12 @@
 
 import { supabaseAdmin } from "./admin-client";
 import {
+  engineSendAddressMessage,
+  engineSendContacts,
   engineSendInteractiveButtons,
   engineSendInteractiveCarousel,
   engineSendInteractiveList,
+  engineSendLocation,
   engineSendMedia,
   engineSendText,
 } from "./meta-send";
@@ -53,9 +56,12 @@ import {
   type FlowRow,
   type FlowRunRow,
   type ParsedInbound,
+  type RequestAddressNodeConfig,
   type SendButtonsNodeConfig,
   type SendCarouselNodeConfig,
+  type SendContactNodeConfig,
   type SendListNodeConfig,
+  type SendLocationNodeConfig,
   type SendMediaNodeConfig,
   type SendMessageNodeConfig,
   type SetTagNodeConfig,
@@ -747,6 +753,7 @@ async function advanceFromNodeKey(
             ? interpolateVars(cfg.caption, run.vars)
             : undefined,
           filename: cfg.filename,
+          voice: cfg.voice,
         });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: "send_media",
@@ -759,6 +766,165 @@ async function advanceFromNodeKey(
           detail: err instanceof Error ? err.message : String(err),
         });
         await endRun(db, run.id, "failed", "send_media_failed");
+        return { outcome: "completed" };
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "send_location") {
+      const cfg = node.config as unknown as SendLocationNodeConfig;
+      try {
+        const { whatsapp_message_id } = await engineSendLocation({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          latitude:
+            typeof cfg.latitude === "string"
+              ? interpolateVars(cfg.latitude, run.vars)
+              : cfg.latitude,
+          longitude:
+            typeof cfg.longitude === "string"
+              ? interpolateVars(cfg.longitude, run.vars)
+              : cfg.longitude,
+          name: cfg.name ? interpolateVars(cfg.name, run.vars) : undefined,
+          address: cfg.address ? interpolateVars(cfg.address, run.vars) : undefined,
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "send_location",
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        console.error("[flows] send_location failed:", err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_location_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_location_failed");
+        return { outcome: "completed" };
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "send_contact") {
+      const cfg = node.config as unknown as SendContactNodeConfig;
+      try {
+        const formattedName = interpolateVars(cfg.formatted_name, run.vars);
+        const nameParts = formattedName.trim().split(/\s+/);
+        const firstName = cfg.first_name
+          ? interpolateVars(cfg.first_name, run.vars)
+          : nameParts[0] || formattedName;
+        const lastName = cfg.last_name
+          ? interpolateVars(cfg.last_name, run.vars)
+          : nameParts.length > 1
+            ? nameParts.slice(1).join(" ")
+            : undefined;
+
+        const phones = (cfg.phones && cfg.phones.length > 0)
+          ? cfg.phones.map((p) => ({
+              phone: interpolateVars(p.phone, run.vars),
+              type: p.type,
+              waId: p.wa_id ? interpolateVars(p.wa_id, run.vars) : undefined,
+            }))
+          : cfg.phone
+            ? [{
+                phone: interpolateVars(cfg.phone, run.vars),
+                type: cfg.phone_type || "CELL",
+                waId: cfg.wa_id ? interpolateVars(cfg.wa_id, run.vars) : undefined,
+              }]
+            : [];
+
+        const emails = (cfg.emails && cfg.emails.length > 0)
+          ? cfg.emails.map((e) => ({
+              email: interpolateVars(e.email, run.vars),
+              type: e.type,
+            }))
+          : cfg.email
+            ? [{
+                email: interpolateVars(cfg.email, run.vars),
+                type: cfg.email_type || "WORK",
+              }]
+            : [];
+
+        const { whatsapp_message_id } = await engineSendContacts({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          contacts: [
+            {
+              name: {
+                formattedName,
+                firstName,
+                lastName,
+                middleName: cfg.middle_name ? interpolateVars(cfg.middle_name, run.vars) : undefined,
+                prefix: cfg.prefix ? interpolateVars(cfg.prefix, run.vars) : undefined,
+                suffix: cfg.suffix ? interpolateVars(cfg.suffix, run.vars) : undefined,
+              },
+              birthday: cfg.birthday,
+              org: (cfg.company || cfg.department || cfg.title) ? {
+                company: cfg.company ? interpolateVars(cfg.company, run.vars) : undefined,
+                department: cfg.department ? interpolateVars(cfg.department, run.vars) : undefined,
+                title: cfg.title ? interpolateVars(cfg.title, run.vars) : undefined,
+              } : undefined,
+              phones,
+              emails,
+              addresses: (cfg.addresses ?? []).map((a) => ({
+                street: a.street ? interpolateVars(a.street, run.vars) : undefined,
+                city: a.city ? interpolateVars(a.city, run.vars) : undefined,
+                state: a.state ? interpolateVars(a.state, run.vars) : undefined,
+                zip: a.zip ? interpolateVars(a.zip, run.vars) : undefined,
+                country: a.country ? interpolateVars(a.country, run.vars) : undefined,
+                countryCode: a.country_code ? interpolateVars(a.country_code, run.vars) : undefined,
+                type: a.type,
+              })),
+              urls: (cfg.urls ?? []).map((u) => ({
+                url: interpolateVars(u.url, run.vars),
+                type: u.type,
+              })),
+            },
+          ],
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "send_contact",
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        console.error("[flows] send_contact failed:", err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_contact_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_contact_failed");
+        return { outcome: "completed" };
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "request_address") {
+      const cfg = node.config as unknown as RequestAddressNodeConfig;
+      try {
+        const { whatsapp_message_id } = await engineSendAddressMessage({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          bodyText: interpolateVars(cfg.text, run.vars),
+          country: cfg.country ? interpolateVars(cfg.country, run.vars) : "IN",
+          headerText: cfg.header_text ? interpolateVars(cfg.header_text, run.vars) : undefined,
+          footerText: cfg.footer_text ? interpolateVars(cfg.footer_text, run.vars) : undefined,
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "request_address",
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        console.error("[flows] request_address failed:", err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "request_address_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "request_address_failed");
         return { outcome: "completed" };
       }
       currentKey = cfg.next_node_key;

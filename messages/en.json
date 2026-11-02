@@ -458,7 +458,8 @@
       "downloadFailed": "Couldn't download the attachment",
       "viewImage": "View image",
       "expandVideo": "Expand video",
-      "imageAlt": "Shared image"
+      "imageAlt": "Shared image",
+      "contactShared": "Contact shared"
     },
     "mediaViewer": {
       "counter": "{index} of {total}",
@@ -1510,7 +1511,21 @@
         "cardButtonsHelp": "Card buttons — each routes to a flow step",
         "cardButtonsMatchHint": "WhatsApp requires all cards to have the same number of buttons.",
         "cardButtonTitlePlaceholder": "Button label (≤25 chars)",
-        "uploadCardImage": "Upload image"
+        "uploadCardImage": "Upload image",
+        "audioLabel": "Audio (MP3, OGG, AAC, AMR)",
+        "voiceMemoLabel": "Send as voice memo (playable audio waveform)",
+        "latitudeLabel": "Latitude (required)",
+        "longitudeLabel": "Longitude (required)",
+        "locationNameLabel": "Location name (optional)",
+        "locationAddressLabel": "Address (optional)",
+        "contactFullNameLabel": "Full name (required)",
+        "contactPhoneLabel": "Phone number",
+        "contactPhoneTypeLabel": "Phone type",
+        "contactEmailLabel": "Email",
+        "contactCompanyLabel": "Company / Organization",
+        "addressRequestPromptLabel": "Message text (required)",
+        "addressCountryLabel": "Country (2-letter ISO code)",
+        "addressHeaderLabel": "Header text (optional)"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1561,6 +1576,18 @@
         "end": {
           "label": "End",
           "blurb": "Ends the flow"
+        },
+        "send_location": {
+          "label": "Send location",
+          "blurb": "Sends coordinates with name and address"
+        },
+        "send_contact": {
+          "label": "Send contact",
+          "blurb": "Sends contact card with name and phone"
+        },
+        "request_address": {
+          "label": "Request address",
+          "blurb": "Requests customer delivery address"
         }
       }
     },
@@ -2673,7 +2700,18 @@
       "setTagNeedsTag": "Set-tag needs a tag to apply.",
       "setTagNeedsNext": "Set-tag must point to a next node.",
       "setTagMissingNext": "Set-tag points to non-existent node \"{key}\".",
-      "unknownNodeType": "Unknown node type \"{type}\"."
+      "unknownNodeType": "Unknown node type \"{type}\".",
+      "sendLocationNeedsLatitude": "Location node needs latitude.",
+      "sendLocationNeedsLongitude": "Location node needs longitude.",
+      "sendLocationNeedsNext": "Location node must point to a next node.",
+      "sendLocationMissingNext": "Location node points to non-existent node \"{key}\".",
+      "sendContactNeedsName": "Contact node needs a full name.",
+      "sendContactNeedsNext": "Contact node must point to a next node.",
+      "sendContactMissingNext": "Contact node points to non-existent node \"{key}\".",
+      "requestAddressNeedsText": "Address request node needs message body text.",
+      "requestAddressNeedsCountry": "Address request node needs a 2-letter country code.",
+      "requestAddressNeedsNext": "Address request node must point to a next node.",
+      "requestAddressMissingNext": "Address request node points to non-existent node \"{key}\"."
     },
     "automations": {
       "needsStep": "active automations need at least one step",

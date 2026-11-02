@@ -362,7 +362,7 @@ function validateNode(
       };
       if (
         !cfg.media_type ||
-        !["image", "video", "document"].includes(cfg.media_type)
+        !["image", "video", "document", "audio"].includes(cfg.media_type)
       ) {
         issues.push({
           severity: "error",
@@ -407,6 +407,131 @@ function validateNode(
           node_key: node.node_key,
           field: "next_node_key",
           message: t("sendMediaMissingNext", { key: cfg.next_node_key }),
+        });
+      }
+      break;
+    }
+
+    case "send_location": {
+      const cfg = node.config as {
+        latitude?: number | string;
+        longitude?: number | string;
+        name?: string;
+        address?: string;
+        next_node_key?: string;
+      };
+      if (cfg.latitude === undefined || cfg.latitude === null || `${cfg.latitude}`.trim() === "") {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "latitude",
+          message: t("sendLocationNeedsLatitude"),
+        });
+      }
+      if (cfg.longitude === undefined || cfg.longitude === null || `${cfg.longitude}`.trim() === "") {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "longitude",
+          message: t("sendLocationNeedsLongitude"),
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("sendLocationNeedsNext"),
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("sendLocationMissingNext", { key: cfg.next_node_key }),
+        });
+      }
+      break;
+    }
+
+    case "send_contact": {
+      const cfg = node.config as {
+        formatted_name?: string;
+        phone?: string;
+        next_node_key?: string;
+      };
+      if (!cfg.formatted_name?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "formatted_name",
+          message: t("sendContactNeedsName"),
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("sendContactNeedsNext"),
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("sendContactMissingNext", { key: cfg.next_node_key }),
+        });
+      }
+      break;
+    }
+
+    case "request_address": {
+      const cfg = node.config as {
+        text?: string;
+        country?: string;
+        next_node_key?: string;
+      };
+      if (!cfg.text?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "text",
+          message: t("requestAddressNeedsText"),
+        });
+      }
+      if (!cfg.country?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "country",
+          message: t("requestAddressNeedsCountry"),
+        });
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("requestAddressNeedsNext"),
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("requestAddressMissingNext", { key: cfg.next_node_key }),
         });
       }
       break;
@@ -1046,6 +1171,9 @@ function outgoingEdges(node: NodeInput): string[] {
     case "start":
     case "send_message":
     case "send_media":
+    case "send_location":
+    case "send_contact":
+    case "request_address":
     case "collect_input":
     case "set_tag": {
       const cfg = node.config as { next_node_key?: string };

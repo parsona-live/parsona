@@ -2,11 +2,15 @@ import {
   sendInteractiveButtons,
   sendInteractiveCarousel,
   sendInteractiveList,
+  sendLocationMessage,
+  sendContactsMessage,
+  sendAddressMessage,
   sendMediaMessage,
   sendTextMessage,
   type InteractiveButton,
   type InteractiveCarouselCard,
   type InteractiveListSection,
+  type MetaContactCard,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api'
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
@@ -194,6 +198,8 @@ interface SendMediaEngineArgs {
   caption?: string
   /** Document-only; ignored by Meta for image/video. */
   filename?: string
+  /** Audio-only: set true to send as an interactive voice message (waveform). */
+  voice?: boolean
 }
 
 /**
@@ -248,6 +254,7 @@ export async function engineSendMedia(
       link: args.link,
       caption: args.caption,
       filename: args.filename,
+      voice: args.voice,
     })
     return r.messageId
   }
@@ -295,6 +302,305 @@ export async function engineSendMedia(
     .from('conversations')
     .update({
       last_message_text: preview,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
+
+  return { whatsapp_message_id: waMessageId }
+}
+
+export interface SendLocationEngineArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  latitude: string | number
+  longitude: string | number
+  name?: string
+  address?: string
+}
+
+export async function engineSendLocation(
+  args: SendLocationEngineArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  const db = supabaseAdmin()
+
+  const { data: contact, error: contactErr } = await db
+    .from('contacts')
+    .select('id, phone, wa_user_id')
+    .eq('id', args.contactId)
+    .eq('account_id', args.accountId)
+    .maybeSingle()
+  if (contactErr || !contact) {
+    throw new Error(t('send.contactNotFound'))
+  }
+
+  await assertConversationInAccount(db, args.conversationId, args.accountId)
+
+  const sendTarget = resolveContactSendTarget(contact)
+  if (!sendTarget) {
+    throw new Error(
+      t('send.noWhatsAppAddress', { phone: contact.phone || t('send.none') })
+    )
+  }
+  const sanitized = sendTarget.target
+
+  const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
+    db,
+    args.accountId,
+  )
+
+  const attempt = async (phone: string): Promise<string> => {
+    const r = await sendLocationMessage({
+      phoneNumberId,
+      accessToken,
+      to: phone,
+      latitude: args.latitude,
+      longitude: args.longitude,
+      name: args.name,
+      address: args.address,
+    })
+    return r.messageId
+  }
+
+  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
+  let workingPhone = sanitized
+  let waMessageId = ''
+  let lastError: unknown = null
+  for (const v of variants) {
+    try {
+      waMessageId = await attempt(v)
+      workingPhone = v
+      lastError = null
+      break
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!isRecipientNotAllowedError(msg)) throw err
+      lastError = err
+    }
+  }
+  if (lastError) throw lastError
+
+  if (sendTarget.isPhone && workingPhone !== sanitized) {
+    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+  }
+
+  const label = args.name?.trim() || args.address?.trim() || `${args.latitude}, ${args.longitude}`
+  const { error: msgErr } = await db.from('messages').insert({
+    conversation_id: args.conversationId,
+    sender_type: 'bot',
+    content_type: 'location',
+    content_text: label,
+    message_id: waMessageId,
+    status: 'sent',
+  })
+  if (msgErr) {
+    throw new Error(t('send.dbInsertFailed', { message: msgErr.message }))
+  }
+
+  await db
+    .from('conversations')
+    .update({
+      last_message_text: `📍 ${label}`,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
+
+  return { whatsapp_message_id: waMessageId }
+}
+
+export interface SendContactsEngineArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  contacts: MetaContactCard[]
+}
+
+export async function engineSendContacts(
+  args: SendContactsEngineArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  const db = supabaseAdmin()
+
+  const { data: contact, error: contactErr } = await db
+    .from('contacts')
+    .select('id, phone, wa_user_id')
+    .eq('id', args.contactId)
+    .eq('account_id', args.accountId)
+    .maybeSingle()
+  if (contactErr || !contact) {
+    throw new Error(t('send.contactNotFound'))
+  }
+
+  await assertConversationInAccount(db, args.conversationId, args.accountId)
+
+  const sendTarget = resolveContactSendTarget(contact)
+  if (!sendTarget) {
+    throw new Error(
+      t('send.noWhatsAppAddress', { phone: contact.phone || t('send.none') })
+    )
+  }
+  const sanitized = sendTarget.target
+
+  const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
+    db,
+    args.accountId,
+  )
+
+  const attempt = async (phone: string): Promise<string> => {
+    const r = await sendContactsMessage({
+      phoneNumberId,
+      accessToken,
+      to: phone,
+      contacts: args.contacts,
+    })
+    return r.messageId
+  }
+
+  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
+  let workingPhone = sanitized
+  let waMessageId = ''
+  let lastError: unknown = null
+  for (const v of variants) {
+    try {
+      waMessageId = await attempt(v)
+      workingPhone = v
+      lastError = null
+      break
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!isRecipientNotAllowedError(msg)) throw err
+      lastError = err
+    }
+  }
+  if (lastError) throw lastError
+
+  if (sendTarget.isPhone && workingPhone !== sanitized) {
+    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+  }
+
+  const names = args.contacts.map((c) => c.name.formattedName).join(', ')
+  const { error: msgErr } = await db.from('messages').insert({
+    conversation_id: args.conversationId,
+    sender_type: 'bot',
+    content_type: 'contacts',
+    content_text: names,
+    message_id: waMessageId,
+    status: 'sent',
+  })
+  if (msgErr) {
+    throw new Error(t('send.dbInsertFailed', { message: msgErr.message }))
+  }
+
+  await db
+    .from('conversations')
+    .update({
+      last_message_text: `👤 ${names}`,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', args.conversationId)
+    .eq('account_id', args.accountId)
+
+  return { whatsapp_message_id: waMessageId }
+}
+
+export interface SendAddressMessageEngineArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  bodyText: string
+  country?: string
+  headerText?: string
+  footerText?: string
+}
+
+export async function engineSendAddressMessage(
+  args: SendAddressMessageEngineArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  const db = supabaseAdmin()
+
+  const { data: contact, error: contactErr } = await db
+    .from('contacts')
+    .select('id, phone, wa_user_id')
+    .eq('id', args.contactId)
+    .eq('account_id', args.accountId)
+    .maybeSingle()
+  if (contactErr || !contact) {
+    throw new Error(t('send.contactNotFound'))
+  }
+
+  await assertConversationInAccount(db, args.conversationId, args.accountId)
+
+  const sendTarget = resolveContactSendTarget(contact)
+  if (!sendTarget) {
+    throw new Error(
+      t('send.noWhatsAppAddress', { phone: contact.phone || t('send.none') })
+    )
+  }
+  const sanitized = sendTarget.target
+
+  const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
+    db,
+    args.accountId,
+  )
+
+  const attempt = async (phone: string): Promise<string> => {
+    const r = await sendAddressMessage({
+      phoneNumberId,
+      accessToken,
+      to: phone,
+      bodyText: args.bodyText,
+      country: args.country,
+      headerText: args.headerText,
+      footerText: args.footerText,
+    })
+    return r.messageId
+  }
+
+  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
+  let workingPhone = sanitized
+  let waMessageId = ''
+  let lastError: unknown = null
+  for (const v of variants) {
+    try {
+      waMessageId = await attempt(v)
+      workingPhone = v
+      lastError = null
+      break
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!isRecipientNotAllowedError(msg)) throw err
+      lastError = err
+    }
+  }
+  if (lastError) throw lastError
+
+  if (sendTarget.isPhone && workingPhone !== sanitized) {
+    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+  }
+
+  const { error: msgErr } = await db.from('messages').insert({
+    conversation_id: args.conversationId,
+    sender_type: 'bot',
+    content_type: 'interactive',
+    content_text: args.bodyText,
+    message_id: waMessageId,
+    status: 'sent',
+  })
+  if (msgErr) {
+    throw new Error(t('send.dbInsertFailed', { message: msgErr.message }))
+  }
+
+  await db
+    .from('conversations')
+    .update({
+      last_message_text: args.bodyText,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

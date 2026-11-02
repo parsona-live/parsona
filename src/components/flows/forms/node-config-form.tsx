@@ -144,6 +144,39 @@ export function NodeConfigForm({
         />
       );
 
+    case "send_location":
+      return (
+        <SendLocationForm
+          cfg={cfg as SendLocationCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "send_contact":
+      return (
+        <SendContactForm
+          cfg={cfg as SendContactCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "request_address":
+      return (
+        <RequestAddressForm
+          cfg={cfg as RequestAddressCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
     case "collect_input":
       return (
         <>
@@ -881,10 +914,11 @@ function useUserTags(): UserTag[] {
 // ============================================================
 
 interface SendMediaCfg {
-  media_type?: "image" | "video" | "document";
+  media_type?: "image" | "video" | "document" | "audio";
   media_url?: string;
   caption?: string;
   filename?: string;
+  voice?: boolean;
   next_node_key?: string;
 }
 
@@ -897,6 +931,7 @@ const MEDIA_ACCEPT: Record<NonNullable<SendMediaCfg["media_type"]>, string> = {
   video: "video/mp4,video/3gpp",
   document:
     "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain",
+  audio: "audio/mpeg,audio/ogg,audio/mp4,audio/aac,audio/amr,audio/*",
 };
 
 const FLOW_MEDIA_BUCKET = "flow-media";
@@ -980,12 +1015,28 @@ function SendMediaForm({
           <SelectContent>
             <SelectItem value="image">{t("imageLabel")}</SelectItem>
             <SelectItem value="video">{t("videoLabel")}</SelectItem>
+            <SelectItem value="audio">{t("audioLabel") || "Audio (MP3, OGG, AAC, AMR)"}</SelectItem>
             <SelectItem value="document">
               {t("documentLabel")}
             </SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {mediaType === "audio" && (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 p-2.5">
+          <input
+            type="checkbox"
+            id="voice-toggle"
+            checked={!!cfg.voice}
+            onChange={(e) => onUpdateConfig({ voice: e.target.checked })}
+            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <label htmlFor="voice-toggle" className="text-xs text-muted-foreground cursor-pointer select-none">
+            {t("voiceMemoLabel") || "Send as voice memo (playable audio waveform)"}
+          </label>
+        </div>
+      )}
 
       <div>
         <label className="mb-1 block text-xs text-muted-foreground">{t("fileLabel")}</label>
@@ -1066,6 +1117,296 @@ function SendMediaForm({
         </div>
       )}
 
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("advanceAfterSending")}
+      />
+    </>
+  );
+}
+
+// ============================================================
+// send_location
+// ============================================================
+
+interface SendLocationCfg {
+  latitude?: number | string;
+  longitude?: number | string;
+  name?: string;
+  address?: string;
+  next_node_key?: string;
+}
+
+function SendLocationForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: SendLocationCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("latitudeLabel") || "Latitude (required)"}
+          </label>
+          <Input
+            value={cfg.latitude ?? ""}
+            onChange={(e) => onUpdateConfig({ latitude: e.target.value })}
+            placeholder="37.442162"
+            className="bg-muted font-mono text-xs"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("longitudeLabel") || "Longitude (required)"}
+          </label>
+          <Input
+            value={cfg.longitude ?? ""}
+            onChange={(e) => onUpdateConfig({ longitude: e.target.value })}
+            placeholder="-122.161535"
+            className="bg-muted font-mono text-xs"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-muted-foreground">
+          {t("locationNameLabel") || "Location name (optional)"}
+        </label>
+        <Input
+          value={cfg.name ?? ""}
+          onChange={(e) => onUpdateConfig({ name: e.target.value })}
+          placeholder="Main Office"
+          className="bg-muted text-xs"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-muted-foreground">
+          {t("locationAddressLabel") || "Address (optional)"}
+        </label>
+        <Input
+          value={cfg.address ?? ""}
+          onChange={(e) => onUpdateConfig({ address: e.target.value })}
+          placeholder="101 Forest Ave, Palo Alto, CA 94301"
+          className="bg-muted text-xs"
+        />
+      </div>
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("advanceAfterSending")}
+      />
+    </>
+  );
+}
+
+// ============================================================
+// send_contact
+// ============================================================
+
+interface SendContactCfg {
+  formatted_name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  phone_type?: string;
+  email?: string;
+  company?: string;
+  title?: string;
+  next_node_key?: string;
+}
+
+function SendContactForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: SendContactCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <>
+      <div>
+        <label className="mb-1 block text-xs text-muted-foreground">
+          {t("contactFullNameLabel") || "Full name (required)"}
+        </label>
+        <Input
+          value={cfg.formatted_name ?? ""}
+          onChange={(e) => onUpdateConfig({ formatted_name: e.target.value })}
+          placeholder="Dr. Barbara Johnson"
+          className="bg-muted text-xs"
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            First name (optional)
+          </label>
+          <Input
+            value={cfg.first_name ?? ""}
+            onChange={(e) => onUpdateConfig({ first_name: e.target.value })}
+            placeholder="Barbara"
+            className="bg-muted text-xs"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            Last name (optional)
+          </label>
+          <Input
+            value={cfg.last_name ?? ""}
+            onChange={(e) => onUpdateConfig({ last_name: e.target.value })}
+            placeholder="Johnson"
+            className="bg-muted text-xs"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("contactPhoneLabel") || "Phone number"}
+          </label>
+          <Input
+            value={cfg.phone ?? ""}
+            onChange={(e) => onUpdateConfig({ phone: e.target.value })}
+            placeholder="+16505551234"
+            className="bg-muted font-mono text-xs"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("contactPhoneTypeLabel") || "Phone type"}
+          </label>
+          <Select
+            value={cfg.phone_type ?? "CELL"}
+            onValueChange={(v) => onUpdateConfig({ phone_type: v })}
+          >
+            <SelectTrigger className="bg-muted text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="CELL">Mobile / Cell</SelectItem>
+              <SelectItem value="WORK">Work</SelectItem>
+              <SelectItem value="HOME">Home</SelectItem>
+              <SelectItem value="MAIN">Main</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("contactEmailLabel") || "Email"}
+          </label>
+          <Input
+            value={cfg.email ?? ""}
+            onChange={(e) => onUpdateConfig({ email: e.target.value })}
+            placeholder="barbara@example.com"
+            className="bg-muted text-xs"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("contactCompanyLabel") || "Company / Organization"}
+          </label>
+          <Input
+            value={cfg.company ?? ""}
+            onChange={(e) => onUpdateConfig({ company: e.target.value })}
+            placeholder="Acme Corp"
+            className="bg-muted text-xs"
+          />
+        </div>
+      </div>
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("advanceAfterSending")}
+      />
+    </>
+  );
+}
+
+// ============================================================
+// request_address
+// ============================================================
+
+interface RequestAddressCfg {
+  text?: string;
+  country?: string;
+  header?: string;
+  footer?: string;
+  next_node_key?: string;
+}
+
+function RequestAddressForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: RequestAddressCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <>
+      <TextRow
+        label={t("addressRequestPromptLabel") || "Message text (required)"}
+        value={cfg.text ?? ""}
+        onChange={(v) => onUpdateConfig({ text: v })}
+        placeholder="Please provide your delivery address to proceed with the shipment."
+        rows={3}
+      />
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("addressCountryLabel") || "Country (2-letter ISO code)"}
+          </label>
+          <Input
+            value={cfg.country ?? "IN"}
+            onChange={(e) => onUpdateConfig({ country: e.target.value.toUpperCase() })}
+            placeholder="IN"
+            maxLength={2}
+            className="bg-muted font-mono uppercase text-xs"
+          />
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Meta native address form is officially supported for IN & SG. Other countries receive a native location request button.
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">
+            {t("addressHeaderLabel") || "Header text (optional)"}
+          </label>
+          <Input
+            value={cfg.header ?? ""}
+            onChange={(e) => onUpdateConfig({ header: e.target.value })}
+            placeholder="Delivery Address"
+            className="bg-muted text-xs"
+          />
+        </div>
+      </div>
       <NextNodeRow
         value={cfg.next_node_key ?? ""}
         allNodes={allNodes}

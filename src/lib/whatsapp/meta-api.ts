@@ -433,6 +433,8 @@ export interface SendMediaMessageArgs {
   caption?: string
   /** Document-only. Shown in the recipient's chat as the file name. Ignored for image/video/audio. */
   filename?: string
+  /** Audio-only: set true if sending a voice message (requires Ogg Opus file). Omit or false for basic audio. */
+  voice?: boolean
   contextMessageId?: string
 }
 
@@ -451,7 +453,7 @@ export interface SendMediaMessageArgs {
 export async function sendMediaMessage(
   args: SendMediaMessageArgs,
 ): Promise<MetaSendResult> {
-  const { phoneNumberId, accessToken, to, kind, link, caption, filename, contextMessageId } = args
+  const { phoneNumberId, accessToken, to, kind, link, caption, filename, voice, contextMessageId } = args
   if (!link) throw new Error('sendMediaMessage requires a link.')
   const url = `${META_API_BASE}/${phoneNumberId}/messages`
 
@@ -461,6 +463,7 @@ export async function sendMediaMessage(
   const media: Record<string, unknown> = { link }
   if (caption && kind !== 'audio') media.caption = caption
   if (kind === 'document' && filename) media.filename = filename
+  if (kind === 'audio' && voice !== undefined) media.voice = voice
 
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
@@ -1282,6 +1285,383 @@ export async function sendInteractiveCarousel(
     body: JSON.stringify(body),
   })
   if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface SendLocationMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  latitude: string | number
+  longitude: string | number
+  name?: string
+  address?: string
+  contextMessageId?: string
+}
+
+/**
+ * Send a location's latitude and longitude coordinates to a WhatsApp user.
+ */
+export async function sendLocationMessage(
+  args: SendLocationMessageArgs,
+): Promise<MetaSendResult> {
+  const {
+    phoneNumberId,
+    accessToken,
+    to,
+    latitude,
+    longitude,
+    name,
+    address,
+    contextMessageId,
+  } = args
+
+  if (
+    latitude === undefined ||
+    latitude === null ||
+    latitude === '' ||
+    Number.isNaN(Number(latitude))
+  ) {
+    throw new Error('sendLocationMessage requires a valid latitude.')
+  }
+  if (
+    longitude === undefined ||
+    longitude === null ||
+    longitude === '' ||
+    Number.isNaN(Number(longitude))
+  ) {
+    throw new Error('sendLocationMessage requires a valid longitude.')
+  }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const location: Record<string, unknown> = {
+    latitude: String(latitude),
+    longitude: String(longitude),
+  }
+  if (name?.trim()) location.name = name.trim()
+  if (address?.trim()) location.address = address.trim()
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'location',
+    location,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface MetaContactAddress {
+  street?: string
+  city?: string
+  state?: string
+  zip?: string
+  country?: string
+  countryCode?: string
+  type?: string
+}
+
+export interface MetaContactEmail {
+  email: string
+  type?: string
+}
+
+export interface MetaContactName {
+  formattedName: string
+  firstName?: string
+  lastName?: string
+  middleName?: string
+  suffix?: string
+  prefix?: string
+}
+
+export interface MetaContactOrg {
+  company?: string
+  department?: string
+  title?: string
+}
+
+export interface MetaContactPhone {
+  phone: string
+  type?: string
+  waId?: string
+}
+
+export interface MetaContactUrl {
+  url: string
+  type?: string
+}
+
+export interface MetaContactCard {
+  name: MetaContactName
+  birthday?: string
+  addresses?: MetaContactAddress[]
+  emails?: MetaContactEmail[]
+  org?: MetaContactOrg
+  phones?: MetaContactPhone[]
+  urls?: MetaContactUrl[]
+}
+
+export interface SendContactsMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  contacts: MetaContactCard[]
+  contextMessageId?: string
+}
+
+/**
+ * Send rich contact cards directly to WhatsApp users.
+ */
+export async function sendContactsMessage(
+  args: SendContactsMessageArgs,
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, contacts, contextMessageId } = args
+  if (!contacts || contacts.length === 0) {
+    throw new Error('sendContactsMessage requires at least one contact.')
+  }
+  for (let i = 0; i < contacts.length; i++) {
+    const c = contacts[i]
+    if (!c.name?.formattedName?.trim()) {
+      throw new Error(`Contact ${i + 1} is missing formattedName.`)
+    }
+  }
+
+  const formattedContacts = contacts.map((c) => {
+    const parts = c.name.formattedName.trim().split(/\s+/)
+    const firstName = c.name.firstName?.trim() || parts[0] || c.name.formattedName
+    const lastName = c.name.lastName?.trim() || (parts.length > 1 ? parts.slice(1).join(' ') : undefined)
+
+    const contactObj: Record<string, unknown> = {
+      name: {
+        formatted_name: c.name.formattedName,
+        first_name: firstName,
+        ...(lastName ? { last_name: lastName } : {}),
+        ...(c.name.middleName ? { middle_name: c.name.middleName } : {}),
+        ...(c.name.suffix ? { suffix: c.name.suffix } : {}),
+        ...(c.name.prefix ? { prefix: c.name.prefix } : {}),
+      },
+    }
+    if (c.birthday) contactObj.birthday = c.birthday
+    if (c.org && (c.org.company || c.org.department || c.org.title)) {
+      contactObj.org = {
+        ...(c.org.company ? { company: c.org.company } : {}),
+        ...(c.org.department ? { department: c.org.department } : {}),
+        ...(c.org.title ? { title: c.org.title } : {}),
+      }
+    }
+    if (c.phones && c.phones.length > 0) {
+      contactObj.phones = c.phones.map((p) => ({
+        phone: p.phone,
+        ...(p.type ? { type: p.type } : {}),
+        ...(p.waId ? { wa_id: p.waId } : {}),
+      }))
+    }
+    if (c.emails && c.emails.length > 0) {
+      contactObj.emails = c.emails.map((e) => ({
+        email: e.email,
+        ...(e.type ? { type: e.type } : {}),
+      }))
+    }
+    if (c.urls && c.urls.length > 0) {
+      contactObj.urls = c.urls.map((u) => ({
+        url: u.url,
+        ...(u.type ? { type: u.type } : {}),
+      }))
+    }
+    if (c.addresses && c.addresses.length > 0) {
+      contactObj.addresses = c.addresses.map((a) => ({
+        ...(a.street ? { street: a.street } : {}),
+        ...(a.city ? { city: a.city } : {}),
+        ...(a.state ? { state: a.state } : {}),
+        ...(a.zip ? { zip: a.zip } : {}),
+        ...(a.country ? { country: a.country } : {}),
+        ...(a.countryCode ? { country_code: a.countryCode } : {}),
+        ...(a.type ? { type: a.type } : {}),
+      }))
+    }
+    return contactObj
+  })
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'contacts',
+    contacts: formattedContacts,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface SendLocationRequestMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  contextMessageId?: string
+}
+
+/**
+ * Send an interactive location request message ("Send location" button).
+ * Supported globally across all countries and accounts.
+ */
+export async function sendLocationRequestMessage(
+  args: SendLocationRequestMessageArgs,
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, bodyText, contextMessageId } = args
+  if (!bodyText?.trim()) throw new Error('sendLocationRequestMessage requires bodyText.')
+
+  const interactive = {
+    type: 'location_request_message',
+    body: { text: bodyText },
+    action: {
+      name: 'send_location',
+    },
+  }
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'interactive',
+    interactive,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface SendAddressMessageArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  country?: string
+  headerText?: string
+  footerText?: string
+  contextMessageId?: string
+}
+
+/**
+ * Send an interactive address request message to collect shipping address.
+ * Falls back to global location_request_message if address_message is region-restricted on the account.
+ */
+export async function sendAddressMessage(
+  args: SendAddressMessageArgs,
+): Promise<MetaSendResult> {
+  const {
+    phoneNumberId,
+    accessToken,
+    to,
+    bodyText,
+    country = 'IN',
+    headerText,
+    footerText,
+    contextMessageId,
+  } = args
+
+  if (!bodyText?.trim()) throw new Error('sendAddressMessage requires bodyText.')
+  if (!country?.trim()) throw new Error('sendAddressMessage requires country.')
+
+  const countryCode = country.trim().toUpperCase()
+
+  // Meta strictly restricts address_message to India ('IN') and Singapore ('SG').
+  // For other countries, use globally supported location_request_message.
+  if (countryCode !== 'IN' && countryCode !== 'SG') {
+    return sendLocationRequestMessage({
+      phoneNumberId,
+      accessToken,
+      to,
+      bodyText,
+      contextMessageId,
+    })
+  }
+
+  const interactive: Record<string, unknown> = {
+    type: 'address_message',
+    body: { text: bodyText },
+    action: {
+      name: 'address_message',
+      parameters: {
+        country: countryCode,
+      },
+    },
+  }
+  if (headerText?.trim()) interactive.header = { type: 'text', text: headerText.trim() }
+  if (footerText?.trim()) interactive.footer = { text: footerText.trim() }
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'interactive',
+    interactive,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.clone().text().catch(() => '')
+    if (errorText.includes('Unsupported Interactive Message type') || errorText.includes('address_message')) {
+      // Recipient or WABA outside supported address_message region; fallback to location_request_message
+      return sendLocationRequestMessage({
+        phoneNumberId,
+        accessToken,
+        to,
+        bodyText,
+        contextMessageId,
+      })
+    }
     await throwMetaError(response, `Meta API error: ${response.status}`)
   }
   const data = await response.json()

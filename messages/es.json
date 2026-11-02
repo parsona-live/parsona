@@ -458,7 +458,8 @@
       "downloadFailed": "No se pudo descargar el adjunto",
       "viewImage": "Ver imagen",
       "expandVideo": "Ampliar video",
-      "imageAlt": "Imagen compartida"
+      "imageAlt": "Imagen compartida",
+      "contactShared": "Contacto compartido"
     },
     "mediaViewer": {
       "counter": "{index} de {total}",
@@ -1510,7 +1511,21 @@
         "cardButtonsHelp": "Botones de la tarjeta: cada uno dirige a un paso del flujo",
         "cardButtonsMatchHint": "WhatsApp requiere que todas las tarjetas tengan el mismo número de botones.",
         "cardButtonTitlePlaceholder": "Etiqueta del botón (≤25 caracteres)",
-        "uploadCardImage": "Subir imagen"
+        "uploadCardImage": "Subir imagen",
+        "audioLabel": "Audio (MP3, OGG, AAC, AMR)",
+        "voiceMemoLabel": "Enviar como nota de voz (onda de audio reproducible)",
+        "latitudeLabel": "Latitud (obligatorio)",
+        "longitudeLabel": "Longitud (obligatorio)",
+        "locationNameLabel": "Nombre de la ubicación (opcional)",
+        "locationAddressLabel": "Dirección (opcional)",
+        "contactFullNameLabel": "Nombre completo (obligatorio)",
+        "contactPhoneLabel": "Número de teléfono",
+        "contactPhoneTypeLabel": "Tipo de teléfono",
+        "contactEmailLabel": "Correo electrónico",
+        "contactCompanyLabel": "Empresa / Organización",
+        "addressRequestPromptLabel": "Texto del mensaje (obligatorio)",
+        "addressCountryLabel": "País (código ISO de 2 letras)",
+        "addressHeaderLabel": "Texto de encabezado (opcional)"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1561,6 +1576,18 @@
         "end": {
           "label": "Fin",
           "blurb": "Termina el flujo"
+        },
+        "send_location": {
+          "label": "Enviar ubicación",
+          "blurb": "Envía coordenadas con nombre y dirección"
+        },
+        "send_contact": {
+          "label": "Enviar contacto",
+          "blurb": "Envía tarjeta de contacto con nombre y teléfono"
+        },
+        "request_address": {
+          "label": "Solicitar dirección",
+          "blurb": "Solicita la dirección de entrega del cliente"
         }
       }
     },
@@ -2673,7 +2700,18 @@
       "setTagNeedsTag": "El nodo Etiquetar contacto necesita una etiqueta para aplicar.",
       "setTagNeedsNext": "El nodo Etiquetar contacto debe apuntar a un nodo siguiente.",
       "setTagMissingNext": "El nodo Etiquetar contacto apunta a un nodo inexistente: \"{key}\".",
-      "unknownNodeType": "Tipo de nodo desconocido: \"{type}\"."
+      "unknownNodeType": "Tipo de nodo desconocido: \"{type}\".",
+      "sendLocationNeedsLatitude": "El nodo de ubicación necesita latitud.",
+      "sendLocationNeedsLongitude": "El nodo de ubicación necesita longitud.",
+      "sendLocationNeedsNext": "El nodo de ubicación debe apuntar al siguiente nodo.",
+      "sendLocationMissingNext": "El nodo de ubicación apunta a un nodo inexistente \"{key}\".",
+      "sendContactNeedsName": "El nodo de contacto necesita un nombre completo.",
+      "sendContactNeedsNext": "El nodo de contacto debe apuntar al siguiente nodo.",
+      "sendContactMissingNext": "El nodo de contacto apunta a un nodo inexistente \"{key}\".",
+      "requestAddressNeedsText": "El nodo de solicitud de dirección necesita texto de cuerpo de mensaje.",
+      "requestAddressNeedsCountry": "El nodo de solicitud de dirección necesita un código de país de 2 letras.",
+      "requestAddressNeedsNext": "El nodo de solicitud de dirección debe apuntar al siguiente nodo.",
+      "requestAddressMissingNext": "El nodo de solicitud de dirección apunta a un nodo inexistente \"{key}\"."
     },
     "automations": {
       "needsStep": "las automatizaciones activas necesitan al menos un paso",

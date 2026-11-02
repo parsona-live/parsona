@@ -17,16 +17,19 @@
  */
 
 import {
+  Contact,
   Flag,
   GalleryHorizontalEnd,
   GitFork,
   Inbox,
   ListChecks,
   ListPlus,
+  MapPin,
   MessageCircle,
   Paperclip,
   PlayCircle,
   Tag,
+  Truck,
   UserPlus,
   Workflow,
 } from 'lucide-react';
@@ -48,6 +51,9 @@ export type NodeType =
   | 'send_list'
   | 'send_media'
   | 'send_carousel'
+  | 'send_location'
+  | 'send_contact'
+  | 'request_address'
   | 'collect_input'
   | 'condition'
   | 'set_tag'
@@ -135,6 +141,24 @@ export const NODE_META: Record<
     color: 'text-amber-500',
     category: 'messaging',
   },
+  send_location: {
+    slugSeed: 'Send location',
+    icon: MapPin,
+    color: 'text-emerald-500',
+    category: 'messaging',
+  },
+  send_contact: {
+    slugSeed: 'Send contact',
+    icon: Contact,
+    color: 'text-indigo-500',
+    category: 'messaging',
+  },
+  request_address: {
+    slugSeed: 'Request address',
+    icon: Truck,
+    color: 'text-violet-500',
+    category: 'messaging',
+  },
   collect_input: {
     slugSeed: 'Collect input',
     icon: Inbox,
@@ -201,6 +225,9 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_list: { l: 0.62, c: 0.15, h: 277 }, // indigo
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
   send_carousel: { l: 0.68, c: 0.16, h: 48 }, // amber - carousel cards
+  send_location: { l: 0.65, c: 0.16, h: 150 }, // emerald - location
+  send_contact: { l: 0.62, c: 0.16, h: 260 }, // indigo - contact
+  request_address: { l: 0.64, c: 0.18, h: 285 }, // violet - address request
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
@@ -380,6 +407,28 @@ export function summarizeNode(
           : truncate(text);
       }
       return cardCount > 0 ? `${cardCount} ${cardCount === 1 ? 'card' : 'cards'}` : null;
+    }
+    case 'send_location': {
+      const name = typeof cfg.name === 'string' ? cfg.name : '';
+      const address = typeof cfg.address === 'string' ? cfg.address : '';
+      const lat = cfg.latitude !== undefined && cfg.latitude !== null ? `${cfg.latitude}` : '';
+      const lng = cfg.longitude !== undefined && cfg.longitude !== null ? `${cfg.longitude}` : '';
+      if (name) return address ? `${truncate(name, 30)} · ${truncate(address, 40)}` : truncate(name);
+      if (address) return truncate(address);
+      if (lat && lng) return `${lat}, ${lng}`;
+      return null;
+    }
+    case 'send_contact': {
+      const name = typeof cfg.formatted_name === 'string' ? cfg.formatted_name : '';
+      const phone = typeof cfg.phone === 'string' ? cfg.phone : '';
+      if (name) return phone ? `${truncate(name, 30)} (${phone})` : truncate(name);
+      return phone || null;
+    }
+    case 'request_address': {
+      const text = typeof cfg.text === 'string' ? cfg.text : '';
+      const country = typeof cfg.country === 'string' ? cfg.country : '';
+      if (text) return country ? `${truncate(text, 40)} · ${country}` : truncate(text);
+      return country || null;
     }
     case 'collect_input': {
       const prompt = typeof cfg.prompt_text === 'string' ? cfg.prompt_text : '';
