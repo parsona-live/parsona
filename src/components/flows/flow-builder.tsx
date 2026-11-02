@@ -527,7 +527,9 @@ function NodeConfigWithAdvanced({
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const hasReplyIds =
-    node.node_type === 'send_buttons' || node.node_type === 'send_list';
+    node.node_type === 'send_buttons' ||
+    node.node_type === 'send_list' ||
+    node.node_type === 'send_carousel';
   return (
     <div className="flex flex-col gap-3">
       <NodeConfigForm
@@ -584,6 +586,7 @@ function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: Retur
     'start',
     'send_buttons',
     'send_list',
+    'send_carousel',
     'send_message',
     'send_media',
     'collect_input',

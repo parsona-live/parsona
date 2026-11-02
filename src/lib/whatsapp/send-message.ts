@@ -26,6 +26,7 @@ import {
   sendTemplateMessage,
   sendMediaMessage,
   sendInteractiveButtons,
+  sendInteractiveCarousel,
   sendInteractiveList,
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
@@ -382,6 +383,23 @@ export async function sendMessageToConversation(
           headerText: p.header || undefined,
           footerText: p.footer || undefined,
           buttons: p.buttons,
+          contextMessageId,
+        });
+        return result.messageId;
+      }
+      if (p.kind === 'carousel') {
+        const result = await sendInteractiveCarousel({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: phone,
+          bodyText: p.body,
+          cards: p.cards.map((c, idx) => ({
+            cardIndex: c.card_index ?? idx,
+            type: c.type || 'cta_url',
+            headerImageUrl: c.header_image_url,
+            bodyText: c.body_text,
+            buttons: c.buttons,
+          })),
           contextMessageId,
         });
         return result.messageId;

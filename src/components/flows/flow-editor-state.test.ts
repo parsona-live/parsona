@@ -90,6 +90,7 @@ describe("defaultConfigFor", () => {
     "send_buttons",
     "send_list",
     "send_media",
+    "send_carousel",
     "collect_input",
     "condition",
     "set_tag",
@@ -122,6 +123,15 @@ describe("defaultConfigFor", () => {
   it("send_media defaults to image (the most common case)", () => {
     const cfg = defaultConfigFor("send_media") as { media_type?: string };
     expect(cfg.media_type).toBe("image");
+  });
+
+  it("send_carousel defaults to 2 cards with buttons", () => {
+    const cfg = defaultConfigFor("send_carousel") as {
+      cards?: Array<{ buttons?: Array<{ reply_id: string; title: string }> }>;
+    };
+    expect(cfg.cards?.length).toBe(2);
+    expect(cfg.cards?.[0].buttons?.length).toBeGreaterThan(0);
+    expect(cfg.cards?.[0].buttons?.[0].reply_id).toBeTruthy();
   });
 
   it("collect_input ships a valid var_key that passes the validator regex", () => {

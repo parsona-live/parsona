@@ -1498,7 +1498,19 @@
         "uploadFailed": "Error al subir.",
         "fileTooLarge": "El archivo pesa {size} MB; el límite es 16 MB.",
         "defaultOptionTitle": "Opción",
-        "optionN": "Opción {n}"
+        "optionN": "Opción {n}",
+        "carouselCardsHelp": "Tarjetas de carrusel (2–10): tarjetas deslizables con imágenes y botones",
+        "cardN": "Tarjeta {n}",
+        "addCard": "Añadir tarjeta",
+        "removeCard": "Eliminar tarjeta",
+        "cardImageLabel": "Imagen de cabecera de la tarjeta (obligatoria)",
+        "cardImageUrlPlaceholder": "https://ejemplo.com/imagen.jpg o subir abajo",
+        "cardBodyLabel": "Descripción de la tarjeta (≤160 caracteres)",
+        "cardBodyPlaceholder": "Describa este artículo u oferta…",
+        "cardButtonsHelp": "Botones de la tarjeta: cada uno dirige a un paso del flujo",
+        "cardButtonsMatchHint": "WhatsApp requiere que todas las tarjetas tengan el mismo número de botones.",
+        "cardButtonTitlePlaceholder": "Etiqueta del botón (≤25 caracteres)",
+        "uploadCardImage": "Subir imagen"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1525,6 +1537,10 @@
         "send_media": {
           "label": "Enviar archivo",
           "blurb": "Envía una imagen, video o documento"
+        },
+        "send_carousel": {
+          "label": "Enviar carrusel",
+          "blurb": "Envía tarjetas deslizables con botones"
         },
         "collect_input": {
           "label": "Capturar respuesta",
@@ -2627,6 +2643,21 @@
       "rowDescriptionTooLong": "La descripción de la fila {n} supera los {max} caracteres.",
       "rowNeedsNext": "La fila {n} necesita un nodo siguiente.",
       "rowMissingNext": "La fila {n} apunta a un nodo inexistente: \"{key}\".",
+      "sendCarouselNeedsText": "El nodo de carrusel necesita un cuerpo de mensaje.",
+      "sendCarouselNeedsCards": "El carrusel necesita al menos 2 tarjetas (requisito de WhatsApp).",
+      "tooManyCarouselCards": "WhatsApp permite como máximo {max} tarjetas por carrusel.",
+      "carouselCardNeedsImage": "La tarjeta {n} necesita una imagen de cabecera.",
+      "carouselCardNeedsBody": "La tarjeta {n} necesita texto de descripción.",
+      "carouselCardBodyTooLong": "La descripción de la tarjeta {n} supera los {max} caracteres.",
+      "carouselCardNeedsButton": "La tarjeta {n} necesita al menos un botón.",
+      "carouselCardTooManyButtons": "La tarjeta {n} puede tener como máximo {max} botones.",
+      "carouselCardsButtonCountMismatch": "Todas las tarjetas de un carrusel deben tener la misma cantidad de botones (requisito de WhatsApp).",
+      "carouselButtonNeedsReplyId": "El botón {btn} de la tarjeta {card} necesita un ID de respuesta.",
+      "carouselDuplicateButtonReplyId": "ID de respuesta de botón duplicado \"{id}\" en el carrusel.",
+      "carouselButtonNeedsTitle": "El botón {btn} de la tarjeta {card} necesita un título.",
+      "carouselButtonTitleTooLong": "El título del botón {btn} en la tarjeta {card} supera los {max} caracteres (límite de WhatsApp).",
+      "carouselButtonNeedsNext": "El botón {btn} de la tarjeta {card} necesita un nodo siguiente.",
+      "carouselButtonMissingNext": "El botón {btn} de la tarjeta {card} apunta al nodo no existente \"{key}\".",
       "collectNeedsPrompt": "El nodo Capturar respuesta necesita una pregunta para enviar al cliente.",
       "collectNeedsVarKey": "El nodo Capturar respuesta necesita una var_key para guardar la respuesta.",
       "invalidVarKey": "La var_key \"{key}\" solo puede contener letras, números y guion bajo, y debe empezar con una letra o guion bajo.",

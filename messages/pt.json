@@ -1498,7 +1498,19 @@
         "uploadFailed": "Falha no upload.",
         "fileTooLarge": "O arquivo tem {size} MB — o limite é 16 MB.",
         "defaultOptionTitle": "Opção",
-        "optionN": "Opção {n}"
+        "optionN": "Opção {n}",
+        "carouselCardsHelp": "Cartões de carrossel (2–10) — cartões deslizáveis com imagens e botões",
+        "cardN": "Cartão {n}",
+        "addCard": "Adicionar cartão",
+        "removeCard": "Remover cartão",
+        "cardImageLabel": "Imagem do cabeçalho do cartão (obrigatória)",
+        "cardImageUrlPlaceholder": "https://exemplo.com/imagem.jpg ou enviar abaixo",
+        "cardBodyLabel": "Descrição do cartão (≤160 caracteres)",
+        "cardBodyPlaceholder": "Descreva este item ou oferta…",
+        "cardButtonsHelp": "Botões do cartão — cada um direciona para uma etapa do fluxo",
+        "cardButtonsMatchHint": "O WhatsApp exige que todos os cartões tenham o mesmo número de botões.",
+        "cardButtonTitlePlaceholder": "Rótulo do botão (≤25 caracteres)",
+        "uploadCardImage": "Enviar imagem"
       },
       "categories": {
         "messaging": "Mensagens",
@@ -1525,6 +1537,10 @@
         "send_media": {
           "label": "Enviar mídia",
           "blurb": "Envia uma imagem, vídeo ou documento"
+        },
+        "send_carousel": {
+          "label": "Enviar carrossel",
+          "blurb": "Envia cartões roláveis com botões"
         },
         "collect_input": {
           "label": "Coletar resposta",
@@ -2627,6 +2643,21 @@
       "rowDescriptionTooLong": "A descrição da linha {n} excede {max} caracteres.",
       "rowNeedsNext": "A linha {n} precisa de um próximo nó.",
       "rowMissingNext": "A linha {n} aponta para um nó inexistente: \"{key}\".",
+      "sendCarouselNeedsText": "O nó de envio de carrossel precisa de um corpo de mensagem.",
+      "sendCarouselNeedsCards": "O carrossel precisa de pelo menos 2 cartões (requisito do WhatsApp).",
+      "tooManyCarouselCards": "O WhatsApp permite no máximo {max} cartões por carrossel.",
+      "carouselCardNeedsImage": "O cartão {n} precisa de uma imagem de cabeçalho.",
+      "carouselCardNeedsBody": "O cartão {n} precisa de texto de descrição.",
+      "carouselCardBodyTooLong": "A descrição do cartão {n} excede {max} caracteres.",
+      "carouselCardNeedsButton": "O cartão {n} precisa de pelo menos um botão.",
+      "carouselCardTooManyButtons": "O cartão {n} pode ter no máximo {max} botões.",
+      "carouselCardsButtonCountMismatch": "Todos os cartões de um carrossel devem ter o mesmo número de botões (requisito do WhatsApp).",
+      "carouselButtonNeedsReplyId": "O botão {btn} no cartão {card} precisa de um ID de resposta.",
+      "carouselDuplicateButtonReplyId": "ID de resposta de botão duplicado \"{id}\" no carrossel.",
+      "carouselButtonNeedsTitle": "O botão {btn} no cartão {card} precisa de um título.",
+      "carouselButtonTitleTooLong": "O título do botão {btn} no cartão {card} tem mais de {max} caracteres (limite do WhatsApp).",
+      "carouselButtonNeedsNext": "O botão {btn} no cartão {card} precisa de um próximo nó.",
+      "carouselButtonMissingNext": "O botão {btn} no cartão {card} aponta para um nó inexistente \"{key}\".",
       "collectNeedsPrompt": "O nó Coletar resposta precisa de uma pergunta para enviar ao cliente.",
       "collectNeedsVarKey": "O nó Coletar resposta precisa de uma var_key para guardar a resposta.",
       "invalidVarKey": "A var_key \"{key}\" deve conter apenas letras, números e sublinhado, e começar com uma letra ou sublinhado.",

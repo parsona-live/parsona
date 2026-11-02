@@ -97,6 +97,33 @@ export interface SendMediaNodeConfig {
   next_node_key: string;
 }
 
+export interface CarouselCardButtonConfig {
+  /** Stable id echoed back when this button is tapped. */
+  reply_id: string;
+  /** Visible label (≤ 25 chars per Meta). */
+  title: string;
+  /** node_key to advance to when tapped. */
+  next_node_key: string;
+}
+
+export interface CarouselCardConfig {
+  card_index?: number;
+  type?: string;
+  /** Header image URL (uploaded to flow-media or public URL). */
+  header_image_url: string;
+  /** Optional description text (≤ 160 chars per Meta). */
+  body_text?: string;
+  /** Quick-reply buttons on this card (1-2 buttons). */
+  buttons: CarouselCardButtonConfig[];
+}
+
+export interface SendCarouselNodeConfig {
+  /** Main message text displayed above the carousel. */
+  text: string;
+  /** 2 to 10 scrollable cards. */
+  cards: CarouselCardConfig[];
+}
+
 export interface HandoffNodeConfig {
   /** Optional internal note written to flow_run_events.payload.note. */
   note?: string;
@@ -190,6 +217,7 @@ export type FlowNodeConfig =
   | { node_type: "send_buttons"; config: SendButtonsNodeConfig }
   | { node_type: "send_list"; config: SendListNodeConfig }
   | { node_type: "send_media"; config: SendMediaNodeConfig }
+  | { node_type: "send_carousel"; config: SendCarouselNodeConfig }
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }

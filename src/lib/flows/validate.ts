@@ -652,6 +652,180 @@ function validateNode(
       break;
     }
 
+    case "send_carousel": {
+      const cfg = node.config as {
+        text?: string;
+        cards?: Array<{
+          header_image_url?: string;
+          body_text?: string;
+          buttons?: Array<{
+            reply_id?: string;
+            title?: string;
+            next_node_key?: string;
+          }>;
+        }>;
+      };
+      if (!cfg.text?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "text",
+          message: t("sendCarouselNeedsText"),
+        });
+      }
+      const cards = cfg.cards ?? [];
+      if (cards.length < INTERACTIVE_LIMITS.minCarouselCards) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cards",
+          message: t("sendCarouselNeedsCards"),
+        });
+      } else if (cards.length > INTERACTIVE_LIMITS.maxCarouselCards) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cards",
+          message: t("tooManyCarouselCards", { max: INTERACTIVE_LIMITS.maxCarouselCards }),
+        });
+      }
+      const seenButtonIds = new Set<string>();
+      const firstCardButtonCount = cards[0]?.buttons?.length ?? 0;
+      let hasButtonCountMismatch = false;
+
+      cards.forEach((card, ci) => {
+        const cardNum = ci + 1;
+        const field = `cards.${ci}`;
+        if (!card.header_image_url?.trim()) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.header_image_url`,
+            message: t("carouselCardNeedsImage", { n: cardNum }),
+          });
+        }
+        if (
+          card.body_text &&
+          card.body_text.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength
+        ) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.body_text`,
+            message: t("carouselCardBodyTooLong", {
+              n: cardNum,
+              max: INTERACTIVE_LIMITS.carouselCardBodyMaxLength,
+            }),
+          });
+        }
+        const buttons = card.buttons ?? [];
+        if (buttons.length < 1) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.buttons`,
+            message: t("carouselCardNeedsButton", { n: cardNum }),
+          });
+        } else if (buttons.length > INTERACTIVE_LIMITS.maxCarouselCardButtons) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field: `${field}.buttons`,
+            message: t("carouselCardTooManyButtons", {
+              n: cardNum,
+              max: INTERACTIVE_LIMITS.maxCarouselCardButtons,
+            }),
+          });
+        }
+        if (buttons.length !== firstCardButtonCount) {
+          hasButtonCountMismatch = true;
+        }
+        buttons.forEach((b, bi) => {
+          const btnNum = bi + 1;
+          const btnField = `${field}.buttons.${bi}`;
+          if (!b.reply_id?.trim()) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.reply_id`,
+              message: t("carouselButtonNeedsReplyId", { card: cardNum, btn: btnNum }),
+            });
+          } else if (seenButtonIds.has(b.reply_id)) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.reply_id`,
+              message: t("carouselDuplicateButtonReplyId", { id: b.reply_id }),
+            });
+          } else {
+            seenButtonIds.add(b.reply_id);
+          }
+          if (!b.title?.trim()) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.title`,
+              message: t("carouselButtonNeedsTitle", { card: cardNum, btn: btnNum }),
+            });
+          } else if (b.title.length > INTERACTIVE_LIMITS.carouselButtonTitleMaxLength) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.title`,
+              message: t("carouselButtonTitleTooLong", {
+                card: cardNum,
+                btn: btnNum,
+                max: INTERACTIVE_LIMITS.carouselButtonTitleMaxLength,
+              }),
+            });
+          }
+          if (!b.next_node_key) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.next_node_key`,
+              message: t("carouselButtonNeedsNext", { card: cardNum, btn: btnNum }),
+            });
+          } else if (!knownKeys.has(b.next_node_key)) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `${btnField}.next_node_key`,
+              message: t("carouselButtonMissingNext", {
+                card: cardNum,
+                btn: btnNum,
+                key: b.next_node_key,
+              }),
+            });
+          }
+        });
+      });
+
+      if (hasButtonCountMismatch && cards.length >= 2) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cards",
+          message: t("carouselCardsButtonCountMismatch"),
+        });
+      }
+      break;
+    }
+
     case "collect_input": {
       const cfg = node.config as {
         prompt_text?: string;
@@ -903,6 +1077,18 @@ function outgoingEdges(node: NodeInput): string[] {
       for (const s of cfg.sections ?? []) {
         for (const r of s.rows ?? []) {
           if (r.next_node_key) out.push(r.next_node_key);
+        }
+      }
+      return out;
+    }
+    case "send_carousel": {
+      const cfg = node.config as {
+        cards?: Array<{ buttons?: Array<{ next_node_key?: string }> }>;
+      };
+      const out: string[] = [];
+      for (const c of cfg.cards ?? []) {
+        for (const b of c.buttons ?? []) {
+          if (b.next_node_key) out.push(b.next_node_key);
         }
       }
       return out;

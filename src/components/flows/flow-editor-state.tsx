@@ -187,6 +187,34 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         filename: "",
         next_node_key: "",
       };
+    case "send_carousel":
+      return {
+        text: "",
+        cards: [
+          {
+            header_image_url: "",
+            body_text: "",
+            buttons: [
+              {
+                reply_id: "card_1_btn_1",
+                title: tForm("defaultOptionTitle") || "Select",
+                next_node_key: "",
+              },
+            ],
+          },
+          {
+            header_image_url: "",
+            body_text: "",
+            buttons: [
+              {
+                reply_id: "card_2_btn_1",
+                title: tForm("defaultOptionTitle") || "Select",
+                next_node_key: "",
+              },
+            ],
+          },
+        ],
+      };
     case "collect_input":
       return {
         prompt_text: "",

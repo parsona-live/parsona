@@ -588,4 +588,30 @@ describe("unlinkNodeReferences", () => {
     expect(after[0]).toBe(nodes[0]);
     expect(after[1]).toBe(nodes[1]);
   });
+
+  it("clears only the carousel card buttons that point at the deleted node", () => {
+    const before: BuilderNode[] = [
+      {
+        node_key: "c",
+        node_type: "send_carousel",
+        config: {
+          cards: [
+            {
+              header_image_url: "https://example.com/img.jpg",
+              buttons: [
+                { reply_id: "b1", next_node_key: "victim" },
+                { reply_id: "b2", next_node_key: "safe" },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+    const after = unlinkNodeReferences(before, "victim");
+    const cards = (after[0].config as {
+      cards: Array<{ buttons: Array<{ next_node_key: string }> }>;
+    }).cards;
+    expect(cards[0].buttons[0].next_node_key).toBe("");
+    expect(cards[0].buttons[1].next_node_key).toBe("safe");
+  });
 });

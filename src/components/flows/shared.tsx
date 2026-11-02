@@ -18,6 +18,7 @@
 
 import {
   Flag,
+  GalleryHorizontalEnd,
   GitFork,
   Inbox,
   ListChecks,
@@ -46,6 +47,7 @@ export type NodeType =
   | 'send_buttons'
   | 'send_list'
   | 'send_media'
+  | 'send_carousel'
   | 'collect_input'
   | 'condition'
   | 'set_tag'
@@ -127,6 +129,12 @@ export const NODE_META: Record<
     color: 'text-cyan-400',
     category: 'messaging',
   },
+  send_carousel: {
+    slugSeed: 'Send carousel',
+    icon: GalleryHorizontalEnd,
+    color: 'text-amber-500',
+    category: 'messaging',
+  },
   collect_input: {
     slugSeed: 'Collect input',
     icon: Inbox,
@@ -192,6 +200,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   send_buttons: { l: 0.62, c: 0.16, h: 254 }, // cobalt
   send_list: { l: 0.62, c: 0.15, h: 277 }, // indigo
   send_media: { l: 0.65, c: 0.12, h: 210 }, // sky
+  send_carousel: { l: 0.68, c: 0.16, h: 48 }, // amber - carousel cards
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
@@ -358,6 +367,19 @@ export function summarizeNode(
       return caption
         ? `${label}: ${truncate(name, 30)} · ${truncate(caption, 40)}`
         : `${label}: ${truncate(name, 60)}`;
+    }
+    case 'send_carousel': {
+      const text = typeof cfg.text === 'string' ? cfg.text : '';
+      const cards = Array.isArray(cfg.cards)
+        ? (cfg.cards as Array<Record<string, unknown>>)
+        : [];
+      const cardCount = cards.length;
+      if (text.length > 0) {
+        return cardCount > 0
+          ? `${truncate(text, 40)} · ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}`
+          : truncate(text);
+      }
+      return cardCount > 0 ? `${cardCount} ${cardCount === 1 ? 'card' : 'cards'}` : null;
     }
     case 'collect_input': {
       const prompt = typeof cfg.prompt_text === 'string' ? cfg.prompt_text : '';

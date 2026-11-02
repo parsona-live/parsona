@@ -522,6 +522,131 @@ describe("validateFlowForActivation — send_media", () => {
   });
 });
 
+describe("validateFlowForActivation - send_carousel", () => {
+  const baseFlow = { ...validFlow, entry_node_id: "s" };
+  const validCarouselConfig = {
+    text: "Here are our products",
+    cards: [
+      {
+        header_image_url: "https://example.com/p1.jpg",
+        body_text: "Product 1 description",
+        buttons: [
+          { reply_id: "btn_p1", title: "View P1", next_node_key: "h" },
+        ],
+      },
+      {
+        header_image_url: "https://example.com/p2.jpg",
+        body_text: "Product 2 description",
+        buttons: [
+          { reply_id: "btn_p2", title: "View P2", next_node_key: "h" },
+        ],
+      },
+    ],
+  };
+
+  const nodesWithCarousel = (carouselConfig: Record<string, unknown>) => [
+    { node_key: "s", node_type: "start", config: { next_node_key: "c" } },
+    { node_key: "c", node_type: "send_carousel", config: carouselConfig },
+    { node_key: "h", node_type: "handoff", config: {} },
+  ];
+
+  it("passes on a valid send_carousel node", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel(validCarouselConfig),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flags missing text body", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel({ ...validCarouselConfig, text: "" }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "text")).toBe(true);
+  });
+
+  it("flags carousel with fewer than 2 cards", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel({
+        ...validCarouselConfig,
+        cards: [validCarouselConfig.cards[0]],
+      }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "cards")).toBe(true);
+  });
+
+  it("flags card missing header_image_url", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel({
+        ...validCarouselConfig,
+        cards: [
+          { ...validCarouselConfig.cards[0], header_image_url: "" },
+          validCarouselConfig.cards[1],
+        ],
+      }),
+    );
+    expect(
+      issues.some(
+        (i) => i.node_key === "c" && i.field === "cards.0.header_image_url",
+      ),
+    ).toBe(true);
+  });
+
+  it("flags button count mismatch across cards", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel({
+        ...validCarouselConfig,
+        cards: [
+          validCarouselConfig.cards[0],
+          {
+            ...validCarouselConfig.cards[1],
+            buttons: [
+              ...validCarouselConfig.cards[1].buttons,
+              { reply_id: "extra", title: "Extra", next_node_key: "h" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(issues.some((i) => i.node_key === "c" && i.field === "cards")).toBe(true);
+  });
+
+  it("flags duplicate button reply_id across cards", () => {
+    const issues = validateFlowForActivation(
+      baseFlow,
+      nodesWithCarousel({
+        ...validCarouselConfig,
+        cards: [
+          validCarouselConfig.cards[0],
+          {
+            ...validCarouselConfig.cards[1],
+            buttons: [
+              { reply_id: "btn_p1", title: "View P2", next_node_key: "h" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(
+      issues.some(
+        (i) => i.node_key === "c" && i.field === "cards.1.buttons.0.reply_id",
+      ),
+    ).toBe(true);
+  });
+
+  it("contributes its button next_node_keys to reachability", () => {
+    const set = reachableFromEntry(
+      "s",
+      nodesWithCarousel(validCarouselConfig),
+    );
+    expect(set).toEqual(new Set(["s", "c", "h"]));
+  });
+});
+
 describe("reachableFromEntry", () => {
   it("walks the graph from the entry", () => {
     const set = reachableFromEntry("start", validNodes);

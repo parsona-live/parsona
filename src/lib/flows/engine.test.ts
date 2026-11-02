@@ -187,6 +187,32 @@ describe("matchReplyId", () => {
       ),
     ).toBeNull();
   });
+
+  it("matches buttons across cards in a send_carousel node", () => {
+    const node = {
+      node_type: "send_carousel",
+      config: {
+        text: "Featured deals",
+        cards: [
+          {
+            header_image_url: "https://example.com/1.jpg",
+            buttons: [
+              { reply_id: "deal_1", title: "Deal 1", next_node_key: "node_deal_1" },
+            ],
+          },
+          {
+            header_image_url: "https://example.com/2.jpg",
+            buttons: [
+              { reply_id: "deal_2", title: "Deal 2", next_node_key: "node_deal_2" },
+            ],
+          },
+        ],
+      },
+    };
+    expect(matchReplyId(node, "deal_1")).toBe("node_deal_1");
+    expect(matchReplyId(node, "deal_2")).toBe("node_deal_2");
+    expect(matchReplyId(node, "unknown")).toBeNull();
+  });
 });
 
 describe("matchesKeywordTrigger", () => {

@@ -35,6 +35,7 @@
 import { supabaseAdmin } from "./admin-client";
 import {
   engineSendInteractiveButtons,
+  engineSendInteractiveCarousel,
   engineSendInteractiveList,
   engineSendMedia,
   engineSendText,
@@ -53,6 +54,7 @@ import {
   type FlowRunRow,
   type ParsedInbound,
   type SendButtonsNodeConfig,
+  type SendCarouselNodeConfig,
   type SendListNodeConfig,
   type SendMediaNodeConfig,
   type SendMessageNodeConfig,
@@ -85,6 +87,14 @@ export function matchReplyId(
     const cfg = node.config as unknown as SendListNodeConfig;
     for (const section of cfg.sections ?? []) {
       const hit = section.rows?.find((r) => r.reply_id === reply_id);
+      if (hit) return hit.next_node_key;
+    }
+    return null;
+  }
+  if (node.node_type === "send_carousel") {
+    const cfg = node.config as unknown as SendCarouselNodeConfig;
+    for (const card of cfg.cards ?? []) {
+      const hit = card.buttons?.find((b) => b.reply_id === reply_id);
       if (hit) return hit.next_node_key;
     }
     return null;
@@ -492,6 +502,49 @@ async function sendListAndSuspend(
   return { outcome: "advanced", node_key: node.node_key };
 }
 
+async function sendCarouselAndSuspend(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+): Promise<{ outcome: "advanced"; node_key: string }> {
+  const cfg = node.config as unknown as SendCarouselNodeConfig;
+  const { whatsapp_message_id } = await engineSendInteractiveCarousel({
+    accountId: run.account_id,
+    userId: run.user_id,
+    conversationId: run.conversation_id!,
+    contactId: run.contact_id!,
+    bodyText: interpolateVars(cfg.text, run.vars),
+    cards: (cfg.cards ?? []).map((card, idx) => ({
+      cardIndex: typeof card.card_index === "number" ? card.card_index : idx,
+      type: card.type || "cta_url",
+      headerImageUrl: interpolateVars(card.header_image_url, run.vars),
+      bodyText: card.body_text
+        ? interpolateVars(card.body_text, run.vars)
+        : undefined,
+      buttons: (card.buttons ?? []).map((b) => ({
+        id: b.reply_id,
+        title: interpolateVars(b.title, run.vars),
+      })),
+    })),
+  });
+  await logEvent(db, run.id, "message_sent", node.node_key, {
+    node_type: "send_carousel",
+    whatsapp_message_id,
+  });
+  const { data: msg } = await db
+    .from("messages")
+    .select("id")
+    .eq("message_id", whatsapp_message_id)
+    .maybeSingle();
+  await db
+    .from("flow_runs")
+    .update({
+      last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+    })
+    .eq("id", run.id);
+  return { outcome: "advanced", node_key: node.node_key };
+}
+
 async function executeHandoff(
   db: AdminClient,
   run: FlowRunRow,
@@ -870,6 +923,31 @@ async function advanceFromNodeKey(
       }
       return { outcome: "advanced" };
     }
+    if (node.node_type === "send_carousel") {
+      try {
+        await sendCarouselAndSuspend(db, run, node);
+      } catch (err) {
+        console.error("[flows] send_carousel failed:", err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_carousel_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_carousel_failed");
+        return { outcome: "completed" };
+      }
+      const advanced = await advanceCurrentNodeKey(
+        db,
+        run.id,
+        run.current_node_key,
+        node.node_key,
+      );
+      if (!advanced) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "lost_race_during_advance",
+        });
+      }
+      return { outcome: "advanced" };
+    }
     if (node.node_type === "handoff") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
@@ -1089,7 +1167,7 @@ async function handleReplyForActiveRun(
   const currentNode = nodes.get(run.current_node_key!)!;
 
   // Two ways a reply can advance:
-  //   1. Interactive button/list tap on a send_buttons/send_list node.
+  //   1. Interactive button/list/carousel tap on a send_buttons/send_list/send_carousel node.
   //   2. Text reply on a collect_input node — capture into vars.
   //
   // Everything else falls through to the fallback policy below.
@@ -1097,7 +1175,8 @@ async function handleReplyForActiveRun(
   if (
     message.kind === "interactive_reply" &&
     (currentNode.node_type === "send_buttons" ||
-      currentNode.node_type === "send_list")
+      currentNode.node_type === "send_list" ||
+      currentNode.node_type === "send_carousel")
   ) {
     matched = matchReplyId(currentNode, message.reply_id);
   } else if (
@@ -1176,6 +1255,8 @@ async function handleReplyForActiveRun(
         await sendButtonsAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "send_list") {
         await sendListAndSuspend(db, run, currentNode);
+      } else if (currentNode.node_type === "send_carousel") {
+        await sendCarouselAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "collect_input") {
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.

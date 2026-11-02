@@ -937,6 +937,11 @@ export const INTERACTIVE_LIMITS = {
   bodyMaxLength: 1024,
   footerMaxLength: 60,
   headerTextMaxLength: 60,
+  minCarouselCards: 2,
+  maxCarouselCards: 10,
+  carouselCardBodyMaxLength: 160,
+  maxCarouselCardButtons: 2,
+  carouselButtonTitleMaxLength: 25,
 } as const
 
 export interface InteractiveButton {
@@ -1145,6 +1150,119 @@ export async function sendInteractiveList(
   }
   if (headerText) interactive.header = { type: 'text', text: headerText }
   if (footerText) interactive.footer = { text: footerText }
+
+  const body: Record<string, unknown> = {
+    messaging_product: 'whatsapp',
+    ...recipientFields(to),
+    type: 'interactive',
+    interactive,
+  }
+  if (contextMessageId) body.context = { message_id: contextMessageId }
+
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return { messageId: data.messages[0].id }
+}
+
+export interface InteractiveCarouselCard {
+  cardIndex?: number
+  type?: string
+  headerImageUrl: string
+  bodyText?: string
+  buttons: InteractiveButton[]
+}
+
+export interface SendInteractiveCarouselArgs {
+  phoneNumberId: string
+  accessToken: string
+  to: string
+  bodyText: string
+  cards: InteractiveCarouselCard[]
+  contextMessageId?: string
+}
+
+/**
+ * Send an interactive carousel message with 2 to 10 scrollable cards.
+ * Each card features a media header (image), optional description text (≤160 chars),
+ * and action buttons (quick reply buttons).
+ */
+export async function sendInteractiveCarousel(
+  args: SendInteractiveCarouselArgs
+): Promise<MetaSendResult> {
+  const { phoneNumberId, accessToken, to, bodyText, cards, contextMessageId } = args
+  validateInteractiveBody(bodyText)
+  if (!cards || cards.length < INTERACTIVE_LIMITS.minCarouselCards || cards.length > INTERACTIVE_LIMITS.maxCarouselCards) {
+    throw new Error(
+      `Carousel requires between ${INTERACTIVE_LIMITS.minCarouselCards} and ${INTERACTIVE_LIMITS.maxCarouselCards} cards.`
+    )
+  }
+  const firstCardButtonCount = cards[0]?.buttons?.length ?? 0
+  const seenButtonIds = new Set<string>()
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i]
+    if (!card.headerImageUrl?.trim()) {
+      throw new Error(`Card ${i + 1} is missing a header image URL.`)
+    }
+    if (card.bodyText && card.bodyText.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength) {
+      throw new Error(
+        `Card ${i + 1} body text exceeds ${INTERACTIVE_LIMITS.carouselCardBodyMaxLength} characters.`
+      )
+    }
+    if (!card.buttons || card.buttons.length < 1 || card.buttons.length > INTERACTIVE_LIMITS.maxCarouselCardButtons) {
+      throw new Error(
+        `Card ${i + 1} must have between 1 and ${INTERACTIVE_LIMITS.maxCarouselCardButtons} buttons.`
+      )
+    }
+    if (card.buttons.length !== firstCardButtonCount) {
+      throw new Error(`All carousel cards must have the same number of buttons.`)
+    }
+    for (const btn of card.buttons) {
+      if (!btn.id) throw new Error(`Button on card ${i + 1} is missing an ID.`)
+      if (seenButtonIds.has(btn.id)) {
+        throw new Error(`Duplicate button ID "${btn.id}" across carousel cards.`)
+      }
+      seenButtonIds.add(btn.id)
+      if (!btn.title) throw new Error(`Button "${btn.id}" is missing a title.`)
+      if (btn.title.length > INTERACTIVE_LIMITS.carouselButtonTitleMaxLength) {
+        throw new Error(
+          `Button title "${btn.title}" exceeds ${INTERACTIVE_LIMITS.carouselButtonTitleMaxLength} characters.`
+        )
+      }
+    }
+  }
+
+  const interactive: Record<string, unknown> = {
+    type: 'carousel',
+    body: { text: bodyText },
+    action: {
+      cards: cards.map((c, idx) => ({
+        card_index: typeof c.cardIndex === 'number' ? c.cardIndex : idx,
+        type: c.type || 'cta_url',
+        header: {
+          type: 'image',
+          image: { link: c.headerImageUrl },
+        },
+        ...(c.bodyText ? { body: { text: c.bodyText } } : {}),
+        action: {
+          buttons: c.buttons.map((b) => ({
+            type: 'quick_reply',
+            quick_reply: { id: b.id, title: b.title },
+          })),
+        },
+      })),
+    },
+  }
 
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',

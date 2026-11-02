@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   INTERACTIVE_LIMITS,
   sendInteractiveButtons,
+  sendInteractiveCarousel,
   sendInteractiveList,
 } from "./meta-api";
 
@@ -260,6 +261,224 @@ describe("sendInteractiveList — validation", () => {
                 { id: "order_1", title: "Order #1", description: "€12" },
                 { id: "order_2", title: "Order #2" },
               ],
+            },
+          ],
+        },
+      },
+    });
+  });
+});
+
+describe("sendInteractiveCarousel — validation", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn(neverFetch));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const CARDS = [
+    {
+      headerImageUrl: "https://example.com/item1.png",
+      bodyText: "Product 1 description",
+      buttons: [{ id: "btn_1", title: "Buy 1" }],
+    },
+    {
+      headerImageUrl: "https://example.com/item2.png",
+      bodyText: "Product 2 description",
+      buttons: [{ id: "btn_2", title: "Buy 2" }],
+    },
+  ];
+
+  it("rejects an empty bodyText", async () => {
+    await expect(
+      sendInteractiveCarousel({ ...BASE_ARGS, bodyText: "", cards: CARDS }),
+    ).rejects.toThrow(/requires bodyText/);
+  });
+
+  it("rejects fewer than 2 cards", async () => {
+    await expect(
+      sendInteractiveCarousel({ ...BASE_ARGS, cards: [CARDS[0]] }),
+    ).rejects.toThrow(/between 2 and 10 cards/);
+  });
+
+  it("rejects more than 10 cards", async () => {
+    const elevenCards = Array.from({ length: 11 }, (_, i) => ({
+      headerImageUrl: `https://example.com/${i}.png`,
+      buttons: [{ id: `b_${i}`, title: `Btn ${i}` }],
+    }));
+    await expect(
+      sendInteractiveCarousel({ ...BASE_ARGS, cards: elevenCards }),
+    ).rejects.toThrow(/between 2 and 10 cards/);
+  });
+
+  it("rejects a card missing headerImageUrl", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          { ...CARDS[0], headerImageUrl: "" },
+          CARDS[1],
+        ],
+      }),
+    ).rejects.toThrow(/missing a header image URL/);
+  });
+
+  it("rejects card bodyText longer than 160 characters", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          { ...CARDS[0], bodyText: "x".repeat(161) },
+          CARDS[1],
+        ],
+      }),
+    ).rejects.toThrow(/body text exceeds 160/);
+  });
+
+  it("rejects card with no buttons or more than 2 buttons", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          { ...CARDS[0], buttons: [] },
+          { ...CARDS[1], buttons: [] },
+        ],
+      }),
+    ).rejects.toThrow(/must have between 1 and 2 buttons/);
+
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          {
+            ...CARDS[0],
+            buttons: [
+              { id: "1a", title: "A" },
+              { id: "1b", title: "B" },
+              { id: "1c", title: "C" },
+            ],
+          },
+          {
+            ...CARDS[1],
+            buttons: [
+              { id: "2a", title: "A" },
+              { id: "2b", title: "B" },
+              { id: "2c", title: "C" },
+            ],
+          },
+        ],
+      }),
+    ).rejects.toThrow(/must have between 1 and 2 buttons/);
+  });
+
+  it("rejects mismatched button counts across cards", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          {
+            ...CARDS[0],
+            buttons: [
+              { id: "1a", title: "A" },
+              { id: "1b", title: "B" },
+            ],
+          },
+          CARDS[1],
+        ],
+      }),
+    ).rejects.toThrow(/same number of buttons/);
+  });
+
+  it("rejects duplicate button IDs across cards", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          { ...CARDS[0], buttons: [{ id: "dup", title: "A" }] },
+          { ...CARDS[1], buttons: [{ id: "dup", title: "B" }] },
+        ],
+      }),
+    ).rejects.toThrow(/Duplicate button ID "dup"/);
+  });
+
+  it("rejects button title exceeding 25 characters", async () => {
+    await expect(
+      sendInteractiveCarousel({
+        ...BASE_ARGS,
+        cards: [
+          { ...CARDS[0], buttons: [{ id: "b1", title: "x".repeat(26) }] },
+          CARDS[1],
+        ],
+      }),
+    ).rejects.toThrow(/exceeds 25 characters/);
+  });
+
+  it("sends the right payload shape when valid", async () => {
+    let captured: { body: unknown } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = { body: JSON.parse(String(init.body)) };
+        return new Response(
+          JSON.stringify({ messages: [{ id: "wamid.CAROUSEL" }] }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    const result = await sendInteractiveCarousel({
+      ...BASE_ARGS,
+      cards: CARDS,
+      contextMessageId: "context-mid-123",
+    });
+
+    expect(result).toEqual({ messageId: "wamid.CAROUSEL" });
+    expect(captured).not.toBeNull();
+    expect(captured!.body).toMatchObject({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: "1234567890",
+      type: "interactive",
+      context: { message_id: "context-mid-123" },
+      interactive: {
+        type: "carousel",
+        body: { text: "Body text" },
+        action: {
+          cards: [
+            {
+              card_index: 0,
+              type: "cta_url",
+              header: {
+                type: "image",
+                image: { link: "https://example.com/item1.png" },
+              },
+              body: { text: "Product 1 description" },
+              action: {
+                buttons: [
+                  {
+                    type: "quick_reply",
+                    quick_reply: { id: "btn_1", title: "Buy 1" },
+                  },
+                ],
+              },
+            },
+            {
+              card_index: 1,
+              type: "cta_url",
+              header: {
+                type: "image",
+                image: { link: "https://example.com/item2.png" },
+              },
+              body: { text: "Product 2 description" },
+              action: {
+                buttons: [
+                  {
+                    type: "quick_reply",
+                    quick_reply: { id: "btn_2", title: "Buy 2" },
+                  },
+                ],
+              },
             },
           ],
         },

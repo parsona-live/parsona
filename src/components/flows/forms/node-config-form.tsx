@@ -26,6 +26,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Image as ImageIcon,
   Loader2,
   Paperclip,
   Plus,
@@ -127,6 +128,18 @@ export function NodeConfigForm({
           allNodes={allNodes}
           currentKey={node.node_key}
           onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "send_carousel":
+      return (
+        <SendCarouselForm
+          cfg={cfg as SendCarouselCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          showAdvanced={showAdvanced}
           t={t}
         />
       );
@@ -1061,5 +1074,417 @@ function SendMediaForm({
         label={t("advanceAfterSending")}
       />
     </>
+  );
+}
+
+// ============================================================
+// send_carousel
+// ============================================================
+
+interface SendCarouselCfg {
+  text?: string;
+  cards?: Array<{
+    card_index?: number;
+    header_image_url?: string;
+    body_text?: string;
+    buttons?: Array<{
+      reply_id: string;
+      title: string;
+      next_node_key: string;
+    }>;
+  }>;
+}
+
+function SendCarouselForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+  showAdvanced,
+  t,
+}: {
+  cfg: SendCarouselCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  showAdvanced: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const cards = cfg.cards ?? [];
+
+  const updateCard = (
+    cardIdx: number,
+    patch: Partial<NonNullable<SendCarouselCfg["cards"]>[number]>,
+  ) => {
+    onUpdateConfig({
+      cards: cards.map((c, i) => (i === cardIdx ? { ...c, ...patch } : c)),
+    });
+  };
+
+  const addCard = () => {
+    const buttonCount = cards[0]?.buttons?.length || 1;
+    const newButtons = Array.from({ length: buttonCount }, (_, i) => ({
+      reply_id: `card_${cards.length + 1}_btn_${i + 1}`,
+      title: t("defaultOptionTitle") || "Select",
+      next_node_key: "",
+    }));
+
+    onUpdateConfig({
+      cards: [
+        ...cards,
+        {
+          header_image_url: "",
+          body_text: "",
+          buttons: newButtons,
+        },
+      ],
+    });
+  };
+
+  const removeCard = (idx: number) => {
+    onUpdateConfig({
+      cards: cards.filter((_, i) => i !== idx),
+    });
+  };
+
+  const updateCardButton = (
+    cardIdx: number,
+    btnIdx: number,
+    patch: Partial<{ reply_id: string; title: string; next_node_key: string }>,
+  ) => {
+    const card = cards[cardIdx];
+    if (!card) return;
+    const buttons = card.buttons ?? [];
+    updateCard(cardIdx, {
+      buttons: buttons.map((b, i) => (i === btnIdx ? { ...b, ...patch } : b)),
+    });
+  };
+
+  const addCardButton = (cardIdx: number) => {
+    const card = cards[cardIdx];
+    if (!card) return;
+    const buttons = card.buttons ?? [];
+    const newButtons = [
+      ...buttons,
+      {
+        reply_id: `card_${cardIdx + 1}_btn_${buttons.length + 1}`,
+        title: t("defaultOptionTitle") || "Select",
+        next_node_key: "",
+      },
+    ];
+    updateCard(cardIdx, { buttons: newButtons });
+  };
+
+  const removeCardButton = (cardIdx: number, btnIdx: number) => {
+    const card = cards[cardIdx];
+    if (!card) return;
+    const buttons = card.buttons ?? [];
+    updateCard(cardIdx, {
+      buttons: buttons.filter((_, i) => i !== btnIdx),
+    });
+  };
+
+  return (
+    <>
+      <TextRow
+        label={t("textToCustomer")}
+        value={cfg.text ?? ""}
+        onChange={(v) => onUpdateConfig({ text: v })}
+        rows={2}
+      />
+
+      <div className="mt-2 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="text-xs font-medium text-foreground">
+              {t("carouselCardsHelp")}
+            </label>
+            <p className="text-[11px] text-muted-foreground">
+              {t("cardButtonsMatchHint")}
+            </p>
+          </div>
+          {cards.length < 10 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addCard}
+              className="h-7 text-xs"
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              {t("addCard")}
+            </Button>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {cards.map((card, cIdx) => (
+            <CarouselCardItem
+              key={cIdx}
+              card={card}
+              cIdx={cIdx}
+              canDelete={cards.length > 2}
+              allNodes={allNodes}
+              currentKey={currentKey}
+              showAdvanced={showAdvanced}
+              onUpdateCard={(patch) => updateCard(cIdx, patch)}
+              onRemoveCard={() => removeCard(cIdx)}
+              onUpdateButton={(bIdx, patch) => updateCardButton(cIdx, bIdx, patch)}
+              onAddButton={() => addCardButton(cIdx)}
+              onRemoveButton={(bIdx) => removeCardButton(cIdx, bIdx)}
+              t={t}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CarouselCardItem({
+  card,
+  cIdx,
+  canDelete,
+  allNodes,
+  currentKey,
+  showAdvanced,
+  onUpdateCard,
+  onRemoveCard,
+  onUpdateButton,
+  onAddButton,
+  onRemoveButton,
+  t,
+}: {
+  card: NonNullable<SendCarouselCfg["cards"]>[number];
+  cIdx: number;
+  canDelete: boolean;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  showAdvanced: boolean;
+  onUpdateCard: (patch: Partial<NonNullable<SendCarouselCfg["cards"]>[number]>) => void;
+  onRemoveCard: () => void;
+  onUpdateButton: (
+    btnIdx: number,
+    patch: Partial<{ reply_id: string; title: string; next_node_key: string }>,
+  ) => void;
+  onAddButton: () => void;
+  onRemoveButton: (btnIdx: number) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const buttons = card.buttons ?? [];
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (file.size > MEDIA_MAX_BYTES) {
+        toast.error(
+          t("fileTooLarge", { size: (file.size / 1024 / 1024).toFixed(1) }),
+        );
+        return;
+      }
+      setUploading(true);
+      try {
+        const { publicUrl } = await uploadAccountMedia(FLOW_MEDIA_BUCKET, file);
+        onUpdateCard({ header_image_url: publicUrl });
+        toast.success(t("fileUploaded"));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : t("uploadFailed");
+        toast.error(msg);
+      } finally {
+        setUploading(false);
+      }
+    },
+    [onUpdateCard, t],
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-3">
+      <div className="flex items-center justify-between border-b border-border/60 pb-2">
+        <span className="text-xs font-semibold text-foreground">
+          {t("cardN", { n: cIdx + 1 })}
+        </span>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemoveCard}
+            className="h-6 px-2 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            aria-label={t("removeCard")}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+
+      {/* Header Image Section */}
+      <div className="space-y-1.5">
+        <label className="block text-xs text-muted-foreground">
+          {t("cardImageLabel")}
+        </label>
+        {card.header_image_url ? (
+          <div className="space-y-2">
+            <div className="relative inline-block overflow-hidden rounded-md border border-border bg-background">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={card.header_image_url}
+                alt={`Card ${cIdx + 1}`}
+                className="h-28 w-44 object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => onUpdateCard({ header_image_url: "" })}
+                className="absolute right-1 top-1 rounded bg-black/60 p-1 text-white hover:bg-black/80"
+                aria-label={t("removeFile")}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <Input
+              value={card.header_image_url}
+              onChange={(e) => onUpdateCard({ header_image_url: e.target.value })}
+              placeholder={t("cardImageUrlPlaceholder")}
+              className="bg-muted text-xs font-mono"
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-muted text-xs"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {t("uploading")}
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    {t("uploadCardImage")}
+                  </>
+                )}
+              </Button>
+              <span className="text-xs text-muted-foreground">or</span>
+              <Input
+                value={card.header_image_url ?? ""}
+                onChange={(e) => onUpdateCard({ header_image_url: e.target.value })}
+                placeholder={t("cardImageUrlPlaceholder")}
+                className="bg-muted text-xs flex-1"
+              />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Description Body */}
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs text-muted-foreground">
+            {t("cardBodyLabel")}
+          </label>
+          <span className="text-[10px] text-muted-foreground">
+            {(card.body_text?.length || 0)}/160
+          </span>
+        </div>
+        <Input
+          value={card.body_text ?? ""}
+          onChange={(e) => onUpdateCard({ body_text: e.target.value })}
+          placeholder={t("cardBodyPlaceholder")}
+          maxLength={160}
+          className="bg-muted text-xs"
+        />
+      </div>
+
+      {/* Card Buttons */}
+      <div className="space-y-2">
+        <label className="text-xs text-muted-foreground">
+          {t("cardButtonsHelp")}
+        </label>
+        <div className="space-y-2">
+          {buttons.map((b, bIdx) => (
+            <div
+              key={bIdx}
+              className={cn(
+                "grid grid-cols-1 gap-2 rounded border border-border bg-background p-2.5",
+                showAdvanced
+                  ? "md:grid-cols-[1fr_2fr_2fr_auto]"
+                  : "md:grid-cols-[2fr_2fr_auto]",
+              )}
+            >
+              {showAdvanced && (
+                <Input
+                  value={b.reply_id}
+                  onChange={(e) =>
+                    onUpdateButton(bIdx, {
+                      reply_id: slugify(
+                        e.target.value,
+                        `card_${cIdx + 1}_btn_${bIdx + 1}`,
+                      ),
+                    })
+                  }
+                  placeholder="reply_id"
+                  className="bg-muted font-mono text-xs"
+                />
+              )}
+              <Input
+                value={b.title}
+                onChange={(e) => onUpdateButton(bIdx, { title: e.target.value })}
+                placeholder={t("cardButtonTitlePlaceholder")}
+                maxLength={25}
+                className="bg-muted text-xs"
+              />
+              <NodeKeySelect
+                value={b.next_node_key || null}
+                nodes={allNodes}
+                excludeKey={currentKey}
+                onChange={(v) => onUpdateButton(bIdx, { next_node_key: v ?? "" })}
+                placeholder={t("nextNodePlaceholder")}
+              />
+              {buttons.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemoveButton(bIdx)}
+                  className="h-8 px-2 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+        {buttons.length < 2 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onAddButton}
+            className="mt-1 h-7 text-xs"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            {t("addButton")}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

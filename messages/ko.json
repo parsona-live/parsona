@@ -1498,7 +1498,19 @@
         "uploadFailed": "업로드에 실패했습니다.",
         "fileTooLarge": "파일이 {size}MB입니다 — 제한은 16MB입니다.",
         "defaultOptionTitle": "옵션",
-        "optionN": "옵션 {n}"
+        "optionN": "옵션 {n}",
+        "carouselCardsHelp": "캐러셀 카드 (2–10) — 이미지와 버튼이 있는 스와이프 가능한 카드",
+        "cardN": "카드 {n}",
+        "addCard": "카드 추가",
+        "removeCard": "카드 삭제",
+        "cardImageLabel": "카드 헤더 이미지 (필수)",
+        "cardImageUrlPlaceholder": "https://example.com/image.jpg 또는 아래에서 업로드",
+        "cardBodyLabel": "카드 설명 (최대 160자)",
+        "cardBodyPlaceholder": "이 항목 또는 제안을 설명하세요…",
+        "cardButtonsHelp": "카드 버튼 — 각 버튼이 플로우 단계로 연결됩니다",
+        "cardButtonsMatchHint": "WhatsApp 정책에 따라 모든 카드는 동일한 수의 버튼을 가져야 합니다.",
+        "cardButtonTitlePlaceholder": "버튼 라벨 (최대 25자)",
+        "uploadCardImage": "이미지 업로드"
       },
       "categories": {
         "messaging": "메시징",
@@ -1525,6 +1537,10 @@
         "send_media": {
           "label": "미디어 보내기",
           "blurb": "이미지, 동영상, 문서를 보냅니다"
+        },
+        "send_carousel": {
+          "label": "캐러셀 전송",
+          "blurb": "버튼이 포함된 스크롤 가능한 카드 전송"
         },
         "collect_input": {
           "label": "입력 수집",
@@ -2627,6 +2643,21 @@
       "rowDescriptionTooLong": "행 {n}의 설명이 {max}자를 초과합니다.",
       "rowNeedsNext": "행 {n}에 다음 노드가 필요합니다.",
       "rowMissingNext": "행 {n}이(가) 존재하지 않는 노드 \"{key}\"을(를) 가리킵니다.",
+      "sendCarouselNeedsText": "캐러셀 전송 노드에는 메시지 본문이 필요합니다.",
+      "sendCarouselNeedsCards": "캐러셀에는 2개 이상의 카드가 필요합니다 (WhatsApp 요구사항).",
+      "tooManyCarouselCards": "WhatsApp은 캐러셀당 최대 {max}개의 카드를 허용합니다.",
+      "carouselCardNeedsImage": "카드 {n}에 헤더 이미지가 필요합니다.",
+      "carouselCardNeedsBody": "카드 {n}에 설명 텍스트가 필요합니다.",
+      "carouselCardBodyTooLong": "카드 {n} 설명이 {max}자를 초과합니다.",
+      "carouselCardNeedsButton": "카드 {n}에 최소 하나의 버튼이 필요합니다.",
+      "carouselCardTooManyButtons": "카드 {n}에는 최대 {max}개의 버튼을 둘 수 있습니다.",
+      "carouselCardsButtonCountMismatch": "캐러셀의 모든 카드는 동일한 수의 버튼을 가져야 합니다 (WhatsApp 요구사항).",
+      "carouselButtonNeedsReplyId": "카드 {card}의 버튼 {btn}에 응답 ID가 필요합니다.",
+      "carouselDuplicateButtonReplyId": "캐러셀에 중복된 버튼 응답 ID \"{id}\"가 있습니다.",
+      "carouselButtonNeedsTitle": "카드 {card}의 버튼 {btn}에 제목이 필요합니다.",
+      "carouselButtonTitleTooLong": "카드 {card}의 버튼 {btn} 제목이 {max}자를 초과합니다 (WhatsApp 제한).",
+      "carouselButtonNeedsNext": "카드 {card}의 버튼 {btn}에 다음 노드가 필요합니다.",
+      "carouselButtonMissingNext": "카드 {card}의 버튼 {btn}이 존재하지 않는 노드 \"{key}\"를 가리킵니다.",
       "collectNeedsPrompt": "입력 수집에는 고객에게 보낼 질문이 필요합니다.",
       "collectNeedsVarKey": "입력 수집에는 답변을 저장할 var_key가 필요합니다.",
       "invalidVarKey": "var_key \"{key}\"는 영문자, 숫자, 밑줄만 사용할 수 있으며 영문자나 밑줄로 시작해야 합니다.",

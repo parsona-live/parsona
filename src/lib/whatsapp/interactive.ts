@@ -68,9 +68,26 @@ export interface InteractiveListPayload {
   sections: InteractiveListSection[]
 }
 
+export interface InteractiveCarouselCardPayload {
+  card_index?: number
+  type?: string
+  header_image_url: string
+  body_text?: string
+  buttons: InteractiveButton[]
+}
+
+export interface InteractiveCarouselPayload {
+  kind: 'carousel'
+  body: string
+  header?: string
+  footer?: string
+  cards: InteractiveCarouselCardPayload[]
+}
+
 export type InteractiveMessagePayload =
   | InteractiveButtonsPayload
   | InteractiveListPayload
+  | InteractiveCarouselPayload
 
 export type InteractiveValidation =
   | { ok: true }
@@ -223,7 +240,58 @@ export function validateInteractivePayload(
     return ok()
   }
 
-  return fail('Interactive message must be reply buttons or a list.')
+  if (p.kind === 'carousel') {
+    const cards = (p as InteractiveCarouselPayload).cards
+    if (!Array.isArray(cards) || cards.length < INTERACTIVE_LIMITS.minCarouselCards) {
+      return fail(`A carousel requires at least ${INTERACTIVE_LIMITS.minCarouselCards} cards.`)
+    }
+    if (cards.length > INTERACTIVE_LIMITS.maxCarouselCards) {
+      return fail(`A carousel allows at most ${INTERACTIVE_LIMITS.maxCarouselCards} cards.`)
+    }
+    const firstButtonCount = cards[0]?.buttons?.length ?? 0
+    const seen = new Set<string>()
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i]
+      if (!card || typeof card !== 'object') {
+        return fail(`Card ${i + 1} is invalid.`)
+      }
+      if (!card.header_image_url || typeof card.header_image_url !== 'string' || card.header_image_url.trim() === '') {
+        return fail(`Card ${i + 1} needs a header image URL.`)
+      }
+      if (card.body_text && card.body_text.length > INTERACTIVE_LIMITS.carouselCardBodyMaxLength) {
+        return fail(`Card ${i + 1} body text exceeds the ${INTERACTIVE_LIMITS.carouselCardBodyMaxLength}-character limit.`)
+      }
+      if (!Array.isArray(card.buttons) || card.buttons.length < 1) {
+        return fail(`Card ${i + 1} needs at least one button.`)
+      }
+      if (card.buttons.length > INTERACTIVE_LIMITS.maxCarouselCardButtons) {
+        return fail(`Card ${i + 1} allows at most ${INTERACTIVE_LIMITS.maxCarouselCardButtons} buttons.`)
+      }
+      if (card.buttons.length !== firstButtonCount) {
+        return fail('All carousel cards must have the same number of buttons.')
+      }
+      for (const b of card.buttons) {
+        if (!b || typeof b.id !== 'string' || b.id.trim() === '') {
+          return fail(`Every button on card ${i + 1} needs an id.`)
+        }
+        if (seen.has(b.id)) {
+          return fail(`Duplicate button id "${b.id}".`)
+        }
+        seen.add(b.id)
+        if (typeof b.title !== 'string' || b.title.trim() === '') {
+          return fail(`Every button on card ${i + 1} needs a label.`)
+        }
+        if (b.title.length > INTERACTIVE_LIMITS.carouselButtonTitleMaxLength) {
+          return fail(
+            `Button label "${b.title}" exceeds the ${INTERACTIVE_LIMITS.carouselButtonTitleMaxLength}-character limit.`,
+          )
+        }
+      }
+    }
+    return ok()
+  }
+
+  return fail('Interactive message must be reply buttons, a list, or a carousel.')
 }
 
 /**
@@ -235,5 +303,9 @@ export function interactivePayloadPreviewText(
 ): string {
   const body = payload.body?.trim()
   if (body) return body
-  return payload.kind === 'buttons' ? '[buttons]' : '[list]'
+  return payload.kind === 'buttons'
+    ? '[buttons]'
+    : payload.kind === 'list'
+      ? '[list]'
+      : '[carousel]'
 }

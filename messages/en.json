@@ -1498,7 +1498,19 @@
         "uploadFailed": "Upload failed.",
         "fileTooLarge": "File is {size} MB — limit is 16 MB.",
         "defaultOptionTitle": "Option",
-        "optionN": "Option {n}"
+        "optionN": "Option {n}",
+        "carouselCardsHelp": "Carousel cards (2–10) — swipeable cards with images and buttons",
+        "cardN": "Card {n}",
+        "addCard": "Add card",
+        "removeCard": "Remove card",
+        "cardImageLabel": "Card header image (required)",
+        "cardImageUrlPlaceholder": "https://example.com/image.jpg or upload below",
+        "cardBodyLabel": "Card description (≤160 chars)",
+        "cardBodyPlaceholder": "Describe this item or offer…",
+        "cardButtonsHelp": "Card buttons — each routes to a flow step",
+        "cardButtonsMatchHint": "WhatsApp requires all cards to have the same number of buttons.",
+        "cardButtonTitlePlaceholder": "Button label (≤25 chars)",
+        "uploadCardImage": "Upload image"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1525,6 +1537,10 @@
         "send_media": {
           "label": "Send media",
           "blurb": "Sends an image, video, or document"
+        },
+        "send_carousel": {
+          "label": "Send carousel",
+          "blurb": "Sends scrollable cards with buttons"
         },
         "collect_input": {
           "label": "Collect input",
@@ -2627,6 +2643,21 @@
       "rowDescriptionTooLong": "Row {n} description exceeds {max} chars.",
       "rowNeedsNext": "Row {n} needs a next node.",
       "rowMissingNext": "Row {n} points to non-existent node \"{key}\".",
+      "sendCarouselNeedsText": "Send-carousel node needs a message body.",
+      "sendCarouselNeedsCards": "Send-carousel needs at least 2 cards (WhatsApp requirement).",
+      "tooManyCarouselCards": "WhatsApp allows at most {max} cards per carousel.",
+      "carouselCardNeedsImage": "Card {n} needs a header image.",
+      "carouselCardNeedsBody": "Card {n} needs description text.",
+      "carouselCardBodyTooLong": "Card {n} description exceeds {max} characters.",
+      "carouselCardNeedsButton": "Card {n} needs at least one button.",
+      "carouselCardTooManyButtons": "Card {n} can have at most {max} buttons.",
+      "carouselCardsButtonCountMismatch": "All cards in a carousel must have the same number of buttons (WhatsApp requirement).",
+      "carouselButtonNeedsReplyId": "Button {btn} on card {card} needs a reply ID.",
+      "carouselDuplicateButtonReplyId": "Duplicate button reply ID \"{id}\" on carousel.",
+      "carouselButtonNeedsTitle": "Button {btn} on card {card} needs a title.",
+      "carouselButtonTitleTooLong": "Button {btn} on card {card} title is over {max} chars (WhatsApp limit).",
+      "carouselButtonNeedsNext": "Button {btn} on card {card} needs a next node.",
+      "carouselButtonMissingNext": "Button {btn} on card {card} points to non-existent node \"{key}\".",
       "collectNeedsPrompt": "Collect-input needs a prompt to send the customer.",
       "collectNeedsVarKey": "Collect-input needs a var_key to store the answer under.",
       "invalidVarKey": "var_key \"{key}\" must be alphanumeric+underscore and start with a letter or underscore.",

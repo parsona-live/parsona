@@ -138,6 +138,34 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "send_carousel": {
+        const cards = Array.isArray((cfg as { cards?: unknown }).cards)
+          ? ((cfg as { cards: Array<Record<string, unknown>> }).cards)
+          : [];
+        for (let cardIdx = 0; cardIdx < cards.length; cardIdx++) {
+          const card = cards[cardIdx];
+          const buttons = Array.isArray(card.buttons)
+            ? (card.buttons as Array<Record<string, unknown>>)
+            : [];
+          for (const btn of buttons) {
+            const replyId =
+              typeof btn.reply_id === "string" ? btn.reply_id : null;
+            const next =
+              typeof btn.next_node_key === "string" ? btn.next_node_key : null;
+            const title = typeof btn.title === "string" ? btn.title : null;
+            if (!replyId || !next || !knownKeys.has(next)) continue;
+            edges.push({
+              id: `${node.node_key}--card:${cardIdx}:btn:${replyId}--${next}`,
+              source: node.node_key,
+              target: next,
+              sourceHandle: `card:${cardIdx}:btn:${replyId}`,
+              label: title ? `Card ${cardIdx + 1}: ${title}` : title ?? replyId,
+            });
+          }
+        }
+        break;
+      }
+
       case "handoff":
       case "end":
         // Terminal nodes — no outgoing edges.
@@ -226,6 +254,31 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
       return slots;
     }
 
+    case "send_carousel": {
+      const cards = Array.isArray((cfg as { cards?: unknown }).cards)
+        ? ((cfg as { cards: Array<Record<string, unknown>> }).cards)
+        : [];
+      const slots: OutgoingSlot[] = [];
+      for (let cardIdx = 0; cardIdx < cards.length; cardIdx++) {
+        const card = cards[cardIdx];
+        const buttons = Array.isArray(card.buttons)
+          ? (card.buttons as Array<Record<string, unknown>>)
+          : [];
+        for (let btnIdx = 0; btnIdx < buttons.length; btnIdx++) {
+          const btn = buttons[btnIdx];
+          const replyId =
+            typeof btn.reply_id === "string" ? btn.reply_id : null;
+          if (!replyId) continue;
+          const title = typeof btn.title === "string" ? btn.title : null;
+          slots.push({
+            id: `card:${cardIdx}:btn:${replyId}`,
+            label: title ? `Card ${cardIdx + 1}: ${title}` : `Card ${cardIdx + 1} Button ${btnIdx + 1}`,
+          });
+        }
+      }
+      return slots;
+    }
+
     case "handoff":
     case "end":
       return [];
@@ -308,6 +361,37 @@ export function applyEdgeConnection(
         };
       });
       return matched ? { sections: next } : null;
+    }
+
+    case "send_carousel": {
+      const replyId = sourceHandle.includes(":btn:")
+        ? sourceHandle.slice(sourceHandle.indexOf(":btn:") + ":btn:".length)
+        : sourceHandle.startsWith("button:")
+          ? sourceHandle.slice("button:".length)
+          : null;
+      if (!replyId) return null;
+      const cards = Array.isArray(
+        (node.config as { cards?: unknown }).cards,
+      )
+        ? (node.config as {
+            cards: Array<Record<string, unknown>>;
+          }).cards
+        : [];
+      let matched = false;
+      const nextCards = cards.map((c) => {
+        const buttons = Array.isArray(c.buttons)
+          ? (c.buttons as Array<Record<string, unknown>>)
+          : [];
+        if (!buttons.some((b) => b.reply_id === replyId)) return c;
+        matched = true;
+        return {
+          ...c,
+          buttons: buttons.map((b) =>
+            b.reply_id === replyId ? { ...b, next_node_key: targetKey } : b,
+          ),
+        };
+      });
+      return matched ? { cards: nextCards } : null;
     }
 
     case "handoff":
@@ -402,6 +486,31 @@ function patchedConfigWithoutKey(
         };
       });
       return dirty ? { ...cfg, sections: next } : null;
+    }
+
+    case "send_carousel": {
+      const cards = Array.isArray((cfg as { cards?: unknown }).cards)
+        ? (cfg as {
+            cards: Array<Record<string, unknown>>;
+          }).cards
+        : [];
+      let dirty = false;
+      const nextCards = cards.map((c) => {
+        const buttons = Array.isArray(c.buttons)
+          ? (c.buttons as Array<Record<string, unknown>>)
+          : [];
+        return {
+          ...c,
+          buttons: buttons.map((b) => {
+            if (b.next_node_key === deletedKey) {
+              dirty = true;
+              return { ...b, next_node_key: "" };
+            }
+            return b;
+          }),
+        };
+      });
+      return dirty ? { ...cfg, cards: nextCards } : null;
     }
 
     case "handoff":

@@ -324,8 +324,15 @@ const EVENT_COLOR: Record<string, string> = {
 
 function EventLine({ ev }: { ev: EventRow }) {
   const cls = EVENT_COLOR[ev.event_type] ?? "text-muted-foreground";
+  const summary = summarizePayload(ev.payload);
+  const isError = ev.event_type === "error";
   return (
-    <div className="flex items-start gap-2 rounded-md px-2 py-1 text-xs">
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-md px-2 py-1 text-xs",
+        isError && "bg-destructive/10",
+      )}
+    >
       <span className="w-32 shrink-0 text-[10px] text-muted-foreground">
         {format(new Date(ev.created_at), "HH:mm:ss")}
       </span>
@@ -337,9 +344,15 @@ function EventLine({ ev }: { ev: EventRow }) {
           {ev.node_key}
         </code>
       )}
-      {Object.keys(ev.payload).length > 0 && (
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
-          {summarizePayload(ev.payload)}
+      {summary && (
+        <span
+          title={summary}
+          className={cn(
+            "min-w-0 text-[10px]",
+            isError ? "text-red-400 font-mono break-all" : "truncate text-muted-foreground",
+          )}
+        >
+          {summary}
         </span>
       )}
     </div>
@@ -349,10 +362,13 @@ function EventLine({ ev }: { ev: EventRow }) {
 function summarizePayload(payload: Record<string, unknown>): string {
   // Show the keys that matter most to a human debugger; full JSON is
   // available via the "Captured vars" details panel for the run.
-  const keys = ["reply_id", "captured_key", "reason", "advancing_to"];
+  if (payload.reason && payload.detail) {
+    return `${String(payload.reason)}: ${String(payload.detail)}`;
+  }
+  const keys = ["reply_id", "captured_key", "detail", "reason", "advancing_to"];
   for (const k of keys) {
     if (k in payload && payload[k] !== null && payload[k] !== undefined) {
-      return `${k}=${String(payload[k]).slice(0, 80)}`;
+      return `${k}=${String(payload[k])}`;
     }
   }
   return "";
