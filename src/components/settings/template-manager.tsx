@@ -553,16 +553,16 @@ export function TemplateManager() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {templates.map((template) => {
             const statusKey = template.status || 'DRAFT';
             const status = templateStatusConfig[statusKey];
             return (
-              <Card key={template.id}>
-                <CardContent className="flex items-start justify-between pt-4">
+              <div key={template.id} className="group overflow-hidden border border-border/60 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 bg-card/80 backdrop-blur h-full flex flex-col">
+                <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
                   <div className="space-y-2 min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-foreground">{template.name}</h3>
+                      <h3 className="font-semibold text-foreground text-base leading-tight">{template.name}</h3>
                       <Badge
                         className={`text-xs border ${categoryColors[template.category] || ''}`}
                       >
@@ -572,7 +572,7 @@ export function TemplateManager() {
                         {status.label}
                       </Badge>
                       {template.language && (
-                        <span className="text-xs text-muted-foreground uppercase">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">
                           {template.language}
                         </span>
                       )}
@@ -591,24 +591,8 @@ export function TemplateManager() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {template.body_text}
-                    </p>
-                    {template.footer_text && (
-                      <p className="text-xs text-muted-foreground italic">
-                        {template.footer_text}
-                      </p>
-                    )}
-                    {(template.rejection_reason || template.submission_error) && (
-                      <div className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border border-red-900/40 rounded px-2 py-1.5">
-                        <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
-                        <span>
-                          {template.rejection_reason || template.submission_error}
-                        </span>
-                      </div>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <div className="flex items-center gap-0.5 shrink-0 -mt-1 -mr-1">
                     {statusKey === 'APPROVED' && (
                       <Button
                         variant="ghost"
@@ -616,9 +600,9 @@ export function TemplateManager() {
                         onClick={() => openEdit(template)}
                         title={t('editTitle')}
                         aria-label={t('editLabel')}
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
+                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-7 px-2 text-xs"
                       >
-                        <Pencil className="size-3.5" />
+                        <Pencil className="size-3" />
                         {t('edit')}
                       </Button>
                     )}
@@ -629,9 +613,9 @@ export function TemplateManager() {
                         onClick={() => openEdit(template)}
                         title={t('resubmitTitle')}
                         aria-label={t('resubmitLabel')}
-                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2"
+                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-7 px-2 text-xs"
                       >
-                        <RotateCcw className="size-3.5" />
+                        <RotateCcw className="size-3" />
                         {t('resubmit')}
                       </Button>
                     )}
@@ -650,17 +634,76 @@ export function TemplateManager() {
                           ? t('deleteMetaLocallyTitle')
                           : t('deleteLocallyTitle')
                       }
-                      className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 h-8 w-8"
+                      className="text-muted-foreground hover:text-red-400 hover:bg-red-950/30 h-7 w-7"
                     >
                       {deletingId === template.id ? (
-                        <Loader2 className="size-4 animate-spin" />
+                        <Loader2 className="size-3.5 animate-spin" />
                       ) : (
-                        <Trash2 className="size-4" />
+                        <Trash2 className="size-3.5" />
                       )}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                
+                <div className="px-5 pb-4 flex-1 flex flex-col">
+                  <div className="flex justify-center py-1 mb-3">
+                    <div className="rounded-2xl bg-[#f7f7f7] dark:bg-[#1f2c33] text-[#111b21] dark:text-[#e9edef] rounded-bl-md px-3 py-2 max-w-[280px] w-full shadow-sm">
+                      {template.header_type === 'text' && template.header_content && (
+                        <p className="text-sm font-semibold break-words mb-1">
+                          {template.header_content}
+                        </p>
+                      )}
+                      {(template.header_type === 'image' ||
+                        template.header_type === 'video' ||
+                        template.header_type === 'document') && (
+                        <div className="mb-2 rounded-md overflow-hidden">
+                          {template.header_type === 'image' && template.header_media_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={template.header_media_url}
+                              alt=""
+                              className="w-full max-h-32 object-cover"
+                            />
+                          ) : (
+                            <div className="h-20 flex items-center justify-center bg-black/5 dark:bg-white/5 text-xs text-[#667781] dark:text-[#8696a0] uppercase">
+                              {template.header_type}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap break-words">
+                        {template.body_text}
+                      </p>
+                      {template.footer_text && (
+                        <p className="mt-1.5 text-[11px] text-[#667781] dark:text-[#8696a0] italic break-words">
+                          {template.footer_text}
+                        </p>
+                      )}
+                      {(template.buttons ?? []).length > 0 && (
+                        <div className="mt-2 flex flex-col border-t border-black/5 dark:border-white/10">
+                          {(template.buttons ?? []).map((btn, i) => (
+                            <span
+                              key={i}
+                              className="flex items-center justify-center gap-1.5 border-t border-black/5 dark:border-white/10 py-1.5 text-sm font-medium first:border-t-0 text-[#25d366]"
+                            >
+                              {btn.text}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {(template.rejection_reason || template.submission_error) && (
+                  <div className="flex items-start gap-1.5 text-xs text-red-400 bg-red-950/20 border-t border-red-900/40 px-5 py-2">
+                    <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                    <span className="break-words">
+                      {template.rejection_reason || template.submission_error}
+                    </span>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
