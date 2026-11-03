@@ -319,8 +319,10 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
       text: 'oklch(0.45 0.18 220)',
     },
     defaultConfig: {
+      to_email: '{{contact.email}}',
       subject: '',
       body: '',
+      use_custom_smtp: false,
       smtp_host: '',
       smtp_port: '587',
       username: '',

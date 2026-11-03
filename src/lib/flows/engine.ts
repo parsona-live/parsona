@@ -49,6 +49,7 @@ import { resolveFallbackPolicy, decideFallback } from "./fallback";
 import { classifyInputOrInterruption } from "./ai-classifier";
 import { localizeNode } from "./localization";
 import { loadAiConfig } from "@/lib/ai/config";
+import { dispatchEmail, type EmailConfigData } from "@/lib/email/email-service";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
@@ -68,6 +69,7 @@ import {
   type SendListNodeConfig,
   type SendLocationNodeConfig,
   type SendMediaNodeConfig,
+  type SendEmailNodeConfig,
   type SendMessageNodeConfig,
   type SetTagNodeConfig,
   type StartNodeConfig,
@@ -1243,10 +1245,83 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "send_email") {
-      const cfg = node.config as { subject?: string; body?: string; next_node_key?: string };
+      const cfg = node.config as unknown as SendEmailNodeConfig;
+      let rawTo = cfg.to_email || "{{contact.email}}";
+      let toEmail = interpolateVars(rawTo, run.vars).trim();
+
+      // If toEmail unresolved, check run.vars.email or fetch from contact
+      if ((!toEmail || toEmail === "{{contact.email}}") && run.contact_id) {
+        const { data: contact } = await db
+          .from("contacts")
+          .select("email")
+          .eq("id", run.contact_id)
+          .maybeSingle();
+        if (contact?.email) {
+          toEmail = contact.email;
+        }
+      }
+
+      const subject = interpolateVars(cfg.subject || "", run.vars);
+      const body = interpolateVars(cfg.body || "", run.vars);
+
+      let deliveryResult: { success: boolean; messageId?: string; error?: string } = {
+        success: false,
+        error: "Recipient email is missing or empty",
+      };
+
+      if (toEmail && toEmail.includes("@")) {
+        try {
+          let emailConfig: EmailConfigData | null = null;
+
+          if (cfg.use_custom_smtp && cfg.smtp_host) {
+            emailConfig = {
+              provider: "smtp",
+              smtp_host: cfg.smtp_host,
+              smtp_port: cfg.smtp_port,
+              smtp_username: cfg.username,
+              smtp_password: cfg.password,
+              smtp_encryption: cfg.encryption,
+              from_name: cfg.from_name,
+              from_email: cfg.from_email || "noreply@domain.com",
+            };
+          } else {
+            // Centralized workspace configuration from email_configs
+            const { data: savedConfig } = await db
+              .from("email_configs")
+              .select("*")
+              .eq("account_id", run.account_id)
+              .maybeSingle();
+
+            if (savedConfig) {
+              emailConfig = savedConfig as EmailConfigData;
+            }
+          }
+
+          if (emailConfig) {
+            deliveryResult = await dispatchEmail(emailConfig, {
+              toEmail,
+              subject,
+              body,
+            });
+          } else {
+            deliveryResult = {
+              success: false,
+              error: "No email integration configured. Please configure Brevo API or SMTP in Settings > Email.",
+            };
+          }
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          deliveryResult = { success: false, error: errMsg };
+        }
+      }
+
       await logEvent(db, run.id, "node_entered", node.node_key, {
         action: "send_email",
-        subject: interpolateVars(cfg.subject || "", run.vars),
+        to: toEmail,
+        subject,
+        success: deliveryResult.success,
+        messageId: deliveryResult.messageId,
+        error: deliveryResult.error,
       });
       currentKey = cfg.next_node_key || "";
       continue;

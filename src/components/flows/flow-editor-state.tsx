@@ -289,8 +289,10 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       };
     case "send_email":
       return {
+        to_email: "{{contact.email}}",
         subject: "",
         body: "",
+        use_custom_smtp: false,
         smtp_host: "",
         smtp_port: "587",
         username: "",

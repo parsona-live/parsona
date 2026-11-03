@@ -300,8 +300,10 @@ export interface AiResponseNodeConfig {
 }
 
 export interface SendEmailNodeConfig {
+  to_email?: string;
   subject: string;
   body: string;
+  use_custom_smtp?: boolean;
   smtp_host?: string;
   smtp_port?: number | string;
   username?: string;

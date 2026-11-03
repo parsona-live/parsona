@@ -4,24 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
 import { useTranslations } from "next-intl";
 
 import { FlowEditorShell } from "@/components/flows/flow-editor-shell";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 
-/**
- * Flow editor shell.
- *
- * Loads `{flow, nodes}` from `/api/flows/[id]` and hands it to
- * `<FlowBuilder>`. Owns the loading/error state so the builder can
- * focus purely on editing.
- *
- * Open to every authenticated user — the beta gate that previously
- * 404'd non-beta accounts was removed in PR #134. The API still
- * 404s on a flow id the caller doesn't own (RLS), which becomes the
- * "Flow not found" state below.
- */
 export default function FlowEditorPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -43,10 +30,7 @@ export default function FlowEditorPage() {
           return;
         }
         if (!res.ok) throw new Error(`Failed: ${res.status}`);
-        const json = (await res.json()) as {
-          flow: FlowRow;
-          nodes: FlowNodeRow[];
-        };
+        const json = (await res.json()) as { flow: FlowRow; nodes: FlowNodeRow[] };
         if (!cancelled) {
           setFlow(json.flow);
           setNodes(json.nodes ?? []);
@@ -63,18 +47,19 @@ export default function FlowEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [params.id]);
+  }, [params.id, t]);
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-white">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
   if (notFound || !flow) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center gap-3 bg-white">
         <p className="text-sm text-muted-foreground">{t("notFound")}</p>
         <button
           type="button"

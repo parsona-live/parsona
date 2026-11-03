@@ -479,13 +479,14 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
 
         case 'send_email': {
           const subject = (cfg.subject as string) || 'Notification';
+          const to = (cfg.to_email as string) || 'contact@example.com';
           const next = cfg.next_node_key as string | undefined;
           const nextHistory: ChatMessage[] = [
             ...currentHistory,
             {
               id: `act-${Date.now()}-${Math.random()}`,
               sender: 'system',
-              actionBadge: { icon: Mail, label: 'Email Dispatched', detail: subject },
+              actionBadge: { icon: Mail, label: 'Email Dispatched', detail: `${subject} (to: ${to})` },
               timestamp: time,
             },
           ];

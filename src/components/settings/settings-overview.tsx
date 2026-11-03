@@ -212,6 +212,11 @@ export function SettingsOverview({
             })}`,
     },
     {
+      section: 'email',
+      loading: false,
+      subtitle: 'Brevo API & Custom SMTP delivery',
+    },
+    {
       section: 'appearance',
       loading: false,
       subtitle: t('appearance', { mode: cap(mode), theme: themeName }),

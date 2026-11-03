@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Mail, Server, ExternalLink, Sparkles } from 'lucide-react';
 
 // ============================================================
 // AI Response Action Form (From User Mockup)
@@ -140,8 +141,10 @@ export function SendEmailForm({
   config: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
 }) {
+  const toEmail = (config.to_email as string) ?? '{{contact.email}}';
   const subject = (config.subject as string) || '';
   const body = (config.body as string) || '';
+  const useCustomSmtp = Boolean(config.use_custom_smtp);
   const smtpHost = (config.smtp_host as string) || '';
   const smtpPort = (config.smtp_port as string) || '587';
   const username = (config.username as string) || '';
@@ -153,18 +156,49 @@ export function SendEmailForm({
 
   return (
     <div className="space-y-4 text-xs text-slate-700">
-      {/* Email Content Section */}
+      {/* Email Recipient Section */}
       <div className="space-y-3">
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-          Email Content
+          Recipient &amp; Content
         </p>
+
+        {/* To Email with Variable Pills */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-800">To (Recipient Email)</Label>
+            <span className="text-[10px] text-slate-400">Defaults to contact email</span>
+          </div>
+          <Input
+            value={toEmail}
+            onChange={(e) => onChange({ to_email: e.target.value })}
+            placeholder="e.g., {{contact.email}}, {{vars.email}}, or user@domain.com"
+            className="h-8 text-xs font-mono border-slate-200"
+          />
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <span className="text-[10.5px] text-slate-500">Quick Insert:</span>
+            <button
+              type="button"
+              onClick={() => onChange({ to_email: '{{contact.email}}' })}
+              className="rounded border border-blue-200 bg-blue-50/70 px-1.5 py-0.5 text-[10px] font-mono text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              {'{{contact.email}}'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ to_email: '{{vars.email}}' })}
+              className="rounded border border-indigo-200 bg-indigo-50/70 px-1.5 py-0.5 text-[10px] font-mono text-indigo-700 hover:bg-indigo-100 transition-colors"
+            >
+              {'{{vars.email}}'}
+            </button>
+          </div>
+        </div>
 
         <div className="space-y-1">
           <Label className="text-xs font-semibold text-slate-800">Subject</Label>
           <Input
             value={subject}
             onChange={(e) => onChange({ subject: e.target.value })}
-            placeholder="e.g., Welcome to our service"
+            placeholder="e.g., Welcome to our service {{contact.name}}"
             className="h-8 text-xs border-slate-200"
           />
         </div>
@@ -174,109 +208,146 @@ export function SendEmailForm({
           <Textarea
             value={body}
             onChange={(e) => onChange({ body: e.target.value })}
-            placeholder="Write your email body here... supports {{vars.*}}"
+            placeholder="Write your email body here... supports {{vars.*}} and {{contact.*}}"
             rows={4}
             className="text-xs resize-y border-slate-200"
           />
         </div>
       </div>
 
-      {/* SMTP Settings Section */}
+      {/* Centralized Email Integration / Override Section */}
       <div className="space-y-3 pt-2 border-t border-slate-100">
-        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-          SMTP Settings
-        </p>
-
-        <div className="grid grid-cols-3 gap-2">
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">SMTP Host</Label>
-            <Input
-              value={smtpHost}
-              onChange={(e) => onChange({ smtp_host: e.target.value })}
-              placeholder="e.g., smtp.gmail.com"
-              className="h-8 text-xs border-slate-200"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">SMTP Port</Label>
-            <Input
-              value={smtpPort}
-              onChange={(e) => onChange({ smtp_port: e.target.value })}
-              placeholder="587"
-              className="h-8 text-xs border-slate-200"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">Username</Label>
-            <Input
-              value={username}
-              onChange={(e) => onChange({ username: e.target.value })}
-              placeholder="your-email@gmail.com"
-              className="h-8 text-xs border-slate-200"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">Password</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => onChange({ password: e.target.value })}
-              placeholder="App password or API key"
-              className="h-8 text-xs border-slate-200"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">Encryption</Label>
-            <Select
-              value={encryption}
-              onValueChange={(val) => onChange({ encryption: val })}
-            >
-              <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tls">TLS</SelectItem>
-                <SelectItem value="ssl">SSL</SelectItem>
-                <SelectItem value="none">None</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-800">From Name</Label>
-            <Input
-              value={fromName}
-              onChange={(e) => onChange({ from_name: e.target.value })}
-              placeholder="Your Company Name"
-              className="h-8 text-xs border-slate-200"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-slate-800">From Email</Label>
-          <Input
-            value={fromEmail}
-            onChange={(e) => onChange({ from_email: e.target.value })}
-            placeholder="noreply@yourdomain.com"
-            className="h-8 text-xs border-slate-200"
-          />
-          <p className="text-[11px] text-slate-500">
-            This must be a valid email address that you're authorized to send from through your SMTP provider.
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            Email Delivery Provider
           </p>
+          <a
+            href="/settings?tab=email"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] text-blue-600 hover:underline flex items-center gap-0.5"
+          >
+            Manage Settings
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
+
+        {!useCustomSmtp ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+            <div className="flex items-start gap-2.5">
+              <Server className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="space-y-0.5 min-w-0">
+                <p className="text-xs font-semibold text-slate-800">Using Workspace Centralized Provider</p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  This email will be dispatched using your centralized Brevo API or SMTP configuration defined in Workspace Settings.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex items-center space-x-2 pt-1">
+          <Checkbox
+            id="use-custom-smtp"
+            checked={useCustomSmtp}
+            onCheckedChange={(checked) => onChange({ use_custom_smtp: !!checked })}
+          />
+          <Label htmlFor="use-custom-smtp" className="text-xs font-medium cursor-pointer text-slate-700">
+            Override provider settings for this node
+          </Label>
+        </div>
+
+        {useCustomSmtp ? (
+          <div className="space-y-3 pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">SMTP Host</Label>
+                <Input
+                  value={smtpHost}
+                  onChange={(e) => onChange({ smtp_host: e.target.value })}
+                  placeholder="e.g., smtp-relay.brevo.com"
+                  className="h-8 text-xs border-slate-200"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">SMTP Port</Label>
+                <Input
+                  value={smtpPort}
+                  onChange={(e) => onChange({ smtp_port: e.target.value })}
+                  placeholder="587"
+                  className="h-8 text-xs border-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">Username</Label>
+                <Input
+                  value={username}
+                  onChange={(e) => onChange({ username: e.target.value })}
+                  placeholder="login@email.com"
+                  className="h-8 text-xs border-slate-200"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">Password / Key</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => onChange({ password: e.target.value })}
+                  placeholder="App password or key"
+                  className="h-8 text-xs border-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">Encryption</Label>
+                <Select
+                  value={encryption}
+                  onValueChange={(val) => onChange({ encryption: val })}
+                >
+                  <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tls">TLS</SelectItem>
+                    <SelectItem value="ssl">SSL</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-800">From Name</Label>
+                <Input
+                  value={fromName}
+                  onChange={(e) => onChange({ from_name: e.target.value })}
+                  placeholder="Your Company Name"
+                  className="h-8 text-xs border-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-800">From Email</Label>
+              <Input
+                value={fromEmail}
+                onChange={(e) => onChange({ from_email: e.target.value })}
+                placeholder="noreply@yourdomain.com"
+                className="h-8 text-xs border-slate-200"
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {/* Explanatory Info Card (From Mockup) */}
+      {/* Explanatory Info Card */}
       <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-[11.5px] text-slate-700 space-y-1">
         <p className="font-semibold text-blue-900">What happens:</p>
         <p className="text-slate-600">
-          An email will be sent to the contact using the configured SMTP settings. The email will be sent from the configured SMTP account to the contact's email address.
+          An email will be sent to the specified recipient (supports variables like {'{{contact.email}}'} or {'{{vars.email}}'}). By default, it uses your centralized Brevo API or SMTP credentials from Settings.
         </p>
       </div>
 

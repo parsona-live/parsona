@@ -15,6 +15,7 @@ const tablesWithoutDomainData = new Set([
   "member_presence",
   "pending_message_statuses",
   "business_profiles",
+  "email_configs",
 ]);
 
 function accountScopedTables(): Set<string> {
