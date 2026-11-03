@@ -42,7 +42,9 @@ import {
   engineSendLocation,
   engineSendMedia,
   engineSendText,
+  loadAccountMetaCredentials,
 } from "./meta-send";
+import { sendTypingIndicator } from "@/lib/whatsapp/meta-api";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
@@ -1328,6 +1330,33 @@ async function advanceCurrentNodeKey(
   return Array.isArray(data) && data.length > 0;
 }
 
+/**
+ * Best-effort typing indicator for an inbound message handled by Flows.
+ * Marks the inbound message as read and shows "typing..." to the customer
+ * immediately while the workflow processes.
+ */
+async function showFlowTypingIndicator(
+  db: AdminClient,
+  accountId: string,
+  messageId?: string,
+): Promise<void> {
+  if (!messageId || process.env.NODE_ENV === "test" || process.env.VITEST) return;
+  try {
+    const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
+      db as any,
+      accountId,
+    );
+    await sendTypingIndicator({
+      phoneNumberId,
+      accessToken,
+      messageId,
+    });
+  } catch (err) {
+    // Best effort - never block the flow if typing indicator fails
+    console.warn("[flows] typing indicator failed (continuing):", err);
+  }
+}
+
 async function claimReplyTransition(
   db: AdminClient,
   run: FlowRunRow,
@@ -1337,29 +1366,53 @@ async function claimReplyTransition(
   const fromKey = run.current_node_key;
   if (fromKey === null) return false;
   const nextSeq = (run.transition_seq ?? 0) + 1;
-  const { data, error } = await db
-    .from("flow_runs")
-    .update({
-      ...extra,
-      current_node_key: nextNodeKey,
-      transition_seq: nextSeq,
-      reprompt_count: 0,
-      last_advanced_at: new Date().toISOString(),
-    })
-    .eq("id", run.id)
-    .eq("status", "active")
-    .eq("current_node_key", fromKey)
-    .eq("transition_seq", run.transition_seq ?? 0)
-    .select("id");
-  if (error) {
-    console.error("[flows] claimReplyTransition error:", error.message);
-    return false;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data, error } = await db
+        .from("flow_runs")
+        .update({
+          ...extra,
+          current_node_key: nextNodeKey,
+          transition_seq: nextSeq,
+          reprompt_count: 0,
+          last_advanced_at: new Date().toISOString(),
+        })
+        .eq("id", run.id)
+        .eq("status", "active")
+        .eq("current_node_key", fromKey)
+        .eq("transition_seq", run.transition_seq ?? 0)
+        .select("id");
+
+      if (error) {
+        const isTransient =
+          error.message?.includes("fetch failed") ||
+          error.message?.includes("network") ||
+          error.message?.includes("ECONNRESET") ||
+          error.message?.includes("ETIMEDOUT");
+        if (isTransient && attempt < 2) {
+          await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+          continue;
+        }
+        console.error("[flows] claimReplyTransition error:", error.message);
+        return false;
+      }
+
+      if (!Array.isArray(data) || data.length !== 1) return false;
+      run.current_node_key = nextNodeKey;
+      run.transition_seq = nextSeq;
+      run.reprompt_count = 0;
+      return true;
+    } catch (err: any) {
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+        continue;
+      }
+      console.error("[flows] claimReplyTransition exception:", err?.message ?? err);
+      return false;
+    }
   }
-  if (!Array.isArray(data) || data.length !== 1) return false;
-  run.current_node_key = nextNodeKey;
-  run.transition_seq = nextSeq;
-  run.reprompt_count = 0;
-  return true;
+  return false;
 }
 
 async function closeActiveRun(
@@ -1428,6 +1481,8 @@ export async function dispatchInboundToFlows(
         now,
       });
       if (!closure) {
+        // Fire typing indicator immediately so customer sees "typing..." instantly
+        void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
         return handleReplyForActiveRun(
           db,
           activeRun,
@@ -1450,6 +1505,8 @@ export async function dispatchInboundToFlows(
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
     }
+    // Fire typing indicator immediately as new flow run starts
+    void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
     const nodes = await loadAllNodes(db, flow.id);
     return startNewRun(db, flow, input, nodes);
   } catch (err) {

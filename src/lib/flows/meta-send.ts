@@ -42,16 +42,36 @@ const t = getT('LibErrors')
 // keeps the foundation PR self-contained and unit-testable.
 // ------------------------------------------------------------
 
+interface CachedCreds {
+  phoneNumberId: string
+  accessToken: string
+  expiresAt: number
+}
+const credsCache = new Map<string, CachedCreds>()
+
+export function invalidateAccountMetaCredentialsCache(accountId?: string) {
+  if (accountId) {
+    credsCache.delete(accountId)
+  } else {
+    credsCache.clear()
+  }
+}
+
 /**
  * Resolve the account's Meta sending credentials: the phone number id
  * plus the DECRYPTED access token from `whatsapp_config`. The single
  * home for that decrypt step — callers outside this file (the AI
  * auto-reply's typing indicator) reuse it rather than growing a copy.
+ * Cached in-memory for 60s to avoid redundant DB round-trips on every node.
  */
 export async function loadAccountMetaCredentials(
   db: ReturnType<typeof supabaseAdmin>,
   accountId: string,
 ): Promise<{ phoneNumberId: string; accessToken: string }> {
+  const cached = credsCache.get(accountId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { phoneNumberId: cached.phoneNumberId, accessToken: cached.accessToken }
+  }
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
     .select('phone_number_id, access_token')
@@ -60,10 +80,12 @@ export async function loadAccountMetaCredentials(
   if (configErr || !config) {
     throw new Error(t('send.notConfigured'))
   }
-  return {
+  const creds = {
     phoneNumberId: config.phone_number_id,
     accessToken: decrypt(config.access_token),
   }
+  credsCache.set(accountId, { ...creds, expiresAt: Date.now() + 60_000 })
+  return creds
 }
 
 interface SendTextEngineArgs {

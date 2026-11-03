@@ -14,6 +14,10 @@ vi.mock("./admin-client", async () => {
 });
 
 vi.mock("./meta-send", () => ({
+  loadAccountMetaCredentials: vi.fn(async () => ({
+    phoneNumberId: "phone_1",
+    accessToken: "token_1",
+  })),
   engineSendText: h.sendText,
   engineSendMedia: vi.fn(async () => ({ whatsapp_message_id: "wamid.media" })),
   engineSendInteractiveButtons: h.sendButtons,
