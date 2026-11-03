@@ -50,6 +50,16 @@ import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow, HeaderMediaSelector } from "./fields";
+import {
+  AiResponseForm,
+  SendEmailForm,
+  TriggerNodeForm,
+  DelayForm,
+  WebhookForm,
+  UpdateContactForm,
+  WhatsAppPaymentForm,
+  CreateDealForm,
+} from "./action-node-forms";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -250,6 +260,7 @@ export function NodeConfigForm({
       );
 
     case "handoff":
+    case "agent_handover":
       return (
         <TextRow
           label={t("internalNote")}
@@ -257,6 +268,161 @@ export function NodeConfigForm({
           onChange={(v) => onUpdateConfig({ note: v })}
           rows={2}
         />
+      );
+
+    case "trigger":
+      return (
+        <div className="space-y-4">
+          <TriggerNodeForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "ai_response":
+      return (
+        <div className="space-y-4">
+          <AiResponseForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "send_email":
+      return (
+        <div className="space-y-4">
+          <SendEmailForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "delay":
+      return (
+        <div className="space-y-4">
+          <DelayForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "webhook":
+    case "http_fetch":
+      return (
+        <div className="space-y-4">
+          <WebhookForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "update_contact":
+      return (
+        <div className="space-y-4">
+          <UpdateContactForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "assign_label":
+      return (
+        <SetTagForm
+          cfg={cfg as SetTagCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
+      );
+
+    case "whatsapp_payment":
+      return (
+        <div className="space-y-4">
+          <WhatsAppPaymentForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label="On Payment Completion"
+          />
+        </div>
+      );
+
+    case "create_deal":
+      return (
+        <div className="space-y-4">
+          <CreateDealForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "input_flow":
+      return (
+        <div className="space-y-4">
+          <TextRow
+            label="Prompt Text"
+            value={(cfg as { prompt_text?: string }).prompt_text ?? ""}
+            onChange={(v) => onUpdateConfig({ prompt_text: v })}
+            rows={2}
+          />
+          <TextRow
+            label="Save to Variable Key"
+            value={(cfg as { var_key?: string }).var_key ?? ""}
+            onChange={(v) => onUpdateConfig({ var_key: v })}
+          />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "close_conversation":
+      return (
+        <p className="text-xs text-muted-foreground">
+          Resolves and closes this conversation when reached.
+        </p>
       );
 
     case "end":

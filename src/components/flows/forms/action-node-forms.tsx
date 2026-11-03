@@ -1,0 +1,785 @@
+'use client';
+
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+
+// ============================================================
+// AI Response Action Form (From User Mockup)
+// ============================================================
+
+export function AiResponseForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const prompt = (config.prompt as string) || '';
+  const proceedCondition = (config.proceed_condition as string) || 'wait_high_confidence';
+  const confidenceThreshold = typeof config.confidence_threshold === 'number' ? config.confidence_threshold : 0.8;
+  const lowConfidenceMessage = (config.low_confidence_message as string) || "I'm not confident about my response. Could you rephrase your question?";
+  const active = config.active !== false;
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800">AI Prompt</Label>
+        <Textarea
+          value={prompt}
+          onChange={(e) => onChange({ prompt: e.target.value })}
+          placeholder="Enter the prompt for AI response... (optional)"
+          rows={3}
+          className="text-xs resize-y border-slate-200"
+        />
+        <p className="text-[11px] text-slate-500">
+          Leave empty to use default AI behavior, or add specific instructions for the AI.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800">Proceed Condition</Label>
+        <Select
+          value={proceedCondition}
+          onValueChange={(val) => onChange({ proceed_condition: val })}
+        >
+          <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="always">Always Proceed</SelectItem>
+            <SelectItem value="wait_high_confidence">Wait for High Confidence</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {proceedCondition === 'wait_high_confidence' && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800">Confidence Threshold</Label>
+            <Input
+              type="number"
+              step="0.05"
+              min="0.1"
+              max="1.0"
+              value={confidenceThreshold}
+              onChange={(e) => onChange({ confidence_threshold: parseFloat(e.target.value) || 0.8 })}
+              className="h-8 text-xs border-slate-200"
+            />
+            <p className="text-[11px] text-slate-500">
+              Set between 0.1 (10%) and 1.0 (100%). Higher values require more confident AI responses.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800">Low Confidence Message *</Label>
+            <Textarea
+              value={lowConfidenceMessage}
+              onChange={(e) => onChange({ low_confidence_message: e.target.value })}
+              placeholder="I'm not confident about my response..."
+              rows={2}
+              className="text-xs resize-y border-slate-200"
+            />
+            <p className="text-[11px] text-slate-500">
+              Message sent when AI confidence is below the threshold. Cannot be empty.
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Explanatory Info Card (From Mockup) */}
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 space-y-2 text-[11.5px] text-slate-700">
+        <p className="font-semibold text-blue-900">How AI Response Flow Works:</p>
+        <div>
+          <p className="font-medium text-slate-800">Always Proceed:</p>
+          <p className="text-slate-600">AI sends response and flow immediately continues to next node.</p>
+        </div>
+        <div>
+          <p className="font-medium text-slate-800">Wait for High Confidence:</p>
+          <ul className="list-disc list-inside space-y-0.5 text-slate-600 pl-1">
+            <li>AI generates response and calculates confidence (0-100%)</li>
+            <li>If confidence ≥ 80%: Send response and continue</li>
+            <li>If confidence &lt; 80%: Send fallback message and wait for user input</li>
+            <li>AI keeps trying until it reaches the confidence threshold</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2 pt-1">
+        <Checkbox
+          id="ai-active"
+          checked={active}
+          onCheckedChange={(checked) => onChange({ active: !!checked })}
+        />
+        <Label htmlFor="ai-active" className="text-xs font-medium cursor-pointer">
+          Active
+        </Label>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Send Email Action Form (From User Mockup)
+// ============================================================
+
+export function SendEmailForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const subject = (config.subject as string) || '';
+  const body = (config.body as string) || '';
+  const smtpHost = (config.smtp_host as string) || '';
+  const smtpPort = (config.smtp_port as string) || '587';
+  const username = (config.username as string) || '';
+  const password = (config.password as string) || '';
+  const encryption = (config.encryption as string) || 'tls';
+  const fromName = (config.from_name as string) || '';
+  const fromEmail = (config.from_email as string) || '';
+  const active = config.active !== false;
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700">
+      {/* Email Content Section */}
+      <div className="space-y-3">
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          Email Content
+        </p>
+
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Subject</Label>
+          <Input
+            value={subject}
+            onChange={(e) => onChange({ subject: e.target.value })}
+            placeholder="e.g., Welcome to our service"
+            className="h-8 text-xs border-slate-200"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Body</Label>
+          <Textarea
+            value={body}
+            onChange={(e) => onChange({ body: e.target.value })}
+            placeholder="Write your email body here... supports {{vars.*}}"
+            rows={4}
+            className="text-xs resize-y border-slate-200"
+          />
+        </div>
+      </div>
+
+      {/* SMTP Settings Section */}
+      <div className="space-y-3 pt-2 border-t border-slate-100">
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          SMTP Settings
+        </p>
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">SMTP Host</Label>
+            <Input
+              value={smtpHost}
+              onChange={(e) => onChange({ smtp_host: e.target.value })}
+              placeholder="e.g., smtp.gmail.com"
+              className="h-8 text-xs border-slate-200"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">SMTP Port</Label>
+            <Input
+              value={smtpPort}
+              onChange={(e) => onChange({ smtp_port: e.target.value })}
+              placeholder="587"
+              className="h-8 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">Username</Label>
+            <Input
+              value={username}
+              onChange={(e) => onChange({ username: e.target.value })}
+              placeholder="your-email@gmail.com"
+              className="h-8 text-xs border-slate-200"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">Password</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => onChange({ password: e.target.value })}
+              placeholder="App password or API key"
+              className="h-8 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">Encryption</Label>
+            <Select
+              value={encryption}
+              onValueChange={(val) => onChange({ encryption: val })}
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tls">TLS</SelectItem>
+                <SelectItem value="ssl">SSL</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-slate-800">From Name</Label>
+            <Input
+              value={fromName}
+              onChange={(e) => onChange({ from_name: e.target.value })}
+              placeholder="Your Company Name"
+              className="h-8 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">From Email</Label>
+          <Input
+            value={fromEmail}
+            onChange={(e) => onChange({ from_email: e.target.value })}
+            placeholder="noreply@yourdomain.com"
+            className="h-8 text-xs border-slate-200"
+          />
+          <p className="text-[11px] text-slate-500">
+            This must be a valid email address that you're authorized to send from through your SMTP provider.
+          </p>
+        </div>
+      </div>
+
+      {/* Explanatory Info Card (From Mockup) */}
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-[11.5px] text-slate-700 space-y-1">
+        <p className="font-semibold text-blue-900">What happens:</p>
+        <p className="text-slate-600">
+          An email will be sent to the contact using the configured SMTP settings. The email will be sent from the configured SMTP account to the contact's email address.
+        </p>
+      </div>
+
+      <div className="flex items-center space-x-2 pt-1">
+        <Checkbox
+          id="email-active"
+          checked={active}
+          onCheckedChange={(checked) => onChange({ active: !!checked })}
+        />
+        <Label htmlFor="email-active" className="text-xs font-medium cursor-pointer">
+          Active
+        </Label>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Canvas Trigger Form (From User Mockup)
+// ============================================================
+
+// export function TriggerNodeForm({
+//   config,
+//   onChange,
+// }: {
+//   config: Record<string, unknown>;
+//   onChange: (patch: Record<string, unknown>) => void;
+// }) {
+//   const startingStep = (config.starting_step as string) || 'new_contact';
+//   const keywords = Array.isArray(config.keywords) ? (config.keywords as string[]) : [];
+//   const [keywordInput, setKeywordInput] = useState('');
+
+//   const addKeyword = () => {
+//     const val = keywordInput.trim();
+//     if (!val || keywords.includes(val)) return;
+//     onChange({ keywords: [...keywords, val] });
+//     setKeywordInput('');
+//   };
+
+//   const removeKeyword = (kw: string) => {
+//     onChange({ keywords: keywords.filter((k) => k !== kw) });
+//   };
+
+//   return (
+//     <div className="space-y-4 text-xs text-slate-700">
+//       <div className="space-y-1.5">
+//         <Label className="text-xs font-semibold text-slate-800">Starting Step</Label>
+//         <Select
+//           value={startingStep}
+//           onValueChange={(val) => onChange({ starting_step: val })}
+//         >
+//           <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+//             <SelectValue />
+//           </SelectTrigger>
+//           <SelectContent>
+//             <SelectItem value="new_contact">New contact</SelectItem>
+//             <SelectItem value="keyword">Text contains specific keywords</SelectItem>
+//           </SelectContent>
+//         </Select>
+//         <p className="text-[11px] text-slate-500">
+//           Define the input parameters to trigger the workflow, to ensure that accurate information is captured in the conversation flow.
+//         </p>
+//       </div>
+
+//       {startingStep === 'keyword' && (
+//         <div className="space-y-2 pt-2 border-t border-slate-100">
+//           <Label className="text-xs font-semibold text-slate-800">Keywords</Label>
+//           <div className="flex gap-1.5">
+//             <Input
+//               value={keywordInput}
+//               onChange={(e) => setKeywordInput(e.target.value)}
+//               onKeyDown={(e) => {
+//                 if (e.key === 'Enter') {
+//                   e.preventDefault();
+//                   addKeyword();
+//                 }
+//               }}
+//               placeholder="e.g. hello, pricing, help"
+//               className="h-8 text-xs border-slate-200"
+//             />
+//             <button
+//               type="button"
+//               onClick={addKeyword}
+//               className="px-3 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800"
+//             >
+//               Add
+//             </button>
+//           </div>
+//           {keywords.length > 0 && (
+//             <div className="flex flex-wrap gap-1.5 pt-1">
+//               {keywords.map((kw) => (
+//                 <span
+//                   key={kw}
+//                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] border border-slate-200"
+//                 >
+//                   {kw}
+//                   <button
+//                     type="button"
+//                     onClick={() => removeKeyword(kw)}
+//                     className="hover:text-red-500 font-bold"
+//                   >
+//                     ×
+//                   </button>
+//                 </span>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// ============================================================
+// Delay Form
+// ============================================================
+
+export function DelayForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const amount = typeof config.amount === 'number' ? config.amount : 5;
+  const unit = (config.unit as string) || 'minutes';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Amount</Label>
+          <Input
+            type="number"
+            min="1"
+            value={amount}
+            onChange={(e) => onChange({ amount: parseInt(e.target.value, 10) || 1 })}
+            className="h-8 text-xs border-slate-200"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Unit</Label>
+          <Select value={unit} onValueChange={(val) => onChange({ unit: val })}>
+            <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="minutes">Minutes</SelectItem>
+              <SelectItem value="hours">Hours</SelectItem>
+              <SelectItem value="days">Days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <p className="text-[11px] text-slate-500">
+        Execution pauses for the specified duration before moving to the next node.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+// Webhook Form
+// ============================================================
+
+export function WebhookForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const url = (config.url as string) || '';
+  const method = (config.method as string) || 'POST';
+  const bodyTemplate = (config.body_template as string) || '';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Method</Label>
+          <Select value={method} onValueChange={(val) => onChange({ method: val })}>
+            <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="POST">POST</SelectItem>
+              <SelectItem value="GET">GET</SelectItem>
+              <SelectItem value="PUT">PUT</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Endpoint URL</Label>
+          <Input
+            value={url}
+            onChange={(e) => onChange({ url: e.target.value })}
+            placeholder="https://api.example.com/webhook"
+            className="h-8 text-xs border-slate-200"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">JSON Body Template</Label>
+        <Textarea
+          value={bodyTemplate}
+          onChange={(e) => onChange({ body_template: e.target.value })}
+          placeholder='{"contact_id": "{{contact.id}}", "event": "order"}'
+          rows={4}
+          className="font-mono text-xs resize-y border-slate-200"
+        />
+        <p className="text-[11px] text-slate-500">
+          Supports interpolation: {'{{contact.*}}'}, {'{{vars.*}}'}.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Update Contact Form
+// ============================================================
+
+export function UpdateContactForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const field = (config.field as string) || 'name';
+  const value = (config.value as string) || '';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Contact Field</Label>
+        <Select value={field} onValueChange={(val) => onChange({ field: val })}>
+          <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Full Name</SelectItem>
+            <SelectItem value="email">Email Address</SelectItem>
+            <SelectItem value="company">Company</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Value</Label>
+        <Input
+          value={value}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder="New value or {{vars.captured_name}}"
+          className="h-8 text-xs border-slate-200"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// WhatsApp Payment Form
+// ============================================================
+
+export function WhatsAppPaymentForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const amount = typeof config.amount === 'number' ? config.amount : 100;
+  const currency = (config.currency as string) || 'INR';
+  const itemName = (config.item_name as string) || 'Product Order';
+  const provider = (config.provider as string) || 'razorpay';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Amount</Label>
+          <Input
+            type="number"
+            min="1"
+            value={amount}
+            onChange={(e) => onChange({ amount: parseFloat(e.target.value) || 0 })}
+            className="h-8 text-xs border-slate-200"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800">Currency</Label>
+          <Input
+            value={currency}
+            onChange={(e) => onChange({ currency: e.target.value.toUpperCase() })}
+            placeholder="INR"
+            className="h-8 text-xs border-slate-200"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Item Name</Label>
+        <Input
+          value={itemName}
+          onChange={(e) => onChange({ item_name: e.target.value })}
+          placeholder="e.g. Consulting Session"
+          className="h-8 text-xs border-slate-200"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Payment Provider</Label>
+        <Select value={provider} onValueChange={(val) => onChange({ provider: val })}>
+          <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="razorpay">Razorpay Payment Link</SelectItem>
+            <SelectItem value="whatsapp_pay">WhatsApp Pay (Native)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Create Deal Form
+// ============================================================
+
+export function CreateDealForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const title = (config.title as string) || 'New Deal';
+  const value = typeof config.value === 'number' ? config.value : 0;
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Deal Title</Label>
+        <Input
+          value={title}
+          onChange={(e) => onChange({ title: e.target.value })}
+          placeholder="e.g. Enterprise Plan - {{contact.name}}"
+          className="h-8 text-xs border-slate-200"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800">Deal Value</Label>
+        <Input
+          type="number"
+          min="0"
+          value={value}
+          onChange={(e) => onChange({ value: parseFloat(e.target.value) || 0 })}
+          className="h-8 text-xs border-slate-200"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Trigger Node Form
+// ============================================================
+
+// export function TriggerNodeForm({
+//   config,
+//   onChange,
+// }: {
+//   config: Record<string, unknown>;
+//   onChange: (patch: Record<string, unknown>) => void;
+// }) {
+//   const startingStep = (config.starting_step as string) || 'new_contact';
+//   const keywords = Array.isArray(config.keywords) ? (config.keywords as string[]) : [];
+
+//   return (
+//     <div className="space-y-4 text-xs text-slate-700">
+//       <div className="space-y-1.5">
+//         <Label className="text-xs font-semibold text-slate-800">Starting Step</Label>
+//         <Select
+//           value={startingStep}
+//           onValueChange={(val) => {
+//             onChange({ starting_step: val });
+//           }}
+//         >
+//           <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+//             <SelectValue />
+//           </SelectTrigger>
+//           <SelectContent>
+//             <SelectItem value="new_contact">New contact</SelectItem>
+//             <SelectItem value="keyword">Text contains specific keywords</SelectItem>
+//             <SelectItem value="contact_from_ad">Contact from Ad</SelectItem>
+//           </SelectContent>
+//         </Select>
+//       </div>
+
+//       {startingStep === 'keyword' && (
+//         <div className="space-y-1.5">
+//           <Label className="text-xs font-semibold text-slate-800">Keywords (comma separated)</Label>
+//           <Input
+//             value={keywords.join(', ')}
+//             onChange={(e) => {
+//               const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+//               onChange({ keywords: list });
+//             }}
+//             placeholder="e.g. hi, hello, start, pricing"
+//             className="h-8 text-xs border-slate-200"
+//           />
+//           <p className="text-[11px] text-slate-500">
+//             Flow starts when customer sends any of these keywords.
+//           </p>
+//         </div>
+//       )}
+
+//       {startingStep === 'new_contact' && (
+//         <p className="text-[11px] text-slate-500">
+//           Flow automatically triggers when a contact messages for the first time.
+//         </p>
+//       )}
+
+//       {startingStep === 'contact_from_ad' && (
+//         <p className="text-[11px] text-slate-500">
+//           Flow triggers when a customer clicks a Click-to-WhatsApp ad.
+//         </p>
+//       )}
+//     </div>
+//   );
+// }
+
+
+// ============================================================
+// Trigger Node Form
+// ============================================================
+
+export function TriggerNodeForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const startingStep = (config.starting_step as string) || 'new_contact';
+  const keywords = Array.isArray(config.keywords) ? (config.keywords as string[]) : [];
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800">Starting Step</Label>
+        <Select
+          value={startingStep}
+          onValueChange={(val) => {
+            onChange({ starting_step: val });
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs border-slate-200 bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="new_contact">New contact</SelectItem>
+            <SelectItem value="keyword">Text contains specific keywords</SelectItem>
+            <SelectItem value="contact_from_ad">Contact from Ad</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {startingStep === 'keyword' && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold text-slate-800">Keywords (comma separated)</Label>
+          <Input
+            value={keywords.join(', ')}
+            onChange={(e) => {
+              const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+              onChange({ keywords: list });
+            }}
+            placeholder="e.g. hi, hello, start, pricing"
+            className="h-8 text-xs border-slate-200"
+          />
+          <p className="text-[11px] text-slate-500">
+            Flow starts when customer sends any of these keywords.
+          </p>
+        </div>
+      )}
+
+      {startingStep === 'new_contact' && (
+        <p className="text-[11px] text-slate-500">
+          Flow automatically triggers when a contact messages for the first time.
+        </p>
+      )}
+
+      {startingStep === 'contact_from_ad' && (
+        <p className="text-[11px] text-slate-500">
+          Flow triggers when a customer clicks a Click-to-WhatsApp ad.
+        </p>
+      )}
+    </div>
+  );
+}
+
+

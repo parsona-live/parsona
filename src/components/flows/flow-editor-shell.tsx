@@ -1,37 +1,37 @@
 "use client";
 
 /**
- * View-switcher + chrome for the flow editor.
+ * Visual Canvas Studio for the Flow Editor.
  *
- * Lays the editor out as one app-like column that fills the dashboard
- * content area (toolbar → mode row → stage → validation bar).
- *   - A segmented Canvas / List control on the left of the mode row.
- *   - Preview Flow + Expand Fullscreen buttons on the right.
- *   - Tags above the canvas are removed for a clean, professional workspace.
- *   - The active view is mounted inside an expanded stage with increased height
- *     and fullscreen expansion support.
+ * Dedicated unified visual studio matching user layout:
+ *   - Compact single-line header with Flow name, Edit badge, Status,
+ *     Warning/Error issues popover pill, Go Back, Save changes, and Publish/Unpublish.
+ *   - 100vh full-bleed studio layout (zero window scrollbars).
+ *   - Horizontal workspace: Collapsible Sidebar (Messages & Actions) + Main Expandable Canvas.
  */
 
-import { useEffect, useState, useCallback } from "react";
-import { GitFork, List, Play, Maximize2, Minimize2 } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Workflow,
+  ChevronDown,
+  AlertTriangle,
+  Check,
+  Loader2,
+  Play,
+  Pause,
+} from "lucide-react";
 
-import { FlowBuilder } from "./flow-builder";
 import { FlowCanvas } from "./flow-canvas";
+import { FlowSidebar } from "./flow-sidebar";
 import { FlowEditorProvider, useFlowEditor } from "./flow-editor-state";
-import { EditorHeader } from "./header";
-import { ValidationPanel } from "./validation-panel";
-import { FlowSimulator } from "./flow-simulator";
+import { FlowChatPreview } from "./flow-chat-preview";
+import { IssueLine } from "./validation-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 import type { BuilderNode } from "./shared";
-import { useTranslations } from "next-intl";
-
-const MOBILE_BREAKPOINT = "(max-width: 767px)";
-
-type View = "canvas" | "list";
-
-const STORAGE_KEY = "wacrm.flowEditor.view";
 
 interface Props {
   initialFlow: FlowRow;
@@ -47,210 +47,227 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
 }
 
 function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
-  const t = useTranslations("Flows.builder");
-  const { state } = useFlowEditor();
+  const router = useRouter();
+  const {
+    state,
+    setState,
+    dirty,
+    saving,
+    activating,
+    canActivate,
+    issues,
+    save,
+    setStatus,
+    requestFlash,
+    addNode,
+  } = useFlowEditor();
 
-  const [view, setView] = useState<View>(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved === "canvas" || saved === "list") return saved;
-    } catch {
-      // Private browsing / disabled storage — fall through to default.
-    }
-    return "canvas";
-  });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [simulatorOpen, setSimulatorOpen] = useState(false);
-  const [simulatorNode, setSimulatorNode] = useState<string | null>(null);
+  const errors = issues.filter((i) => i.severity === "error");
 
-  const isMobile = useMatchMedia(MOBILE_BREAKPOINT);
-  const effectiveView: View = isMobile ? "list" : view;
-
-  const choose = (next: View) => {
-    setView(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // ignore
-    }
-  };
-
-  // Escape key exits fullscreen
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isExpanded) {
-        setIsExpanded(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isExpanded]);
-
-  const handleTestNode = useCallback((node: BuilderNode) => {
-    setSimulatorNode(node.node_key);
-    setSimulatorOpen(true);
+  const handleTestNode = useCallback((_node: BuilderNode) => {
+    setPreviewOpen(true);
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <EditorHeader />
-
-      {/* Mode row: view toggle + action controls (tags above canvas removed) */}
-      {!isMobile && (
-        <div className="flex items-center justify-between gap-4 px-6 py-3">
-          <div
-            role="group"
-            aria-label={t("editorView")}
-            className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
-          >
-            <SegButton
-              active={effectiveView === "canvas"}
-              onClick={() => choose("canvas")}
-              icon={<GitFork className="h-3.5 w-3.5" />}
-              label={t("canvasView")}
-            />
-            <SegButton
-              active={effectiveView === "list"}
-              onClick={() => choose("list")}
-              icon={<List className="h-3.5 w-3.5" />}
-              label={t("listView")}
-            />
+    <div className="fixed inset-0 z-40 flex flex-col h-screen w-screen bg-white overflow-hidden select-none">
+      {/* ================= COMPACT HEADER ================= */}
+      <header className="h-14 border-b border-slate-200 bg-white px-5 flex items-center justify-between shrink-0 z-20">
+        {/* Left: Flow icon, name input, Edit badge, dirty indicator */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-800">
+            <Workflow className="h-4 w-4" />
           </div>
-
-          {/* Right Toolbar Actions: Live Simulator Preview + Expand Canvas */}
-          <div className="flex items-center gap-2">
-            <Button
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={nameInputRef}
+              value={state.name}
+              onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
+              placeholder="Untitled Flow"
+              className="text-sm font-semibold text-slate-900 bg-transparent outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-300 rounded px-1.5 py-0.5 max-w-[240px] truncate"
+            />
+            <button
               type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSimulatorNode(null);
-                setSimulatorOpen(true);
-              }}
-              className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold shadow-xs"
+              onClick={() => nameInputRef.current?.focus()}
+              className="px-2 py-0.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
             >
-              <Play className="h-3.5 w-3.5 fill-emerald-500 text-emerald-500" />
-              <span>Preview Flow</span>
-            </Button>
+              Edit
+            </button>
+          </div>
+          {dirty && (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Edited
+            </span>
+          )}
+        </div>
 
-            {effectiveView === "canvas" && (
-              <Button
+        {/* Center: Subtle Dropdown Chevron */}
+        <div className="hidden md:flex items-center">
+          <button
+            type="button"
+            className="flex items-center justify-center h-6 w-6 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Right: Validation Issues, Go Back, Save, Publish */}
+        <div className="flex items-center gap-2.5">
+          {/* Validation Issues Alert Pill & Popover */}
+          <div className="relative">
+            {issues.length > 0 ? (
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsExpanded((v) => !v)}
-                className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold shadow-xs"
-                title={isExpanded ? "Exit Fullscreen (Esc)" : "Expand Canvas"}
-              >
-                {isExpanded ? (
-                  <>
-                    <Minimize2 className="h-3.5 w-3.5 text-emerald-500" />
-                    <span>Exit Fullscreen</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="h-3.5 w-3.5" />
-                    <span>Expand Canvas</span>
-                  </>
+                onClick={() => setIssuesOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors shadow-2xs",
+                  errors.length > 0
+                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                    : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                 )}
-              </Button>
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>
+                  {issues.length} {issues.length === 1 ? "issue" : "issues"}
+                </span>
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-lg">
+                <Check className="h-3 w-3" /> Ready
+              </span>
+            )}
+
+            {/* Floating Issues Dropdown Popover */}
+            {issuesOpen && issues.length > 0 && (
+              <div className="absolute right-0 top-full mt-2 w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-800">
+                    Validation Issues ({issues.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIssuesOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {issues.map((issue, idx) => (
+                    <IssueLine
+                      key={idx}
+                      issue={issue}
+                      onJump={(key) => {
+                        requestFlash(key);
+                        setIssuesOpen(false);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Stage: canvas or linear list with comfortable height */}
-      <div
-        className={cn(
-          "relative mx-4 sm:mx-6 min-h-[580px] lg:min-h-[660px] h-[calc(100vh-270px)] overflow-hidden rounded-xl border border-border bg-card-2 transition-all duration-300 shadow-sm",
-          isExpanded &&
-            "fixed inset-0 z-50 m-0 h-screen w-screen min-h-screen rounded-none border-0"
-        )}
-      >
-        {isExpanded && (
-          <div className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-background/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-border shadow-xl">
-            <span className="text-xs font-medium text-muted-foreground">
-              Fullscreen mode (Esc to exit)
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsExpanded(false)}
-              className="h-7 px-2 text-xs font-semibold"
+          {/* Live Chat Preview Toggle */}
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((v) => !v)}
+            className={cn(
+              "h-8 px-3 gap-1.5 rounded-lg border text-xs font-semibold shadow-2xs transition-all flex items-center",
+              previewOpen
+                ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold"
+                : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+            )}
+          >
+            <Play
+              className={cn(
+                "h-3.5 w-3.5",
+                previewOpen ? "fill-emerald-600 text-emerald-600" : "fill-emerald-500 text-emerald-500"
+              )}
+            />
+            <span>Preview</span>
+          </button>
+
+          {/* Go Back */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/flows")}
+            className="h-8 gap-1.5 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Go Back</span>
+          </Button>
+
+          {/* Save changes */}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            <span>Save changes</span>
+          </button>
+
+          {/* Active / Pause button */}
+          {state.status === "active" ? (
+            <button
+              type="button"
+              onClick={() => void setStatus("draft")}
+              disabled={activating}
+              className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#dc2626] hover:bg-[#b91c1c] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Minimize2 className="h-3.5 w-3.5 mr-1" />
-              Exit
-            </Button>
-          </div>
-        )}
+              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+              <span>Pause</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void setStatus("active")}
+              disabled={activating || !canActivate}
+              title={!canActivate ? "Fix validation issues before activating" : undefined}
+              className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+              <span>Active</span>
+            </button>
+          )}
+        </div>
+      </header>
 
-        {effectiveView === "canvas" ? (
+      {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + CHAT PREVIEW) ================= */}
+      <div className="flex-1 flex overflow-hidden min-h-0 bg-white relative">
+        <FlowSidebar
+          onAddNode={(type) => addNode(type)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
+        />
+        <div className="flex-1 h-full min-w-0 relative">
           <FlowCanvas onTestNode={handleTestNode} />
-        ) : (
-          <div className="absolute inset-0 overflow-y-auto">
-            <FlowBuilder />
-          </div>
+        </div>
+        {previewOpen && (
+          <FlowChatPreview
+            flow={{
+              ...initialFlow,
+              name: state.name,
+              description: state.description,
+              trigger_type: state.trigger_type,
+              trigger_config: state.trigger_config,
+              entry_node_id: state.entry_node_id,
+              status: state.status,
+            }}
+            nodes={state.nodes}
+            onClose={() => setPreviewOpen(false)}
+          />
         )}
       </div>
-
-      {/* Validation / activate-readiness bar */}
-      <div className="px-6 pb-5 pt-3">
-        <ValidationPanel />
-      </div>
-
-      {/* WhatsApp Interactive Simulator */}
-      <FlowSimulator
-        isOpen={simulatorOpen}
-        onClose={() => setSimulatorOpen(false)}
-        flow={initialFlow}
-        nodes={state.nodes}
-        initialNodeKey={simulatorNode}
-      />
     </div>
   );
-}
-
-function SegButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-        active
-          ? "bg-card text-foreground shadow-xs"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function useMatchMedia(query: string): boolean {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(query).matches;
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mql = window.matchMedia(query);
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, [query]);
-  return matches;
 }

@@ -158,6 +158,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: t('flows.nameRequired') }, { status: 400 })
   }
   const trigger_type = body.trigger_type ?? 'keyword'
+  const trigger_config = body.trigger_config ?? { keywords: [] }
+  const triggerNodeKey = 'trigger_1'
 
   const { data, error } = await admin
     .from('flows')
@@ -168,7 +170,8 @@ export async function POST(request: Request) {
       description: body.description ?? null,
       status: 'draft',
       trigger_type,
-      trigger_config: body.trigger_config ?? {},
+      trigger_config,
+      entry_node_id: triggerNodeKey,
     })
     .select()
     .single()
@@ -178,5 +181,25 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
+
+  // Pre-seed default Trigger node so every new flow begins with an on-canvas Trigger node
+  const defaultStartingStep = trigger_type === 'first_inbound_message' ? 'new_contact' : 'keyword'
+  const defaultKeywords = Array.isArray((trigger_config as Record<string, unknown>)?.keywords)
+    ? ((trigger_config as Record<string, unknown>).keywords as string[])
+    : []
+
+  await admin.from('flow_nodes').insert({
+    flow_id: data.id,
+    node_key: triggerNodeKey,
+    node_type: 'trigger',
+    position_x: 80,
+    position_y: 120,
+    config: {
+      starting_step: defaultStartingStep,
+      keywords: defaultKeywords,
+      next_node_key: '',
+    },
+  })
+
   return NextResponse.json({ flow: data }, { status: 201 })
 }

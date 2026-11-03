@@ -44,6 +44,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
   for (const node of nodes) {
     const cfg = node.config;
     switch (node.node_type) {
+      case "trigger":
       case "start":
       case "send_message":
       case "send_media":
@@ -51,7 +52,21 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "send_contact":
       case "request_address":
       case "collect_input":
-      case "set_tag": {
+      case "input_flow":
+      case "set_tag":
+      case "add_to_group":
+      case "remove_from_group":
+      case "update_contact":
+      case "assign_label":
+      case "send_email":
+      case "delay":
+      case "webhook":
+      case "http_fetch":
+      case "book_appointment":
+      case "ai_response":
+      case "catalog":
+      case "whatsapp_form":
+      case "create_deal": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         if (next && knownKeys.has(next)) {
           edges.push({
@@ -59,6 +74,34 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             source: node.node_key,
             target: next,
             sourceHandle: "next",
+          });
+        }
+        break;
+      }
+
+      case "whatsapp_payment": {
+        const pCfg = cfg as {
+          next_node_key?: string;
+          success_next?: string;
+          failure_next?: string;
+        };
+        const next = pCfg.success_next || pCfg.next_node_key;
+        if (next && knownKeys.has(next)) {
+          edges.push({
+            id: `${node.node_key}--success--${next}`,
+            source: node.node_key,
+            target: next,
+            sourceHandle: "success",
+            label: "Success",
+          });
+        }
+        if (pCfg.failure_next && knownKeys.has(pCfg.failure_next)) {
+          edges.push({
+            id: `${node.node_key}--failure--${pCfg.failure_next}`,
+            source: node.node_key,
+            target: pCfg.failure_next,
+            sourceHandle: "failure",
+            label: "Failed",
           });
         }
         break;
@@ -170,8 +213,11 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       }
 
       case "handoff":
+      case "agent_handover":
       case "end":
-        // Terminal nodes — no outgoing edges.
+      case "close_conversation":
+      default:
+        // Terminal nodes or unhandled — no outgoing edges.
         break;
     }
   }
@@ -205,6 +251,7 @@ export interface OutgoingSlot {
 export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
   const cfg = node.config;
   switch (node.node_type) {
+    case "trigger":
     case "start":
     case "send_message":
     case "send_media":
@@ -212,8 +259,28 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
     case "send_contact":
     case "request_address":
     case "collect_input":
+    case "input_flow":
     case "set_tag":
+    case "add_to_group":
+    case "remove_from_group":
+    case "update_contact":
+    case "assign_label":
+    case "send_email":
+    case "delay":
+    case "webhook":
+    case "http_fetch":
+    case "book_appointment":
+    case "ai_response":
+    case "catalog":
+    case "whatsapp_form":
+    case "create_deal":
       return [{ id: "next", label: "Next" }];
+
+    case "whatsapp_payment":
+      return [
+        { id: "success", label: "Success" },
+        { id: "failure", label: "Failed" },
+      ];
 
     case "condition":
       return [
@@ -286,7 +353,10 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
     }
 
     case "handoff":
+    case "agent_handover":
     case "end":
+    case "close_conversation":
+    default:
       return [];
   }
 }
@@ -307,6 +377,7 @@ export function applyEdgeConnection(
   targetKey: string,
 ): Record<string, unknown> | null {
   switch (node.node_type) {
+    case "trigger":
     case "start":
     case "send_message":
     case "send_media":
@@ -314,7 +385,27 @@ export function applyEdgeConnection(
     case "send_contact":
     case "request_address":
     case "collect_input":
+    case "input_flow":
     case "set_tag":
+    case "add_to_group":
+    case "remove_from_group":
+    case "update_contact":
+    case "assign_label":
+    case "send_email":
+    case "delay":
+    case "webhook":
+    case "http_fetch":
+    case "book_appointment":
+    case "ai_response":
+    case "catalog":
+    case "whatsapp_form":
+    case "create_deal":
+      if (sourceHandle === "next") return { next_node_key: targetKey };
+      return null;
+
+    case "whatsapp_payment":
+      if (sourceHandle === "success") return { success_next: targetKey };
+      if (sourceHandle === "failure") return { failure_next: targetKey };
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
 
@@ -404,7 +495,10 @@ export function applyEdgeConnection(
     }
 
     case "handoff":
+    case "agent_handover":
     case "end":
+    case "close_conversation":
+    default:
       return null;
   }
 }
@@ -435,6 +529,7 @@ function patchedConfigWithoutKey(
 ): Record<string, unknown> | null {
   const cfg = node.config;
   switch (node.node_type) {
+    case "trigger":
     case "start":
     case "send_message":
     case "send_media":
@@ -442,10 +537,38 @@ function patchedConfigWithoutKey(
     case "send_contact":
     case "request_address":
     case "collect_input":
-    case "set_tag": {
+    case "input_flow":
+    case "set_tag":
+    case "add_to_group":
+    case "remove_from_group":
+    case "update_contact":
+    case "assign_label":
+    case "send_email":
+    case "delay":
+    case "webhook":
+    case "http_fetch":
+    case "book_appointment":
+    case "ai_response":
+    case "catalog":
+    case "whatsapp_form":
+    case "create_deal": {
       const next = (cfg as { next_node_key?: string }).next_node_key;
       if (next !== deletedKey) return null;
       return { ...cfg, next_node_key: "" };
+    }
+
+    case "whatsapp_payment": {
+      const pCfg = cfg as { success_next?: string; failure_next?: string; next_node_key?: string };
+      const sMatch = pCfg.success_next === deletedKey;
+      const fMatch = pCfg.failure_next === deletedKey;
+      const nMatch = pCfg.next_node_key === deletedKey;
+      if (!sMatch && !fMatch && !nMatch) return null;
+      return {
+        ...cfg,
+        ...(sMatch ? { success_next: "" } : {}),
+        ...(fMatch ? { failure_next: "" } : {}),
+        ...(nMatch ? { next_node_key: "" } : {}),
+      };
     }
 
     case "condition": {
@@ -526,7 +649,10 @@ function patchedConfigWithoutKey(
     }
 
     case "handoff":
+    case "agent_handover":
     case "end":
+    case "close_conversation":
+    default:
       return null;
   }
 }

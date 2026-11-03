@@ -17,48 +17,46 @@
  */
 
 import {
+  Briefcase,
+  Calendar,
+  CheckCircle2,
+  Clock,
   Contact,
+  CreditCard,
+  FileText,
   Flag,
   GalleryHorizontalEnd,
   GitFork,
+  Globe,
   Inbox,
   ListChecks,
   ListPlus,
+  Mail,
   MapPin,
   MessageCircle,
   Paperclip,
   PlayCircle,
+  ShoppingBag,
+  Sparkles,
   Tag,
   Truck,
+  UserCheck,
+  UserMinus,
   UserPlus,
   Workflow,
+  Zap,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import type { FlowNodeType } from '@/lib/flows/types';
 
 // ============================================================
 // Node-type union — single source of truth for every place the UI
 // enumerates types (add menu, type pickers, switch statements). Kept
-// in lockstep with `FlowNodeType` in src/lib/flows/types.ts (which
-// drives the engine's exhaustiveness check); a divergence between the
-// two is always a bug.
+// in lockstep with `FlowNodeType` in src/lib/flows/types.ts.
 // ============================================================
 
-export type NodeType =
-  | 'start'
-  | 'send_message'
-  | 'send_buttons'
-  | 'send_list'
-  | 'send_media'
-  | 'send_carousel'
-  | 'send_location'
-  | 'send_contact'
-  | 'request_address'
-  | 'collect_input'
-  | 'condition'
-  | 'set_tag'
-  | 'handoff'
-  | 'end';
+export type NodeType = FlowNodeType;
 
 export interface BuilderNode {
   node_key: string;
@@ -189,6 +187,114 @@ export const NODE_META: Record<
     color: 'text-muted-foreground',
     category: 'flow',
   },
+  trigger: {
+    slugSeed: 'Trigger',
+    icon: Zap,
+    color: 'text-purple-400',
+    category: 'flow',
+  },
+  agent_handover: {
+    slugSeed: 'Agent handover',
+    icon: UserCheck,
+    color: 'text-amber-400',
+    category: 'flow',
+  },
+  add_to_group: {
+    slugSeed: 'Add to group',
+    icon: UserPlus,
+    color: 'text-emerald-400',
+    category: 'logic',
+  },
+  remove_from_group: {
+    slugSeed: 'Remove from group',
+    icon: UserMinus,
+    color: 'text-rose-400',
+    category: 'logic',
+  },
+  update_contact: {
+    slugSeed: 'Update contact',
+    icon: UserCheck,
+    color: 'text-sky-400',
+    category: 'logic',
+  },
+  assign_label: {
+    slugSeed: 'Assign label',
+    icon: Tag,
+    color: 'text-pink-400',
+    category: 'logic',
+  },
+  send_email: {
+    slugSeed: 'Send email',
+    icon: Mail,
+    color: 'text-blue-400',
+    category: 'messaging',
+  },
+  delay: {
+    slugSeed: 'Delay',
+    icon: Clock,
+    color: 'text-amber-400',
+    category: 'logic',
+  },
+  webhook: {
+    slugSeed: 'Webhook',
+    icon: Globe,
+    color: 'text-violet-400',
+    category: 'logic',
+  },
+  http_fetch: {
+    slugSeed: 'Webhook',
+    icon: Globe,
+    color: 'text-violet-400',
+    category: 'logic',
+  },
+  book_appointment: {
+    slugSeed: 'Book appointment',
+    icon: Calendar,
+    color: 'text-teal-400',
+    category: 'logic',
+  },
+  ai_response: {
+    slugSeed: 'AI response',
+    icon: Sparkles,
+    color: 'text-purple-400',
+    category: 'messaging',
+  },
+  whatsapp_payment: {
+    slugSeed: 'WhatsApp payment',
+    icon: CreditCard,
+    color: 'text-emerald-400',
+    category: 'messaging',
+  },
+  catalog: {
+    slugSeed: 'Catalog',
+    icon: ShoppingBag,
+    color: 'text-amber-400',
+    category: 'messaging',
+  },
+  input_flow: {
+    slugSeed: 'Input flow',
+    icon: Inbox,
+    color: 'text-teal-400',
+    category: 'messaging',
+  },
+  whatsapp_form: {
+    slugSeed: 'WhatsApp form',
+    icon: FileText,
+    color: 'text-indigo-400',
+    category: 'messaging',
+  },
+  create_deal: {
+    slugSeed: 'Create deal',
+    icon: Briefcase,
+    color: 'text-emerald-400',
+    category: 'logic',
+  },
+  close_conversation: {
+    slugSeed: 'Close conversation',
+    icon: CheckCircle2,
+    color: 'text-muted-foreground',
+    category: 'flow',
+  },
 };
 
 /**
@@ -233,6 +339,24 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
+  trigger: { l: 0.55, c: 0.22, h: 270 },
+  agent_handover: { l: 0.62, c: 0.18, h: 30 },
+  add_to_group: { l: 0.60, c: 0.16, h: 160 },
+  remove_from_group: { l: 0.60, c: 0.18, h: 25 },
+  update_contact: { l: 0.60, c: 0.18, h: 240 },
+  assign_label: { l: 0.65, c: 0.15, h: 350 },
+  send_email: { l: 0.60, c: 0.18, h: 220 },
+  delay: { l: 0.65, c: 0.14, h: 70 },
+  webhook: { l: 0.58, c: 0.20, h: 290 },
+  http_fetch: { l: 0.58, c: 0.20, h: 290 },
+  book_appointment: { l: 0.62, c: 0.16, h: 170 },
+  ai_response: { l: 0.58, c: 0.22, h: 305 },
+  whatsapp_payment: { l: 0.62, c: 0.18, h: 140 },
+  catalog: { l: 0.64, c: 0.16, h: 60 },
+  input_flow: { l: 0.65, c: 0.12, h: 185 },
+  whatsapp_form: { l: 0.62, c: 0.16, h: 260 },
+  create_deal: { l: 0.62, c: 0.16, h: 160 },
+  close_conversation: { l: 0.55, c: 0.12, h: 150 },
 };
 
 export interface NodeColors {
@@ -481,9 +605,80 @@ export function summarizeNode(
         ? t ? t('tagPicked', { mode, tag: tagId.slice(0, 8) }) : `${mode} tag ${tagId.slice(0, 8)}…`
         : t ? t('tagNone', { mode }) : `${mode} tag (none picked)`;
     }
-    case 'handoff': {
+    case 'handoff':
+    case 'agent_handover': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';
-      return note.length > 0 ? truncate(note) : null;
+      return note.length > 0 ? truncate(note) : 'Handover to human agent';
     }
+    case 'trigger': {
+      const step = cfg.starting_step === 'new_contact' ? 'New contact' : 'Keyword match';
+      return `Starting: ${step}`;
+    }
+    case 'ai_response': {
+      const prompt = typeof cfg.prompt === 'string' ? cfg.prompt : '';
+      const cond = cfg.proceed_condition === 'always' ? 'Always proceed' : 'Wait for confidence';
+      return prompt ? `${truncate(prompt, 40)} · ${cond}` : cond;
+    }
+    case 'send_email': {
+      const subject = typeof cfg.subject === 'string' ? cfg.subject : '';
+      return subject ? `Email: ${truncate(subject, 40)}` : 'Send email';
+    }
+    case 'delay': {
+      const amt = cfg.amount ?? 5;
+      const unit = cfg.unit ?? 'minutes';
+      return `Wait ${amt} ${unit}`;
+    }
+    case 'webhook':
+    case 'http_fetch': {
+      const url = typeof cfg.url === 'string' ? cfg.url : '';
+      const method = typeof cfg.method === 'string' ? cfg.method : 'POST';
+      return url ? `${method} ${truncate(url, 40)}` : 'Send HTTP webhook';
+    }
+    case 'update_contact': {
+      const field = typeof cfg.field === 'string' ? cfg.field : 'field';
+      const val = typeof cfg.value === 'string' ? cfg.value : '';
+      return `Set ${field} = ${truncate(val, 30)}`;
+    }
+    case 'assign_label': {
+      const mode = cfg.mode === 'remove' ? 'Remove' : 'Add';
+      const tagId = typeof cfg.tag_id === 'string' ? cfg.tag_id : '';
+      return tagId ? `${mode} label ${tagId.slice(0, 8)}…` : `${mode} label`;
+    }
+    case 'create_deal': {
+      const title = typeof cfg.title === 'string' ? cfg.title : 'New deal';
+      return `Deal: ${truncate(title, 35)}`;
+    }
+    case 'whatsapp_payment': {
+      const amt = cfg.amount ?? 0;
+      const curr = cfg.currency ?? 'INR';
+      return `Request payment: ${amt} ${curr}`;
+    }
+    case 'catalog': {
+      const body = typeof cfg.body_text === 'string' ? cfg.body_text : '';
+      return body ? truncate(body, 40) : 'Catalog product message';
+    }
+    case 'input_flow': {
+      const p = typeof cfg.prompt_text === 'string' ? cfg.prompt_text : '';
+      const v = typeof cfg.var_key === 'string' ? cfg.var_key : 'val';
+      return p ? `${truncate(p, 40)} → vars.${v}` : `Capture → vars.${v}`;
+    }
+    case 'whatsapp_form': {
+      return 'WhatsApp Flow Form';
+    }
+    case 'book_appointment': {
+      const url = typeof cfg.booking_url === 'string' ? cfg.booking_url : '';
+      return url ? `Booking: ${truncate(url, 35)}` : 'Schedule appointment';
+    }
+    case 'add_to_group': {
+      return 'Add to contact group';
+    }
+    case 'remove_from_group': {
+      return 'Remove from contact group';
+    }
+    case 'close_conversation': {
+      return 'Close conversation';
+    }
+    default:
+      return null;
   }
 }

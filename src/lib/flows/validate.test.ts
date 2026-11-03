@@ -781,6 +781,20 @@ describe("auto-advancing chain length", () => {
     expect(issues.filter((i) => i.severity === "error")).toEqual([]);
   });
 
+  it("accepts terminal nodes (end, handoff, agent_handover, close_conversation) without outgoing connection errors", () => {
+    const nodes = [
+      { node_key: "trig", node_type: "trigger", config: { starting_step: "new_contact", next_node_key: "msg" } },
+      { node_key: "msg", node_type: "send_message", config: { text: "Hello", next_node_key: "term1" } },
+      { node_key: "term1", node_type: "agent_handover", config: {} },
+      { node_key: "term2", node_type: "end", config: {} },
+    ];
+    const issues = validateFlowForActivation(
+      { ...validFlow, entry_node_id: "trig" },
+      nodes,
+    );
+    expect(issues.filter((i) => i.severity === "error" && ["term1", "term2"].includes(i.node_key || ""))).toEqual([]);
+  });
+
   it("rejects a chain longer than the engine can run in one advance", () => {
     const issues = validateFlowForActivation(flow, linearFlow(MAX_AUTO_ADVANCING_CHAIN));
     expect(issues).toEqual([

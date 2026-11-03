@@ -283,18 +283,140 @@ export interface SetTagNodeConfig {
   next_node_key: string;
 }
 
+export interface TriggerNodeConfig {
+  starting_step: "new_contact" | "keyword";
+  keywords?: string[];
+  match_type?: "exact" | "contains" | "word";
+  next_node_key: string;
+}
+
+export interface AiResponseNodeConfig {
+  prompt?: string;
+  proceed_condition: "always" | "wait_high_confidence";
+  confidence_threshold?: number;
+  low_confidence_message?: string;
+  active?: boolean;
+  next_node_key: string;
+}
+
+export interface SendEmailNodeConfig {
+  subject: string;
+  body: string;
+  smtp_host?: string;
+  smtp_port?: number | string;
+  username?: string;
+  password?: string;
+  encryption?: "tls" | "ssl" | "none";
+  from_name?: string;
+  from_email?: string;
+  active?: boolean;
+  next_node_key: string;
+}
+
+export interface AddToGroupNodeConfig {
+  group_id: string;
+  group_name?: string;
+  next_node_key: string;
+}
+
+export interface RemoveFromGroupNodeConfig {
+  group_id: string;
+  group_name?: string;
+  next_node_key: string;
+}
+
+export interface UpdateContactNodeConfig {
+  field: string;
+  value: string;
+  next_node_key: string;
+}
+
+export interface AssignLabelNodeConfig {
+  mode: "add" | "remove";
+  tag_id: string;
+  next_node_key: string;
+}
+
+export interface DelayNodeConfig {
+  amount: number;
+  unit: "minutes" | "hours" | "days";
+  next_node_key: string;
+}
+
+export interface WebhookNodeConfig {
+  url: string;
+  method?: "GET" | "POST" | "PUT";
+  headers?: Record<string, string>;
+  body_template?: string;
+  save_response_var?: string;
+  next_node_key: string;
+}
+
+export interface BookAppointmentNodeConfig {
+  service_type?: "calendly" | "cal_com" | "custom";
+  booking_url: string;
+  prompt_text?: string;
+  next_node_key: string;
+}
+
+export interface WhatsAppPaymentNodeConfig {
+  amount: number;
+  currency: string;
+  item_name: string;
+  provider?: "razorpay" | "whatsapp_pay" | "custom";
+  success_next?: string;
+  failure_next?: string;
+  next_node_key: string;
+}
+
+export interface CatalogNodeConfig {
+  catalog_id?: string;
+  product_retailer_id?: string;
+  body_text?: string;
+  next_node_key: string;
+}
+
+export interface AgentHandoverNodeConfig {
+  note?: string;
+  assign_to?: string;
+  mode?: "specific" | "round_robin";
+}
+
+export interface InputFlowNodeConfig {
+  prompt_text: string;
+  var_key: string;
+  validation?: "any" | "email" | "phone" | "number" | "regex";
+  regex?: string;
+  next_node_key: string;
+}
+
+export interface WhatsAppFormNodeConfig {
+  flow_id?: string;
+  flow_token?: string;
+  screen_id?: string;
+  next_node_key: string;
+}
+
+export interface CreateDealNodeConfig {
+  pipeline_id: string;
+  stage_id: string;
+  title: string;
+  value?: number;
+  next_node_key: string;
+}
+
+export interface CloseConversationNodeConfig {
+  reason?: string;
+}
+
 // Terminal nodes carry no config — they just stop the run.
 export type EndNodeConfig = Record<string, never>;
 
 /**
- * Total union — every concrete node_type the v1 engine understands.
- * Add new node types here and the engine's switch will flag missing
- * cases via TypeScript's exhaustiveness check.
- *
- * v1.5+ additions (collect_input, condition, set_tag, http_fetch) will
- * extend this union — out-of-scope for the v1 engine PR.
+ * Total union — every concrete node_type the unified engine understands.
  */
 export type FlowNodeConfig =
+  | { node_type: "trigger"; config: TriggerNodeConfig }
   | { node_type: "start"; config: StartNodeConfig }
   | { node_type: "send_message"; config: SendMessageNodeConfig }
   | { node_type: "send_buttons"; config: SendButtonsNodeConfig }
@@ -308,9 +430,33 @@ export type FlowNodeConfig =
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
+  | { node_type: "agent_handover"; config: AgentHandoverNodeConfig }
+  | { node_type: "add_to_group"; config: AddToGroupNodeConfig }
+  | { node_type: "remove_from_group"; config: RemoveFromGroupNodeConfig }
+  | { node_type: "update_contact"; config: UpdateContactNodeConfig }
+  | { node_type: "assign_label"; config: AssignLabelNodeConfig }
+  | { node_type: "send_email"; config: SendEmailNodeConfig }
+  | { node_type: "delay"; config: DelayNodeConfig }
+  | { node_type: "webhook"; config: WebhookNodeConfig }
+  | { node_type: "http_fetch"; config: WebhookNodeConfig }
+  | { node_type: "book_appointment"; config: BookAppointmentNodeConfig }
+  | { node_type: "ai_response"; config: AiResponseNodeConfig }
+  | { node_type: "whatsapp_payment"; config: WhatsAppPaymentNodeConfig }
+  | { node_type: "catalog"; config: CatalogNodeConfig }
+  | { node_type: "input_flow"; config: InputFlowNodeConfig }
+  | { node_type: "whatsapp_form"; config: WhatsAppFormNodeConfig }
+  | { node_type: "create_deal"; config: CreateDealNodeConfig }
+  | { node_type: "close_conversation"; config: CloseConversationNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
 export type FlowNodeType = FlowNodeConfig["node_type"];
+
+export const TERMINAL_NODE_TYPES: ReadonlySet<string> = new Set([
+  "end",
+  "handoff",
+  "agent_handover",
+  "close_conversation",
+]);
 
 // ============================================================
 // Triggers (matches `flows.trigger_type` + `trigger_config`)
@@ -489,6 +635,7 @@ export interface DispatchInboundResult {
  * union forgets a case. Used in the engine's node-type switch.
  */
 export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
+  "trigger",
   "start",
   "send_message",
   "send_media",
@@ -497,6 +644,16 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "request_address",
   "condition",
   "set_tag",
+  "add_to_group",
+  "remove_from_group",
+  "update_contact",
+  "assign_label",
+  "send_email",
+  "webhook",
+  "http_fetch",
+  "book_appointment",
+  "catalog",
+  "create_deal",
 ]);
 
 export const MAX_NODES_PER_ADVANCE = 25;

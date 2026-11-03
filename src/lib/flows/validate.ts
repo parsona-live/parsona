@@ -1123,10 +1123,125 @@ function validateNode(
     }
 
     case "handoff":
+    case "agent_handover":
+    case "close_conversation":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
-      // beyond their existence.
+      // beyond their existence. Never flag missing next_node_key.
       break;
+
+    case "trigger": {
+      const cfg = node.config as { starting_step?: string; next_node_key?: string };
+      if (!cfg.starting_step) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "starting_step",
+          message: "Please choose a starting step for the trigger.",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      break;
+    }
+
+    case "send_email": {
+      const cfg = node.config as { subject?: string; body?: string; next_node_key?: string };
+      if (!cfg.subject?.trim()) {
+        issues.push({
+          severity: "warning",
+          scope: "node",
+          node_key: node.node_key,
+          field: "subject",
+          message: "Email subject is empty.",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      break;
+    }
+
+    case "webhook":
+    case "http_fetch": {
+      const cfg = node.config as { url?: string; next_node_key?: string };
+      if (!cfg.url?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "url",
+          message: "Webhook URL is required.",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      break;
+    }
+
+    case "add_to_group":
+    case "remove_from_group":
+    case "update_contact":
+    case "assign_label":
+    case "delay":
+    case "book_appointment":
+    case "ai_response":
+    case "whatsapp_payment":
+    case "catalog":
+    case "input_flow":
+    case "whatsapp_form":
+    case "create_deal": {
+      const cfg = node.config as { next_node_key?: string; success_next?: string; failure_next?: string };
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      if (cfg.success_next && !knownKeys.has(cfg.success_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "success_next",
+          message: `Connects to missing node "${cfg.success_next}"`,
+        });
+      }
+      if (cfg.failure_next && !knownKeys.has(cfg.failure_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "failure_next",
+          message: `Connects to missing node "${cfg.failure_next}"`,
+        });
+      }
+      break;
+    }
 
     default:
       issues.push({
@@ -1168,6 +1283,7 @@ export function reachableFromEntry(
 
 function outgoingEdges(node: NodeInput): string[] {
   switch (node.node_type) {
+    case "trigger":
     case "start":
     case "send_message":
     case "send_media":
@@ -1175,9 +1291,35 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_contact":
     case "request_address":
     case "collect_input":
-    case "set_tag": {
+    case "input_flow":
+    case "set_tag":
+    case "add_to_group":
+    case "remove_from_group":
+    case "update_contact":
+    case "assign_label":
+    case "send_email":
+    case "delay":
+    case "webhook":
+    case "http_fetch":
+    case "book_appointment":
+    case "ai_response":
+    case "catalog":
+    case "whatsapp_form":
+    case "create_deal": {
       const cfg = node.config as { next_node_key?: string };
       return cfg.next_node_key ? [cfg.next_node_key] : [];
+    }
+    case "whatsapp_payment": {
+      const cfg = node.config as {
+        success_next?: string;
+        failure_next?: string;
+        next_node_key?: string;
+      };
+      const out: string[] = [];
+      if (cfg.success_next) out.push(cfg.success_next);
+      if (cfg.failure_next) out.push(cfg.failure_next);
+      if (cfg.next_node_key) out.push(cfg.next_node_key);
+      return out;
     }
     case "condition": {
       const cfg = node.config as {

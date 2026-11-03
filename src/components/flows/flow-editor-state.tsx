@@ -261,9 +261,64 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
     case "set_tag":
       return { mode: "add", tag_id: "", next_node_key: "" };
     case "handoff":
-      return { note: "" };
+    case "agent_handover":
+      return { note: "", mode: "round_robin" };
     case "end":
       return {};
+    case "trigger":
+      return { starting_step: "new_contact", next_node_key: "" };
+    case "ai_response":
+      return {
+        prompt: "",
+        proceed_condition: "wait_high_confidence",
+        confidence_threshold: 0.8,
+        low_confidence_message: "I'm not confident about my response. Could you rephrase your question?",
+        active: true,
+        next_node_key: "",
+      };
+    case "send_email":
+      return {
+        subject: "",
+        body: "",
+        smtp_host: "",
+        smtp_port: "587",
+        username: "",
+        password: "",
+        encryption: "tls",
+        from_name: "",
+        from_email: "",
+        active: true,
+        next_node_key: "",
+      };
+    case "delay":
+      return { amount: 5, unit: "minutes", next_node_key: "" };
+    case "webhook":
+    case "http_fetch":
+      return { url: "", method: "POST", headers: {}, body_template: "", next_node_key: "" };
+    case "update_contact":
+      return { field: "name", value: "", next_node_key: "" };
+    case "assign_label":
+      return { mode: "add", tag_id: "", next_node_key: "" };
+    case "add_to_group":
+      return { group_id: "", next_node_key: "" };
+    case "remove_from_group":
+      return { group_id: "", next_node_key: "" };
+    case "whatsapp_payment":
+      return { amount: 100, currency: "INR", item_name: "Product Order", provider: "razorpay", next_node_key: "" };
+    case "create_deal":
+      return { pipeline_id: "", stage_id: "", title: "New Deal", value: 0, next_node_key: "" };
+    case "catalog":
+      return { catalog_id: "", body_text: "Browse our catalog:", next_node_key: "" };
+    case "input_flow":
+      return { prompt_text: "Please enter your response:", var_key: "user_input", validation: "any", next_node_key: "" };
+    case "book_appointment":
+      return { service_type: "cal_com", booking_url: "", prompt_text: "Book your appointment:", next_node_key: "" };
+    case "whatsapp_form":
+      return { flow_id: "", next_node_key: "" };
+    case "close_conversation":
+      return { reason: "Resolved by workflow" };
+    default:
+      return { next_node_key: "" };
   }
 }
 
@@ -317,21 +372,49 @@ export function FlowEditorProvider({
   const router = useRouter();
   const t = useTranslations("Flows.editorState");
 
-  const [state, setStateRaw] = useState<BuilderState>(() => ({
-    name: initialFlow.name,
-    description: initialFlow.description ?? "",
-    trigger_type: initialFlow.trigger_type,
-    trigger_config: initialFlow.trigger_config as Record<string, unknown>,
-    entry_node_id: initialFlow.entry_node_id,
-    status: initialFlow.status,
-    nodes: initialNodes.map((n) => ({
+  const [state, setStateRaw] = useState<BuilderState>(() => {
+    let mappedNodes = initialNodes.map((n) => ({
       node_key: n.node_key,
       node_type: n.node_type as NodeType,
       config: n.config as Record<string, unknown>,
       position_x: n.position_x,
       position_y: n.position_y,
-    })),
-  }));
+    }));
+
+    // If new flow has no nodes, default to a Trigger node on the canvas
+    if (mappedNodes.length === 0) {
+      const defaultStartingStep = initialFlow.trigger_type === "first_inbound_message" ? "new_contact" : "keyword";
+      const defaultKeywords = Array.isArray((initialFlow.trigger_config as Record<string, unknown>)?.keywords)
+        ? ((initialFlow.trigger_config as Record<string, unknown>).keywords as string[])
+        : [];
+      mappedNodes = [
+        {
+          node_key: "trigger_1",
+          node_type: "trigger",
+          config: {
+            starting_step: defaultStartingStep,
+            keywords: defaultKeywords,
+            next_node_key: "",
+          },
+          position_x: 80,
+          position_y: 120,
+        },
+      ];
+    }
+
+    const triggerNode = mappedNodes.find((n) => n.node_type === "trigger");
+    const entryId = initialFlow.entry_node_id || triggerNode?.node_key || (mappedNodes[0]?.node_key ?? null);
+
+    return {
+      name: initialFlow.name,
+      description: initialFlow.description ?? "",
+      trigger_type: initialFlow.trigger_type,
+      trigger_config: initialFlow.trigger_config as Record<string, unknown>,
+      entry_node_id: entryId,
+      status: initialFlow.status,
+      nodes: mappedNodes,
+    };
+  });
 
   const [saving, setSaving] = useState(false);
   const latestNodesRef = useRef(state.nodes);
@@ -569,14 +652,21 @@ export function FlowEditorProvider({
       // leave dangling arrows behind that the validator would flag.
       // Cleared refs become "" (the "no target picked" sentinel the
       // builder forms already use).
-      setState((s) => ({
-        ...s,
-        nodes: unlinkNodeReferences(
+      setState((s) => {
+        const remainingNodes = unlinkNodeReferences(
           s.nodes.filter((n) => n.node_key !== key),
           key,
-        ),
-        entry_node_id: s.entry_node_id === key ? null : s.entry_node_id,
-      }));
+        );
+        const nextEntry =
+          s.entry_node_id === key
+            ? (remainingNodes.find((n) => n.node_type === "trigger")?.node_key ?? remainingNodes[0]?.node_key ?? null)
+            : s.entry_node_id;
+        return {
+          ...s,
+          nodes: remainingNodes,
+          entry_node_id: nextEntry,
+        };
+      });
     },
     [setState],
   );

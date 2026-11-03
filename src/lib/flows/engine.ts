@@ -1145,11 +1145,135 @@ async function advanceFromNodeKey(
       }
       return { outcome: "advanced" };
     }
-    if (node.node_type === "handoff") {
+    if (node.node_type === "trigger") {
+      const cfg = node.config as { next_node_key?: string };
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "assign_label") {
+      const cfg = node.config as { mode?: string; tag_id?: string; next_node_key?: string };
+      try {
+        if (cfg.tag_id && run.contact_id) {
+          if (cfg.mode === "remove") {
+            await removeContactTag(db, {
+              accountId: run.account_id,
+              contactId: run.contact_id,
+              tagId: cfg.tag_id,
+            });
+          } else {
+            await addContactTagAndDispatch({
+              db,
+              accountId: run.account_id,
+              contactId: run.contact_id,
+              tagId: cfg.tag_id,
+              context: { conversation_id: run.conversation_id ?? undefined, vars: run.vars },
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[flows] assign_label error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "update_contact") {
+      const cfg = node.config as { field?: string; value?: string; next_node_key?: string };
+      try {
+        if (cfg.field && run.contact_id) {
+          const val = interpolateVars(cfg.value || "", run.vars);
+          if (["name", "email", "company"].includes(cfg.field)) {
+            await db.from("contacts").update({ [cfg.field]: val }).eq("id", run.contact_id);
+          }
+        }
+      } catch (err) {
+        console.error("[flows] update_contact error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "send_email") {
+      const cfg = node.config as { subject?: string; body?: string; next_node_key?: string };
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        action: "send_email",
+        subject: interpolateVars(cfg.subject || "", run.vars),
+      });
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "delay") {
+      const cfg = node.config as { amount?: number; unit?: string; next_node_key?: string };
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        action: "delay",
+        amount: cfg.amount,
+        unit: cfg.unit,
+      });
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "webhook" || node.node_type === "http_fetch") {
+      const cfg = node.config as { url?: string; method?: string; next_node_key?: string };
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        action: "webhook",
+        url: cfg.url,
+      });
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "ai_response") {
+      const cfg = node.config as { prompt?: string; next_node_key?: string };
+      try {
+        await engineSendText({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          text: cfg.prompt ? interpolateVars(cfg.prompt, run.vars) : "Thank you, our AI agent will assist you shortly.",
+        });
+      } catch (err) {
+        console.error("[flows] ai_response error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "create_deal") {
+      const cfg = node.config as { title?: string; value?: number; next_node_key?: string };
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        action: "create_deal",
+        title: interpolateVars(cfg.title || "", run.vars),
+      });
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "catalog" || node.node_type === "book_appointment" || node.node_type === "add_to_group" || node.node_type === "remove_from_group") {
+      const cfg = node.config as { next_node_key?: string };
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "input_flow") {
+      const cfg = node.config as unknown as CollectInputNodeConfig;
+      try {
+        const { whatsapp_message_id } = await engineSendText({
+          accountId: run.account_id,
+          userId: run.user_id,
+          conversationId: run.conversation_id!,
+          contactId: run.contact_id!,
+          text: interpolateVars(cfg.prompt_text, run.vars),
+        });
+        await logEvent(db, run.id, "message_sent", node.node_key, {
+          node_type: "input_flow",
+          whatsapp_message_id,
+        });
+      } catch (err) {
+        console.error("[flows] input_flow failed:", err);
+      }
+      await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
+      return { outcome: "advanced" };
+    }
+    if (node.node_type === "handoff" || node.node_type === "agent_handover") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
     }
-    if (node.node_type === "end") {
+    if (node.node_type === "end" || node.node_type === "close_conversation") {
       await logEvent(db, run.id, "completed", node.node_key);
       await endRun(db, run.id, "completed", "end_node");
       return { outcome: "completed" };
