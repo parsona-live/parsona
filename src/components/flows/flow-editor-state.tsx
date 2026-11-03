@@ -51,7 +51,11 @@ import {
 } from "@/lib/flows/validate";
 import { useTranslations } from "next-intl";
 import { getT } from "@/lib/i18n/translate";
-import { unlinkNodeReferences } from "@/lib/flows/edges";
+import {
+  deriveCanvasEdges,
+  unlinkNodeReferences,
+} from "@/lib/flows/edges";
+import { autoLayout } from "@/lib/flows/layout";
 import type { FlowNodeRow, FlowRow } from "@/lib/flows/types";
 import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 
@@ -103,6 +107,13 @@ export interface FlowEditorContextValue {
     positions: Record<string, { x: number; y: number }>,
   ) => void;
   removeNode: (key: string) => void;
+  /**
+   * Run the dagre auto-layout over the current node graph and persist
+   * the resulting positions. Unlike the lazy initial-layout hook this
+   * is an explicit user action ("Arrange") so it always dirties the
+   * editor and always overwrites whatever the user had placed.
+   */
+  arrangeNodes: (options?: { direction?: "TB" | "LR" }) => void;
 
   // Actions
   save: () => Promise<boolean>;
@@ -640,6 +651,37 @@ export function FlowEditorProvider({
     [],
   );
 
+  const arrangeNodes = useCallback(
+    (options?: { direction?: "TB" | "LR" }) => {
+      const positions = autoLayout(
+        state.nodes.map((n) => ({
+          id: n.node_key,
+          width: 260,
+          height: 110,
+        })),
+        deriveCanvasEdges(state.nodes).map((e) => ({
+          source: e.source,
+          target: e.target,
+        })),
+        {
+          direction: options?.direction ?? "TB",
+          rankSep: 90,
+          nodeSep: 70,
+        },
+      );
+      setState((s) => ({
+        ...s,
+        nodes: applyNodePositions(
+          s.nodes,
+          Object.fromEntries(
+            [...positions].map(([key, pos]) => [key, pos])
+          )
+        ),
+      }));
+    },
+    [setState, state.nodes],
+  );
+
   const addNode = useCallback(
     (type: NodeType): string => {
       const node = buildNewNode(type, latestNodesRef.current);
@@ -675,7 +717,7 @@ export function FlowEditorProvider({
     [setState],
   );
 
-  const value = useMemo<FlowEditorContextValue>(
+const value = useMemo<FlowEditorContextValue>(
     () => ({
       flow: initialFlow,
       state,
@@ -691,6 +733,7 @@ export function FlowEditorProvider({
       updateNodePosition,
       updateNodePositions,
       removeNode,
+      arrangeNodes,
       save,
       setStatus,
       deleteFlow,
@@ -712,6 +755,7 @@ export function FlowEditorProvider({
       updateNodePosition,
       updateNodePositions,
       removeNode,
+      arrangeNodes,
       save,
       setStatus,
       deleteFlow,

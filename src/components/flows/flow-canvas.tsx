@@ -6,7 +6,6 @@ import {
   Controls,
   Handle,
   MiniMap,
-  Panel,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -20,6 +19,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
+  X,
   Plus,
   Trash2,
   Eye,
@@ -40,7 +40,6 @@ import {
   Sparkles,
   CreditCard,
   Briefcase,
-  Inbox,
   Globe,
   Flag,
   CheckCircle2,
@@ -50,14 +49,6 @@ import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import {
   applyEdgeConnection,
   deriveCanvasEdges,
@@ -924,6 +915,8 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
     updateNodePosition,
     updateNodePositions,
     removeNode,
+    addNode,
+    arrangeNodes,
     flashKey,
   } = useFlowEditor();
   const reactFlow = useReactFlow();
@@ -934,6 +927,9 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
   // list view's analogue is the per-card expanded set in
   // flow-builder.tsx.
   const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
+  // Tracks whether a drag from the Node Library is currently hovering
+  // over the canvas so we can render a drop affordance.
+  const [isDragOver, setIsDragOver] = useState(false);
   const selectedNode = useMemo(
     () =>
       selectedNodeKey
@@ -1082,12 +1078,64 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
     });
   }, [flashKey, builderNodes, reactFlow]);
 
+  // Fit the canvas once on first mount so the initial nodes are all
+  // visible. We deliberately do NOT use the `fitView` prop because it
+  // re-runs on every nodes-changed tick — that's what was zooming the
+  // view out and stealing focus every time a node was added via the
+  // sidebar "click to add" path. After the initial fit the viewport
+  // stays under the user's control (drag-drop, pan, zoom).
+  const initialFitRef = useRef(false);
+  useEffect(() => {
+    if (initialFitRef.current || rfNodes.length === 0) return;
+    initialFitRef.current = true;
+    const id = requestAnimationFrame(() => reactFlow.fitView({ padding: 0.2, maxZoom: 1 }));
+    return () => cancelAnimationFrame(id);
+  }, [rfNodes.length, reactFlow]);
+
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: RfNode<NodeData>) => {
       setSelectedNodeKey(node.id);
     },
     []
   );
+
+  // Drag-and-drop from the Node Library sidebar. The sidebar items
+  // already announce their type via `application/reactflow-nodetype`;
+  // here we convert the drop cursor position into flow coordinates
+  // and place the new node there instead of the viewport center,
+  // so the user has full control over where a node lands.
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setIsDragOver(true);
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      setIsDragOver(false);
+      const type = event.dataTransfer.getData(
+        'application/reactflow-nodetype',
+      ) as NodeType | '';
+      if (!type) return;
+      const position = reactFlow.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      const key = addNode(type);
+      updateNodePosition(key, position.x - NODE_WIDTH / 2, position.y - NODE_HEIGHT / 2);
+    },
+    [addNode, reactFlow, updateNodePosition],
+  );
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    // Only clear when leaving the canvas entirely (relatedTarget is
+    // null or outside the canvas root), otherwise a drag moving
+    // between child elements flickers the affordance off.
+    if (!event.relatedTarget || !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
 
   // Drag-to-connect: React-Flow fires onConnect when the user drops a
   // handle drag onto a target handle. We look up the source node,
@@ -1186,13 +1234,23 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
 
   return (
     <>
-      <div className="h-full w-full overflow-hidden bg-[#fafafa]">
+      <div
+        className="h-full w-full overflow-hidden bg-[#fafafa] relative"
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragLeave={handleDragLeave}
+      >
+        {isDragOver && (
+          <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center bg-purple-50/40 border-2 border-dashed border-purple-400 rounded-xl m-2">
+            <span className="text-xs font-semibold text-purple-700 bg-white px-3 py-1.5 rounded-lg shadow-sm">
+              Drop node here
+            </span>
+          </div>
+        )}
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
           nodeTypes={NODE_TYPES}
-          fitView
-          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
           proOptions={{ hideAttribution: true }}
           onNodesChange={handleNodesChange}
           onNodeDragStop={handleNodeDragStop}
@@ -1237,7 +1295,7 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
         </ReactFlow>
       </div>
 
-      <NodeEditSheet
+      <NodeEditPanel
         node={selectedNode}
         isEntry={selectedNode?.node_key === entryNodeId}
         allNodes={builderNodes}
@@ -1252,12 +1310,15 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
 }
 
 // ============================================================
-// Side panel — opens when a canvas node is clicked. Mounts the
-// shared NodeConfigForm dispatcher so edits made here behave
-// identically to the list view's per-card editor.
+// Inline side panel — opens when a canvas node is clicked. Renders
+// as a fixed-width right-hand column inside the workspace layout
+// (no floating overlay / backdrop), matching the chat preview's
+// placement so both panels can coexist inside the flow shell.
+// Mounts the shared NodeConfigForm dispatcher so edits made here
+// behave identically to the list view's per-card editor.
 // ============================================================
 
-function NodeEditSheet({
+function NodeEditPanel({
   node,
   isEntry,
   allNodes,
@@ -1276,76 +1337,62 @@ function NodeEditSheet({
   onSetEntry: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  // Sheet is controlled — opens when a node is selected, closes via
-  // Esc / overlay / close button (all delegated to onClose).
-  const open = node !== null;
-  if (!node) {
-    return (
-      <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-md bg-white border-slate-200" />
-      </Sheet>
-    );
-  }
-  const meta = NODE_META[node.node_type];
-  const c = nodeColors(node.node_type);
+  if (!node) return null;
   const def = NODE_REGISTRY[node.node_type];
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="right"
-        className="border-slate-200 bg-white flex w-full flex-col gap-0 border-l p-0 sm:max-w-md shadow-xl"
-      >
-        <SheetHeader className="border-slate-200 flex-row items-center gap-3 space-y-0 border-b px-5 py-4 bg-slate-50/60">
-          <NodeIconChip type={node.node_type} size={36} iconSize={18} />
+    <aside className="w-[380px] lg:w-[420px] h-full border-l border-slate-200 bg-white flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
+      <div className="h-14 border-b border-slate-200 bg-slate-50/60 px-5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <NodeIconChip type={node.node_type} size={32} iconSize={16} />
           <div className="min-w-0 flex-1">
-            <SheetTitle className="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-slate-800">
-              <span>{def?.label || t(`nodes.${node.node_type}.label`)}</span>
-              {isEntry && (
-                <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-600 uppercase">
-                  {t('badgeEntry')}
-                </span>
-              )}
-            </SheetTitle>
-            <SheetDescription className="text-slate-500 mt-0.5 text-xs">
+            <h4 className="text-xs font-semibold text-slate-800 truncate">
+              {def?.label || t(`nodes.${node.node_type}.label`)}
+            </h4>
+            <p className="text-[11px] text-slate-500 truncate">
               {def?.blurb || t(`nodes.${node.node_type}.blurb`)}
-            </SheetDescription>
+            </p>
           </div>
-          <code className="bg-slate-100 text-slate-600 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] border border-slate-200">
-            {node.node_key}
-          </code>
-        </SheetHeader>
-
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
-          <NodeConfigForm
-            node={node}
-            allNodes={allNodes}
-            showAdvanced={false}
-            onUpdateConfig={onUpdateConfig}
-          />
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+          title="Close panel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
-        <SheetFooter className="border-slate-200 border-t px-5 py-3 sm:flex-row sm:justify-between bg-slate-50/60">
-          {!isEntry && node.node_type !== 'trigger' ? (
-            <Button variant="ghost" size="sm" onClick={onSetEntry} className="text-slate-700 hover:text-slate-900">
-              Set as entry
-            </Button>
-          ) : (
-            <span />
-          )}
-          {node.node_type !== 'start' && node.node_type !== 'trigger' && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onDelete}
-              className="gap-1.5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete Node
-            </Button>
-          )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+        <NodeConfigForm
+          node={node}
+          allNodes={allNodes}
+          showAdvanced={false}
+          onUpdateConfig={onUpdateConfig}
+        />
+      </div>
+
+      <div className="border-slate-200 border-t px-5 py-3 sm:flex-row sm:justify-between bg-slate-50/60 flex items-center gap-2">
+        {!isEntry && node.node_type !== 'trigger' ? (
+          <Button variant="ghost" size="sm" onClick={onSetEntry} className="text-slate-700 hover:text-slate-900">
+            Set as entry
+          </Button>
+        ) : (
+          <span />
+        )}
+        {node.node_type !== 'start' && node.node_type !== 'trigger' && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onDelete}
+            className="gap-1.5"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete Node
+          </Button>
+        )}
+      </div>
+    </aside>
   );
 }
      

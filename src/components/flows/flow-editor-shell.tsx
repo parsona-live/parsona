@@ -249,7 +249,7 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
         />
-        <div className="flex-1 h-full min-w-0 relative">
+        <div className="flex-1 h-full min-w-0 relative flex">
           <FlowCanvas onTestNode={handleTestNode} />
         </div>
         {previewOpen && (
