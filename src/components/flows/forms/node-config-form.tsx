@@ -59,6 +59,7 @@ import {
   UpdateContactForm,
   WhatsAppPaymentForm,
   CreateDealForm,
+  AgentHandoverForm,
 } from "./action-node-forms";
 
 interface NodeConfigFormProps {
@@ -262,11 +263,9 @@ export function NodeConfigForm({
     case "handoff":
     case "agent_handover":
       return (
-        <TextRow
-          label={t("internalNote")}
-          value={(cfg as { note?: string }).note ?? ""}
-          onChange={(v) => onUpdateConfig({ note: v })}
-          rows={2}
+        <AgentHandoverForm
+          config={cfg as Record<string, unknown>}
+          onChange={onUpdateConfig}
         />
       );
 

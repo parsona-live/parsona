@@ -342,7 +342,7 @@ export function applyNodePositions(
 // Context
 // ============================================================
 
-const FlowEditorCtx = createContext<FlowEditorContextValue | null>(null);
+export const FlowEditorCtx = createContext<FlowEditorContextValue | null>(null);
 
 export function useFlowEditor(): FlowEditorContextValue {
   const ctx = useContext(FlowEditorCtx);
@@ -352,6 +352,10 @@ export function useFlowEditor(): FlowEditorContextValue {
     );
   }
   return ctx;
+}
+
+export function useOptionalFlowEditor(): FlowEditorContextValue | null {
+  return useContext(FlowEditorCtx);
 }
 
 // ============================================================

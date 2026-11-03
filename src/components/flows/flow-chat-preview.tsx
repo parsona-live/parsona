@@ -50,6 +50,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { BuilderNode, NodeType } from './shared';
 import type { FlowRow } from '@/lib/flows/types';
+import { fastClassifyHeuristic } from '@/lib/flows/ai-classifier-shared';
 
 interface FlowChatPreviewProps {
   flow: FlowRow;
@@ -132,6 +133,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentNodeKey, setCurrentNodeKey] = useState<string | null>(null);
   const [waitingForInput, setWaitingForInput] = useState<string | null>(null);
+  const [pausedNodeKey, setPausedNodeKey] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [activeListModal, setActiveListModal] = useState<ChatMessage | null>(null);
   const [simVars, setSimVars] = useState<Record<string, string>>({
@@ -187,8 +189,22 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
   const interpolate = useCallback(
     (text?: string) => {
       if (!text) return '';
-      return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => {
-        return simVars[key] ?? `{{${key}}}`;
+      return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, rawKey) => {
+        // Direct
+        if (simVars[rawKey] !== undefined) return String(simVars[rawKey]);
+        // Stripped "vars."
+        if (rawKey.startsWith('vars.')) {
+          const stripped = rawKey.slice(5);
+          if (simVars[stripped] !== undefined) return String(simVars[stripped]);
+        }
+        // Prefixed "vars."
+        const prefixed = `vars.${rawKey}`;
+        if (simVars[prefixed] !== undefined) return String(simVars[prefixed]);
+        // Contact attributes fallback simulation
+        if (rawKey === 'contact.name' || rawKey === 'vars.contact.name') return 'John Doe';
+        if (rawKey === 'contact.phone' || rawKey === 'vars.contact.phone') return '+1234567890';
+        if (rawKey === 'contact.email' || rawKey === 'vars.contact.email') return 'john@example.com';
+        return `{{${rawKey}}}`;
       });
     },
     [simVars]
@@ -580,12 +596,23 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         case 'agent_handover':
         case 'handoff': {
           setWaitingForInput(null);
+          const agentName = (cfg.agent_name as string) || (cfg.assign_to as string) || '';
+          const agentEmail = (cfg.agent_email as string) || '';
+          const msg = interpolate((cfg.message as string) || (cfg.note as string) || 'Transferring you to our team. Please wait...');
+          const agentDetail = agentName ? `${agentName}${agentEmail ? ` (${agentEmail})` : ''}` : 'Queued in inbox';
+
           return [
             ...currentHistory,
             {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              text: msg,
+              timestamp: time,
+            },
+            {
               id: `act-${Date.now()}-${Math.random()}`,
               sender: 'system',
-              actionBadge: { icon: UserCheck, label: 'Transferred to Human Agent', detail: 'Queued in inbox' },
+              actionBadge: { icon: UserCheck, label: 'Transferred to Agent', detail: agentDetail },
               timestamp: time,
             },
           ];
@@ -647,7 +674,8 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       }
 
       if (startingStep === 'new_contact') {
-        return true;
+        const hasUserSent = messages.some((m) => m.sender === 'user');
+        return !hasUserSent;
       }
 
       return false;
@@ -695,11 +723,123 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       return;
     }
 
-    // Priority 2: If we are mid-flow and waiting for text input on collect_input
+    // Priority 2: If workflow was paused, check for resume or answer
+    if (pausedNodeKey) {
+      const pausedNode = nodeMap.get(pausedNodeKey);
+      const isCollect = pausedNode?.node_type === 'collect_input' || pausedNode?.node_type === 'input_flow';
+      const varKey = (pausedNode?.config?.var_key as string) || 'input';
+      const promptText = (pausedNode?.config?.prompt_text as string) || '';
+      const validation = (pausedNode?.config?.validation as any) || 'any';
+      const classification = fastClassifyHeuristic(text, promptText, varKey, validation);
+
+      if (classification?.intent === 'cancel') {
+        setPausedNodeKey(null);
+        setWaitingForInput(null);
+        setMessages([
+          ...newHistory,
+          {
+            id: `sys-${Date.now()}`,
+            sender: 'system',
+            text: 'Workflow cancelled.',
+            timestamp: time,
+          },
+        ]);
+        return;
+      }
+
+      if (classification?.intent === 'resume') {
+        // Resume paused workflow!
+        const targetKey = pausedNodeKey;
+        setPausedNodeKey(null);
+        const advanced = executeNode(targetKey, newHistory);
+        setMessages(advanced);
+        return;
+      }
+
+      if (classification?.intent === 'answer' && isCollect) {
+        // Answering the paused question directly!
+        const cleanVal = classification.extracted_value ?? text;
+        const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
+        const updatedVars = {
+          ...simVars,
+          [varKey]: cleanVal,
+          [rawKey]: cleanVal,
+          [`vars.${rawKey}`]: cleanVal,
+        };
+        setSimVars(updatedVars);
+        setPausedNodeKey(null);
+        const nextKey = pausedNode?.config?.next_node_key as string | undefined;
+        if (nextKey) {
+          const advanced = executeNode(nextKey, newHistory, updatedVars);
+          setMessages(advanced);
+          return;
+        }
+        setMessages(newHistory);
+        return;
+      }
+
+      // Customer is continuing conversation with AI while workflow stays paused
+      setMessages([
+        ...newHistory,
+        {
+          id: `ai-${Date.now()}`,
+          sender: 'ai',
+          text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' to continue.)_`,
+          timestamp: time,
+        },
+      ]);
+      return;
+    }
+
+    // Priority 3: If waiting for text input on collect_input
     if (waitingForInput) {
       const node = nodeMap.get(waitingForInput);
       const varKey = (node?.config?.var_key as string) || 'user_response';
-      const updatedVars = { ...simVars, [varKey]: text };
+      const promptText = (node?.config?.prompt_text as string) || '';
+      const validation = (node?.config?.validation as any) || 'any';
+      const classification = fastClassifyHeuristic(text, promptText, varKey, validation);
+
+      if (classification?.intent === 'cancel') {
+        setWaitingForInput(null);
+        setMessages([
+          ...newHistory,
+          {
+            id: `sys-${Date.now()}`,
+            sender: 'system',
+            text: 'Workflow cancelled.',
+            timestamp: time,
+          },
+        ]);
+        return;
+      }
+
+      // Check if user is asking an unrelated question or changing topic (interruption)
+      const isQuestion = text.includes('?') || /^(what|how|why|when|where|can|could|is|are|kya|kaise|kab|kahan|kyun|check|status)\b/i.test(text);
+      if (isQuestion || classification?.intent === 'interruption') {
+        // Pause the workflow and route to AI!
+        setPausedNodeKey(waitingForInput);
+        setWaitingForInput(null);
+        setMessages([
+          ...newHistory,
+          {
+            id: `ai-${Date.now()}`,
+            sender: 'ai',
+            text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' to continue.)_`,
+            timestamp: time,
+          },
+        ]);
+        return;
+      }
+
+      // Smart Input Extraction: clean extracted entity (e.g. "Yash Tupkar" from "My name is Yash Tupkar")
+      const cleanVal = classification?.extracted_value ?? text;
+      const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
+      const updatedVars = {
+        ...simVars,
+        [varKey]: cleanVal,
+        [rawKey]: cleanVal,
+        [`vars.${rawKey}`]: cleanVal,
+      };
       setSimVars(updatedVars);
       setWaitingForInput(null);
 
@@ -713,8 +853,30 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       return;
     }
 
-    // Priority 3: Message does NOT match trigger keywords and is not answering an input step.
-    // Route to AI Auto-Reply Route!
+    // Priority 4: Message sent while viewing buttons/list or freeform chat
+    if (currentNodeKey && nodeMap.has(currentNodeKey)) {
+      const currentNode = nodeMap.get(currentNodeKey);
+      if (
+        currentNode?.node_type === 'send_buttons' ||
+        currentNode?.node_type === 'send_list' ||
+        currentNode?.node_type === 'send_carousel'
+      ) {
+        // Customer typed text instead of tapping button -> pause and route to AI!
+        setPausedNodeKey(currentNodeKey);
+        setMessages([
+          ...newHistory,
+          {
+            id: `ai-${Date.now()}`,
+            sender: 'ai',
+            text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' or tap an option to continue.)_`,
+            timestamp: time,
+          },
+        ]);
+        return;
+      }
+    }
+
+    // Priority 5: Fallback general AI route
     setMessages([
       ...newHistory,
       {

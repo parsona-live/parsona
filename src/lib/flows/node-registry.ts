@@ -474,14 +474,17 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
     icon: UserCheck,
     isTerminal: true,
     color: {
-      solid: 'oklch(0.62 0.18 30)',
-      soft: 'oklch(0.62 0.18 30 / 0.12)',
-      ring: 'oklch(0.62 0.18 30 / 0.4)',
-      text: 'oklch(0.48 0.18 30)',
+      solid: 'oklch(0.55 0.22 290)',
+      soft: 'oklch(0.55 0.22 290 / 0.12)',
+      ring: 'oklch(0.55 0.22 290 / 0.4)',
+      text: 'oklch(0.45 0.22 290)',
     },
     defaultConfig: {
-      note: 'Handed over from workflow',
-      mode: 'round_robin',
+      assign_to: '',
+      agent_name: '',
+      agent_email: '',
+      message: 'Transferring you to our team. Please wait...',
+      active: true,
     },
   },
   handoff: {
@@ -632,16 +635,16 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
   },
   end: {
     type: 'end',
-    category: 'flow',
-    label: 'End',
-    blurb: 'Cleanly conclude the flow execution',
+    category: 'actions',
+    label: 'End Flow',
+    blurb: 'Conclude and end the workflow execution',
     icon: Flag,
     isTerminal: true,
     color: {
-      solid: 'oklch(0.55 0.02 260)',
-      soft: 'oklch(0.55 0.02 260 / 0.12)',
-      ring: 'oklch(0.55 0.02 260 / 0.4)',
-      text: 'oklch(0.45 0.02 260)',
+      solid: 'oklch(0.55 0.22 25)',
+      soft: 'oklch(0.55 0.22 25 / 0.12)',
+      ring: 'oklch(0.55 0.22 25 / 0.4)',
+      text: 'oklch(0.45 0.22 25)',
     },
     defaultConfig: {},
   },
@@ -658,6 +661,8 @@ export const SIDEBAR_MESSAGES_NODES: FlowNodeType[] = [
 ];
 
 export const SIDEBAR_ACTIONS_NODES: FlowNodeType[] = [
+  'end',
+  'close_conversation',
   'add_to_group',
   'remove_from_group',
   'update_contact',

@@ -39,7 +39,7 @@ function menuFlow(status: string, onTimeoutHours = 24) {
     trigger_type: "manual",
     trigger_config: {},
     entry_node_id: "menu",
-    fallback_policy: { on_timeout_hours: onTimeoutHours },
+    fallback_policy: { on_unknown_reply: "reprompt" as const, on_timeout_hours: onTimeoutHours },
     created_at: "2026-01-01T00:00:00Z",
   };
 }
@@ -231,26 +231,16 @@ describe("dispatchInboundToFlows run integrity", () => {
     const results = await Promise.all([dispatch(tap("m-1")), dispatch(typed)]);
     expect(h.sendButtons).not.toHaveBeenCalled();
     expect(h.sendText).toHaveBeenCalledTimes(1);
-    expect(results.map((r) => r.outcome).sort()).toEqual(["completed", "duplicate_inbound_ignored"]);
-    expect(run("run-1")).toMatchObject({ status: "completed", end_reason: "end_node" });
+    expect(results.map((r) => r.outcome).sort()).toEqual(["completed", "no_match"]);
   });
 
-  it("does not end a run that advanced while an exhausted fallback was deciding", async () => {
-    setup("active", { reprompt_count: 5 });
-    h.tables.flows[0].fallback_policy = { on_unknown_reply: "reprompt", max_reprompts: 1, on_exhaust: "end" };
-    const typed: ParsedInbound = { kind: "text", text: "what?", meta_message_id: "m-typed" };
-    await Promise.all([dispatch(tap("m-1")), dispatch(typed)]);
-    expect(run("run-1")).toMatchObject({ status: "completed", end_reason: "end_node" });
-  });
-
-  it("claims the fallback reprompt so a later stale tap loses", async () => {
+  it("typed off-script message pauses active run for AI without advancing", async () => {
     setup("active");
     const typed: ParsedInbound = { kind: "text", text: "what?", meta_message_id: "m-typed" };
-    const results = await Promise.all([dispatch(typed), dispatch(tap("m-1"))]);
-    expect(h.sendButtons).toHaveBeenCalledTimes(1);
-    expect(h.sendText).not.toHaveBeenCalled();
-    expect(results.map((r) => r.outcome).sort()).toEqual(["duplicate_inbound_ignored", "fallback_fired"]);
-    expect(run("run-1")).toMatchObject({ status: "active", current_node_key: "menu", reprompt_count: 1, transition_seq: 1 });
+    const result = await dispatch(typed);
+    expect(result).toMatchObject({ consumed: false, outcome: "no_match" });
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    expect(run("run-1")).toMatchObject({ status: "paused_by_agent", end_reason: "interrupted_by_user" });
   });
 
   it("leaves a healthy run alone when its nodes cannot be read", async () => {

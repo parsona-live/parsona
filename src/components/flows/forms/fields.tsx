@@ -1,25 +1,17 @@
 "use client";
 
-/**
- * Reusable field components shared across every per-node form.
- *
- * `NodeKeySelect` — picks a node from the flow's node list, rendered
- * with the source node's icon so the dropdown reads as
- * "destination = ◇ menu" rather than an opaque slug.
- *
- * `NextNodeRow` — wraps NodeKeySelect with a label; the most common
- * per-node form row ("after this node, advance to…").
- *
- * `TextRow` — wraps Input or Textarea behind a label. Pure UI sugar
- * to keep per-node forms uncluttered.
- *
- * Lives in src/components/flows/forms/ so both the list view's
- * collapsed-card editor and the canvas view's side-panel editor
- * (introduced in this PR) mount the exact same form components.
- */
-
+import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -29,8 +21,97 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { Image as ImageIcon, Video, FileText, Type, X } from "lucide-react";
+import { Image as ImageIcon, Video, FileText, Type, X, Braces, ChevronDown } from "lucide-react";
 import { NODE_META, type BuilderNode } from "../shared";
+import { useOptionalFlowEditor } from "../flow-editor-state";
+
+const CONTACT_VARIABLES = [
+  { label: "Full Name", value: "{{contact.name}}" },
+  { label: "Phone Number", value: "{{contact.phone}}" },
+  { label: "Email Address", value: "{{contact.email}}" },
+];
+
+export function VariableDropdown({
+  onSelect,
+  nodes,
+}: {
+  onSelect: (variableTag: string) => void;
+  nodes?: BuilderNode[];
+}) {
+  const editor = useOptionalFlowEditor();
+  const allNodes = nodes || editor?.state?.nodes || [];
+
+  // Collect flow variables dynamically defined across all input nodes in this workflow
+  const flowVars: string[] = [];
+  const seen = new Set<string>();
+
+  for (const n of allNodes) {
+    const cfg = (n.config || {}) as Record<string, any>;
+    if ((n.node_type === "collect_input" || n.node_type === "input_flow") && cfg.var_key) {
+      let key = String(cfg.var_key).trim();
+      if (key.startsWith("vars.")) {
+        key = key.slice(5);
+      }
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        flowVars.push(key);
+      }
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        type="button"
+        className="inline-flex items-center gap-1 h-5 px-1.5 text-[11px] font-normal text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded transition-colors cursor-pointer select-none"
+        title="Insert dynamic variable"
+      >
+        <Braces className="h-3 w-3 text-blue-500" />
+        <span>Add Variable</span>
+        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 text-xs shadow-md">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold py-1">
+            Flow Variables
+          </DropdownMenuLabel>
+          {flowVars.length > 0 ? (
+            flowVars.map((v) => (
+              <DropdownMenuItem
+                key={v}
+                onClick={() => onSelect(`{{vars.${v}}}`)}
+                className="cursor-pointer font-mono text-[11px] py-1.5 flex items-center justify-between"
+              >
+                <span className="text-blue-600 font-semibold">{`{{vars.${v}}}`}</span>
+                <span className="text-[10px] text-muted-foreground font-sans">input</span>
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <div className="px-2 py-1 text-[11px] text-muted-foreground italic">
+              No input variables in flow yet
+            </div>
+          )}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold py-1">
+            Contact Attributes
+          </DropdownMenuLabel>
+          {CONTACT_VARIABLES.map((v) => (
+            <DropdownMenuItem
+              key={v.value}
+              onClick={() => onSelect(v.value)}
+              className="cursor-pointer font-mono text-[11px] py-1.5 flex items-center justify-between"
+            >
+              <span className="text-emerald-600 font-semibold">{v.value}</span>
+              <span className="text-[10px] text-muted-foreground font-sans">{v.label}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function TextRow({
   label,
@@ -38,18 +119,51 @@ export function TextRow({
   onChange,
   rows = 1,
   placeholder,
+  allNodes,
+  hideVariablePicker = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
   placeholder?: string;
+  allNodes?: BuilderNode[];
+  hideVariablePicker?: boolean;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleInsertVariable = (varTag: string) => {
+    const el = rows > 1 ? textareaRef.current : inputRef.current;
+    if (!el) {
+      onChange(value ? `${value} ${varTag}` : varTag);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const before = value.substring(0, start);
+    const after = value.substring(end);
+    const nextVal = `${before}${varTag}${after}`;
+    onChange(nextVal);
+
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + varTag.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
   return (
     <div>
-      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-xs text-muted-foreground">{label}</label>
+        {!hideVariablePicker && (
+          <VariableDropdown onSelect={handleInsertVariable} nodes={allNodes} />
+        )}
+      </div>
       {rows > 1 ? (
         <Textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={rows}
@@ -58,6 +172,7 @@ export function TextRow({
         />
       ) : (
         <Input
+          ref={inputRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

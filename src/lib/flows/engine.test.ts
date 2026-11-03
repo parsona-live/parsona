@@ -97,6 +97,7 @@ import {
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
+  interpolateVars,
 } from "./engine";
 import type {
   engineSendInteractiveButtons,
@@ -600,24 +601,26 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
     ]);
   });
 
-  it("reprompt re-sends the interactive node with the same interpolation", async () => {
+  it("interruption on buttons pauses the run and routes to AI without reprompting", async () => {
     // Run already suspended on the buttons node with the var captured;
-    // the customer types instead of tapping → fallback → reprompt.
+    // customer types off-script text -> pause run for AI, do NOT re-send buttons.
     h.state.activeRuns = [
       { ...RUN, current_node_key: "choose", vars: { name: "Alice" } },
     ];
 
     const result = await dispatch(text("huh?"));
 
-    expect(result).toMatchObject({ consumed: true, outcome: "fallback_fired" });
-    expect(h.sendButtons).toHaveBeenCalledTimes(1);
-    expect(h.sendButtons.mock.calls[0][0].bodyText).toBe(
-      "Hi Alice, please choose an option.",
+    expect(result).toMatchObject({ consumed: false, outcome: "no_match" });
+    expect(h.sendButtons).not.toHaveBeenCalled();
+    expect(h.state.updates).toContainEqual(
+      expect.objectContaining({
+        table: "flow_runs",
+        row: expect.objectContaining({
+          status: "paused_by_agent",
+          end_reason: "interrupted_by_user",
+        }),
+      }),
     );
-    expect(h.sendButtons.mock.calls[0][0].buttons[0]).toEqual({
-      id: "yes",
-      title: "Yes, Alice",
-    });
   });
 
   it("a send failure (e.g. an interpolated title over Meta's limit) is logged and fails the run", async () => {
@@ -654,5 +657,34 @@ describe("send_buttons / send_list interpolate {{vars.*}} (#553)", () => {
         }),
       }),
     );
+  });
+});
+
+describe("interpolateVars variable syntax support", () => {
+  it("interpolates {{vars.name}} and {{name}} seamlessly", () => {
+    const vars = { name: "Yash Tupkar" };
+    expect(interpolateVars("Hello {{vars.name}}!", vars)).toBe("Hello Yash Tupkar!");
+    expect(interpolateVars("Hello {{name}}!", vars)).toBe("Hello Yash Tupkar!");
+  });
+
+  it("interpolates when variable was stored with vars. prefix", () => {
+    const vars = { "vars.email": "yash@example.com" };
+    expect(interpolateVars("Email: {{vars.email}}", vars)).toBe("Email: yash@example.com");
+    expect(interpolateVars("Email: {{email}}", vars)).toBe("Email: yash@example.com");
+  });
+
+  it("interpolates contact fields and nested objects", () => {
+    const vars = {
+      "contact.name": "Yash",
+      contact: { phone: "+919876543210" },
+    };
+    expect(interpolateVars("Contact {{contact.name}} at {{contact.phone}}", vars)).toBe(
+      "Contact Yash at +919876543210",
+    );
+  });
+
+  it("handles empty or missing variables gracefully without breaking", () => {
+    expect(interpolateVars("Welcome {{vars.missing}}!", {})).toBe("Welcome !");
+    expect(interpolateVars("", { name: "test" })).toBe("");
   });
 });

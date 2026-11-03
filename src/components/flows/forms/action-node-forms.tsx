@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -778,6 +778,120 @@ export function TriggerNodeForm({
           Flow triggers when a customer clicks a Click-to-WhatsApp ad.
         </p>
       )}
+    </div>
+  );
+}
+
+export function AgentHandoverForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const [members, setMembers] = useState<Array<{ userId: string; fullName: string | null; email: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api/account/members');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data)) {
+            setMembers(data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load team members:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadMembers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const assignTo = (config.assign_to as string) || '';
+  const message = (config.message as string) ?? 'Transferring you to our team. Please wait...';
+  const active = (config.active as boolean) ?? true;
+
+  const handleSelectMember = (userId: string) => {
+    const member = members.find((m) => m.userId === userId);
+    onChange({
+      assign_to: userId,
+      agent_name: member?.fullName || member?.email || 'Agent',
+      agent_email: member?.email || '',
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Assign to Agent */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800">Assign to Agent</Label>
+        <Select value={assignTo || '__none__'} onValueChange={(val: string | null) => handleSelectMember(val && val !== '__none__' ? val : '')}>
+          <SelectTrigger className="h-9 text-xs border-slate-200 bg-white">
+            <SelectValue placeholder={loading ? 'Loading agents...' : 'Select an agent...'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Select an agent...</SelectItem>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {m.fullName ? `${m.fullName} (${m.email || 'No email'})` : (m.email || m.userId)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] text-slate-500">
+          Select which agent/user will receive this conversation
+        </p>
+      </div>
+
+      {/* Handover Message */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800">Handover Message</Label>
+        <Textarea
+          value={message}
+          onChange={(e) => onChange({ message: e.target.value })}
+          placeholder="Transferring you to our team. Please wait..."
+          rows={3}
+          className="text-xs border-slate-200 bg-white resize-none"
+        />
+        <p className="text-[11px] text-slate-500">
+          This message will be sent to the user before transferring to the agent. You can use placeholders like &#123;first_name&#125;, &#123;organization_name&#125;, etc.
+        </p>
+      </div>
+
+      {/* How Agent Handover Works Card */}
+      <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3.5 text-xs space-y-2 text-purple-950">
+        <p className="font-semibold text-purple-900">How Agent Handover Works:</p>
+        <ul className="space-y-1 text-purple-800 list-disc list-inside text-[11px] leading-relaxed">
+          <li>User reaches this node (e.g., clicks &quot;Sales&quot; button)</li>
+          <li>Sends your custom message to the user</li>
+          <li>Assigns contact to the selected agent</li>
+          <li>Ends the flow</li>
+          <li>Agent can now handle the conversation</li>
+        </ul>
+        <p className="font-semibold text-amber-700 flex items-center gap-1 pt-0.5 text-[11px]">
+          <span>⚠️ Flow cannot continue after this node</span>
+        </p>
+      </div>
+
+      {/* Active checkbox */}
+      <div className="flex items-center gap-2 pt-1">
+        <Checkbox
+          id="handover-active"
+          checked={active}
+          onCheckedChange={(c) => onChange({ active: Boolean(c) })}
+        />
+        <Label htmlFor="handover-active" className="text-xs font-medium cursor-pointer text-slate-700">
+          Active
+        </Label>
+      </div>
     </div>
   );
 }

@@ -42,7 +42,8 @@ export function resolveFallbackPolicy(
     on_unknown_reply:
       r.on_unknown_reply === "handoff" ||
       r.on_unknown_reply === "ignore" ||
-      r.on_unknown_reply === "reprompt"
+      r.on_unknown_reply === "reprompt" ||
+      r.on_unknown_reply === "ai"
         ? r.on_unknown_reply
         : DEFAULT_FALLBACK_POLICY.on_unknown_reply,
     max_reprompts:
@@ -79,7 +80,7 @@ export function decideFallback(args: {
 }): FallbackAction {
   const { policy, reprompt_count } = args;
 
-  if (policy.on_unknown_reply === "ignore") return { type: "ignore" };
+  if (policy.on_unknown_reply === "ignore" || policy.on_unknown_reply === "ai") return { type: "ignore" };
   if (policy.on_unknown_reply === "handoff") return { type: "handoff" };
 
   // 'reprompt' — guarded by max_reprompts.

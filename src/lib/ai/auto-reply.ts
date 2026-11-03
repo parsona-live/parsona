@@ -213,12 +213,42 @@ export async function dispatchInboundToAiReply(
     }
     if (claimed !== true) return
 
+    // If this conversation has an interrupted/paused flow run, append a gentle resumption cue
+    let replyTextWithResume = text;
+    try {
+      const { data: runData } = await db
+        .from('flow_runs')
+        .select('id, flow_id, vars, status')
+        .eq('contact_id', contactId)
+        .maybeSingle();
+
+      const pausedRun = runData && (runData as any).status === 'paused_by_agent' ? (runData as any) : null;
+      if (pausedRun) {
+        const { data: flowRow } = await db
+          .from('flows')
+          .select('name')
+          .eq('id', pausedRun.flow_id)
+          .maybeSingle();
+        const flowName = (flowRow as any)?.name || 'workflow';
+        const locale = ((pausedRun.vars as Record<string, unknown>)?._locale as string) || 'en';
+        if (locale === 'hi') {
+          replyTextWithResume = `${text}\n\n_(वैसे, आपकी '${flowName}' बातचीत रोक दी गई है। जारी रखने के लिए 'आगे बढ़ें' कहें।)_`;
+        } else if (locale === 'es') {
+          replyTextWithResume = `${text}\n\n_(Por cierto, pausamos '${flowName}'. Responde 'continuar' para reanudar.)_`;
+        } else {
+          replyTextWithResume = `${text}\n\n_(By the way, we paused '${flowName}'. Reply 'resume' to continue.)_`;
+        }
+      }
+    } catch (e) {
+      console.warn('[ai auto-reply] Failed to check paused flow resumption cue:', e);
+    }
+
     await engineSendText({
       accountId,
       userId: configOwnerUserId,
       conversationId,
       contactId,
-      text,
+      text: replyTextWithResume,
       aiGenerated: true,
     })
   } catch (err) {

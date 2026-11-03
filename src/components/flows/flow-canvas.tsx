@@ -42,6 +42,8 @@ import {
   Briefcase,
   Inbox,
   Globe,
+  Flag,
+  CheckCircle2,
 } from 'lucide-react';
 
 import { useTranslations } from 'next-intl';
@@ -127,6 +129,19 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
 }
 
 const HANDLE_BASE = '!h-2.5 !w-2.5 !border-[1.5px] !bg-card';
+
+const VERTICAL_ACTION_NODES = new Set<string>([
+  'input_flow',
+  'collect_input',
+  'send_email',
+  'book_appointment',
+  'end',
+  'agent_handover',
+  'handoff',
+  'webhook',
+  'http_fetch',
+  'delay',
+]);
 
 /** Muted placeholder for empty fields. */
 function Placeholder({ children }: { children: React.ReactNode }) {
@@ -449,6 +464,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       );
     }
 
+    case 'collect_input':
     case 'input_flow': {
       const p = (cfg.prompt_text as string) || '';
       const v = (cfg.var_key as string) || 'val';
@@ -457,6 +473,58 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
           <BodyText lines={2}>{p || 'Prompt customer'}</BodyText>
           <Chip>&#123;&#123;vars.{v}&#125;&#125;</Chip>
         </>
+      );
+    }
+
+    case 'handoff':
+    case 'agent_handover': {
+      const agentName = (cfg.agent_name as string) || (cfg.assign_to as string) || '';
+      const agentEmail = (cfg.agent_email as string) || '';
+      const msg = (cfg.message as string) || (cfg.note as string) || 'Default message';
+      const hasAgent = Boolean(cfg.assign_to);
+
+      return (
+        <div className="space-y-1.5 text-xs py-0.5">
+          {hasAgent ? (
+            <p className="text-slate-700 font-medium truncate">
+              Assign to: {agentName} {agentEmail ? `(${agentEmail})` : ''}
+            </p>
+          ) : (
+            <p className="text-amber-600 font-medium flex items-center gap-1">
+              <span>⚠️ No agent selected</span>
+            </p>
+          )}
+          <p className="text-slate-500 line-clamp-2">
+            Message: {msg}
+          </p>
+          <p className="text-amber-600 font-semibold text-[11px]">
+            Flow ends here
+          </p>
+          <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+            <span className="text-slate-400">Action</span>
+            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium text-[10px]">
+              Active
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    case 'end': {
+      return (
+        <div className="flex items-center gap-2 text-xs text-rose-600 font-medium py-1">
+          <Flag className="h-4 w-4 text-rose-500 shrink-0" />
+          <span>Workflow concludes here</span>
+        </div>
+      );
+    }
+
+    case 'close_conversation': {
+      return (
+        <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium py-1">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+          <span>Resolve & close chat</span>
+        </div>
       );
     }
 
@@ -716,12 +784,19 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         isFlashed && '!border-amber-400 ring-2 ring-amber-400/60'
       )}
     >
-      {/* Target handle (left) - not needed on start */}
+      {/* Target handle (top for action nodes, left for message nodes) */}
       {node.node_type !== 'start' && (
         <Handle
           type="target"
-          position={Position.Left}
-          className={cn(HANDLE_BASE, '!border-slate-400 !bg-white')}
+          position={VERTICAL_ACTION_NODES.has(node.node_type) ? Position.Top : Position.Left}
+          className={cn(
+            HANDLE_BASE,
+            node.node_type === 'agent_handover' || node.node_type === 'handoff'
+              ? '!border-purple-500 !bg-purple-600 !w-3 !h-3 -top-1.5'
+              : VERTICAL_ACTION_NODES.has(node.node_type)
+              ? '!border-slate-400 !bg-white -top-1.5'
+              : '!border-slate-400 !bg-white'
+          )}
         />
       )}
 
@@ -735,7 +810,9 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         />
         <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
           <span className="text-slate-900 truncate text-xs font-semibold">
-            {NODE_REGISTRY[node.node_type]?.label || t(`nodes.${node.node_type}.label`)}
+            {node.node_type === 'agent_handover' && cfg.assign_to
+              ? `Agent Handover → ${cfg.agent_name || cfg.assign_to} ${cfg.agent_email ? `(${cfg.agent_email})` : ''}`
+              : (NODE_REGISTRY[node.node_type]?.label || t(`nodes.${node.node_type}.label`))}
           </span>
           {isEntry && (
             <span className="text-emerald-600 shrink-0 text-[10px] font-medium bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -800,13 +877,18 @@ function FlowNodeCard({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Single source handle for single-slot nodes */}
+      {/* Single source handle for single-slot nodes (bottom for action nodes, right for message nodes) */}
       {!isMultiSlot && slots.length === 1 && (
         <Handle
           type="source"
           id={slots[0].id}
-          position={Position.Right}
-          className={cn(HANDLE_BASE, '!border-slate-400 !bg-white hover:!border-blue-500')}
+          position={VERTICAL_ACTION_NODES.has(node.node_type) ? Position.Bottom : Position.Right}
+          className={cn(
+            HANDLE_BASE,
+            VERTICAL_ACTION_NODES.has(node.node_type)
+              ? '!border-slate-400 !bg-white hover:!border-blue-500 -bottom-1.5'
+              : '!border-slate-400 !bg-white hover:!border-blue-500'
+          )}
         />
       )}
     </div>

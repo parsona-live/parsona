@@ -379,7 +379,11 @@ export interface CatalogNodeConfig {
 export interface AgentHandoverNodeConfig {
   note?: string;
   assign_to?: string;
+  agent_name?: string;
+  agent_email?: string;
+  message?: string;
   mode?: "specific" | "round_robin";
+  active?: boolean;
 }
 
 export interface InputFlowNodeConfig {
@@ -549,7 +553,7 @@ export interface FlowRunRow {
 
 export interface FlowFallbackPolicy {
   /** What to do when the customer reply doesn't match any option. */
-  on_unknown_reply: "reprompt" | "handoff" | "ignore";
+  on_unknown_reply: "reprompt" | "handoff" | "ignore" | "ai";
   /** Max reprompts before applying `on_exhaust`. */
   max_reprompts: number;
   /** Stale-run sweep cutoff. */
@@ -561,8 +565,8 @@ export interface FlowFallbackPolicy {
 export const MAX_FLOW_TIMEOUT_HOURS = 87600;
 
 export const DEFAULT_FALLBACK_POLICY: FlowFallbackPolicy = {
-  on_unknown_reply: "reprompt",
-  max_reprompts: 2,
+  on_unknown_reply: "ai",
+  max_reprompts: 0,
   on_timeout_hours: 24,
   on_exhaust: "handoff",
 };

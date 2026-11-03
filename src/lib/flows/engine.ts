@@ -45,7 +45,10 @@ import {
   loadAccountMetaCredentials,
 } from "./meta-send";
 import { sendTypingIndicator } from "@/lib/whatsapp/meta-api";
-import { decideFallback, resolveFallbackPolicy } from "./fallback";
+import { resolveFallbackPolicy, decideFallback } from "./fallback";
+import { classifyInputOrInterruption } from "./ai-classifier";
+import { localizeNode } from "./localization";
+import { loadAiConfig } from "@/lib/ai/config";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
@@ -193,13 +196,19 @@ export function isSuspending(node_type: string): boolean {
   return (
     node_type === "send_buttons" ||
     node_type === "send_list" ||
-    node_type === "collect_input"
+    node_type === "collect_input" ||
+    node_type === "input_flow"
   );
 }
 
 /** Nodes that end the run. */
 export function isTerminal(node_type: string): boolean {
-  return node_type === "handoff" || node_type === "end";
+  return (
+    node_type === "handoff" ||
+    node_type === "agent_handover" ||
+    node_type === "end" ||
+    node_type === "close_conversation"
+  );
 }
 
 /**
@@ -244,20 +253,12 @@ async function loadActiveRunForContact(
   accountId: string,
   contactId: string,
 ): Promise<FlowRunRow | null> {
-  // The partial unique index `idx_one_active_run_per_contact` was
-  // rebuilt in migration 017 over `(account_id, contact_id)` — so
-  // "two active runs for one contact in one account" is impossible
-  // by design. But a future migration glitch or manual SQL could
-  // create one, and .maybeSingle() throws on >1 row — which would
-  // kill dispatch for that contact's webhook entirely. .limit(1) is
-  // forgiving: pick the newest, let the cron sweep clean up the
-  // stale one.
   const { data, error } = await db
     .from("flow_runs")
     .select("*")
     .eq("account_id", accountId)
     .eq("contact_id", contactId)
-    .eq("status", "active")
+    .in("status", ["active", "paused_by_agent"])
     .order("started_at", { ascending: false })
     .limit(1);
   if (error) {
@@ -564,7 +565,22 @@ async function executeHandoff(
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<void> {
-  const cfg = node.config as { assign_to?: string; note?: string };
+  const cfg = node.config as { assign_to?: string; note?: string; message?: string };
+  const handoverMsg = cfg.message || cfg.note;
+  if (handoverMsg) {
+    try {
+      await engineSendText({
+        accountId: run.account_id,
+        userId: run.user_id,
+        conversationId: run.conversation_id!,
+        contactId: run.contact_id!,
+        text: interpolateVars(handoverMsg, run.vars),
+      });
+    } catch (err) {
+      console.warn("[flows] handover message send error:", err);
+    }
+  }
+
   const convUpdate: Record<string, unknown> = {
     status: "pending",
     updated_at: new Date().toISOString(),
@@ -578,6 +594,7 @@ async function executeHandoff(
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
+    message: cfg.message ?? null,
     assigned_to: cfg.assign_to ?? null,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
@@ -637,16 +654,48 @@ async function evaluateConditionNode(
 }
 
 /**
- * Tiny `{{vars.foo}}` interpolation. Used by send_message + collect_input
- * prompt text so a captured `name` can show up in the next prompt
- * ("Thanks {{vars.name}}, what's your email?"). Missing vars render as
- * empty string — the same behavior as the automations engine.
+ * Flexible variable interpolation supporting both `{{vars.foo}}` and `{{foo}}`
+ * as well as contact fields (`{{contact.name}}`, `{{contact.phone}}`).
+ * Used by send_message + collect_input prompt text so captured variables
+ * and contact properties show up smoothly in subsequent messages.
+ * Missing vars render as empty string — consistent with automations.
  */
-function interpolateVars(template: string, vars: Record<string, unknown>): string {
+export function interpolateVars(template: string, vars: Record<string, unknown> = {}): string {
   if (!template) return "";
-  return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
-    const v = vars[key];
-    return v === undefined || v === null ? "" : String(v);
+  return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, rawKey) => {
+    // 1. Direct match (e.g. "name", "vars.name", "contact.phone")
+    if (vars[rawKey] !== undefined && vars[rawKey] !== null) {
+      return String(vars[rawKey]);
+    }
+    // 2. Strip "vars." if present (e.g. "vars.name" -> look up "name")
+    if (rawKey.startsWith("vars.")) {
+      const stripped = rawKey.slice(5);
+      if (vars[stripped] !== undefined && vars[stripped] !== null) {
+        return String(vars[stripped]);
+      }
+    }
+    // 3. Add "vars." if omitted (e.g. "name" -> look up "vars.name")
+    const prefixed = `vars.${rawKey}`;
+    if (vars[prefixed] !== undefined && vars[prefixed] !== null) {
+      return String(vars[prefixed]);
+    }
+    // 4. Check nested object (e.g. "contact.name" on vars.contact = { name: "..." })
+    if (rawKey.includes(".")) {
+      const parts = rawKey.split(".");
+      let cur: any = vars;
+      for (const p of parts) {
+        if (cur && typeof cur === "object") {
+          cur = cur[p];
+        } else {
+          cur = undefined;
+          break;
+        }
+      }
+      if (cur !== undefined && cur !== null) {
+        return String(cur);
+      }
+    }
+    return "";
   });
 }
 
@@ -963,20 +1012,20 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key;
       continue;
     }
-    if (node.node_type === "collect_input") {
+    if (node.node_type === "collect_input" || node.node_type === "input_flow") {
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
       const cfg = node.config as unknown as CollectInputNodeConfig;
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
-    userId: run.user_id,
+          userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
           text: interpolateVars(cfg.prompt_text, run.vars),
         });
         await logEvent(db, run.id, "message_sent", node.node_key, {
-          node_type: "collect_input",
+          node_type: node.node_type,
           whatsapp_message_id,
         });
         const { data: msg } = await db
@@ -1251,26 +1300,6 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key || "";
       continue;
     }
-    if (node.node_type === "input_flow") {
-      const cfg = node.config as unknown as CollectInputNodeConfig;
-      try {
-        const { whatsapp_message_id } = await engineSendText({
-          accountId: run.account_id,
-          userId: run.user_id,
-          conversationId: run.conversation_id!,
-          contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
-        });
-        await logEvent(db, run.id, "message_sent", node.node_key, {
-          node_type: "input_flow",
-          whatsapp_message_id,
-        });
-      } catch (err) {
-        console.error("[flows] input_flow failed:", err);
-      }
-      await advanceCurrentNodeKey(db, run.id, run.current_node_key, node.node_key);
-      return { outcome: "advanced" };
-    }
     if (node.node_type === "handoff" || node.node_type === "agent_handover") {
       await executeHandoff(db, run, node);
       return { outcome: "handed_off" };
@@ -1481,6 +1510,28 @@ export async function dispatchInboundToFlows(
         now,
       });
       if (!closure) {
+        // Priority 1: Check if user sent a keyword trigger for any active flow
+        const matchingEntryFlow = await findEntryFlow(
+          db,
+          input.accountId,
+          input.message,
+          false,
+        );
+        if (matchingEntryFlow) {
+          if (matchingEntryFlow.id !== activeRun.flow_id) {
+            await endRun(db, activeRun.id, "completed", "superseded_by_new_flow");
+            const newNodes = await loadAllNodes(db, matchingEntryFlow.id);
+            return startNewRun(db, matchingEntryFlow, input, newNodes);
+          } else if (
+            input.message.kind === "text" &&
+            runFlow?.trigger_type === "keyword" &&
+            matchesKeywordTrigger(input.message.text, (runFlow.trigger_config as unknown as KeywordTriggerConfig) ?? { keywords: [] })
+          ) {
+            await endRun(db, activeRun.id, "completed", "restarted_by_keyword");
+            return startNewRun(db, matchingEntryFlow, input, nodes);
+          }
+        }
+
         // Fire typing indicator immediately so customer sees "typing..." instantly
         void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
         return handleReplyForActiveRun(
@@ -1549,6 +1600,81 @@ async function handleReplyForActiveRun(
   //   2. Text reply on a collect_input node — capture into vars.
   //
   // Everything else falls through to the fallback policy below.
+  // 1. If run was paused, evaluate resume vs answer vs off-topic
+  if (run.status === "paused_by_agent") {
+    if (message.kind === "text") {
+      const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+      const collectCfg = (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow")
+        ? (currentNode.config as unknown as CollectInputNodeConfig)
+        : null;
+
+      const classification = await classifyInputOrInterruption({
+        text: message.text,
+        promptText: collectCfg?.prompt_text || "",
+        varKey: collectCfg?.var_key || "",
+        validation: collectCfg?.validation,
+        regex: collectCfg?.regex,
+        aiConfig: aiCfg,
+      });
+
+      if (classification.intent === "cancel") {
+        await endRun(db, run.id, "cancelled", "user_cancelled");
+        return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+      }
+
+      if (classification.intent === "resume") {
+        // Reactivate run and resend the current prompt!
+        await db.from("flow_runs").update({ status: "active", end_reason: null }).eq("id", run.id);
+        run.status = "active";
+        await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_resumed" });
+
+        if (currentNode.node_type === "send_buttons") {
+          await sendButtonsAndSuspend(db, run, currentNode);
+        } else if (currentNode.node_type === "send_list") {
+          await sendListAndSuspend(db, run, currentNode);
+        } else if ((currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow") && collectCfg) {
+          await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            text: interpolateVars(collectCfg.prompt_text, run.vars),
+          });
+        }
+        return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+      }
+
+      if (classification.intent === "answer" && collectCfg) {
+        // User answered the paused step directly! Reactivate and advance!
+        const cleanVal = (classification.extracted_value ?? message.text).trim();
+        await db.from("flow_runs").update({ status: "active", end_reason: null }).eq("id", run.id);
+        run.status = "active";
+        const rawKey = collectCfg.var_key.startsWith("vars.") ? collectCfg.var_key.slice(5) : collectCfg.var_key;
+        const newVars = {
+          ...run.vars,
+          [collectCfg.var_key]: cleanVal,
+          [rawKey]: cleanVal,
+          [`vars.${rawKey}`]: cleanVal,
+          _locale: classification.detected_language || (run.vars._locale as string) || "en",
+        };
+        if (!(await claimReplyTransition(db, run, collectCfg.next_node_key, { vars: newVars }))) {
+          return lostReplyRace(db, run, currentNode.node_key);
+        }
+        run.vars = newVars;
+        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+          action: "flow_resumed_with_answer",
+          captured_key: collectCfg.var_key,
+          captured_value: cleanVal,
+        });
+        const outcome = await advanceFromNodeKey(db, run, collectCfg.next_node_key, nodes);
+        return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+      }
+
+      // Customer is still asking off-topic questions -> keep paused and route to AI!
+      return { consumed: false, flow_run_id: run.id, outcome: "no_match" };
+    }
+  }
+
   let matched: string | null = null;
   if (
     message.kind === "interactive_reply" &&
@@ -1559,12 +1685,61 @@ async function handleReplyForActiveRun(
     matched = matchReplyId(currentNode, message.reply_id);
   } else if (
     message.kind === "text" &&
-    currentNode.node_type === "collect_input"
+    (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow")
   ) {
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
-    const captured = message.text.trim();
+    const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+
+    // AI Intent Classification & Smart Entity Extraction
+    const classification = await classifyInputOrInterruption({
+      text: message.text,
+      promptText: cfg.prompt_text,
+      varKey: cfg.var_key,
+      validation: cfg.validation,
+      regex: cfg.regex,
+      aiConfig: aiCfg,
+    });
+
+    if (classification.intent === "cancel") {
+      await endRun(db, run.id, "cancelled", "user_cancelled");
+      return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+    }
+
+    if (classification.intent === "interruption") {
+      // Pause the flow, preserve vars and node key, and let AI answer the customer's query!
+      await db
+        .from("flow_runs")
+        .update({
+          status: "paused_by_agent",
+          end_reason: "interrupted_by_user",
+        })
+        .eq("id", run.id);
+
+      await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
+        action: "paused_for_ai",
+        text_length: message.text.length,
+        detected_language: classification.detected_language,
+        reasoning: classification.reasoning,
+      });
+
+      return {
+        consumed: false,
+        flow_run_id: run.id,
+        outcome: "no_match",
+      };
+    }
+
+    // Intent is "answer": extract clean value (e.g. "Yash Tupkar" from "My name is Yash Tupkar")
+    const captured = (classification.extracted_value ?? message.text).trim();
     if (captured.length > 0 && cfg.var_key && cfg.next_node_key) {
-      const newVars = { ...run.vars, [cfg.var_key]: captured };
+      const rawKey = cfg.var_key.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
+      const newVars = {
+        ...run.vars,
+        [cfg.var_key]: captured,
+        [rawKey]: captured,
+        [`vars.${rawKey}`]: captured,
+        _locale: classification.detected_language || (run.vars._locale as string) || "en",
+      };
       if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: newVars }))) {
         return lostReplyRace(db, run, currentNode.node_key);
       }
@@ -1572,6 +1747,7 @@ async function handleReplyForActiveRun(
       await logEvent(db, run.id, "node_entered", currentNode.node_key, {
         captured_key: cfg.var_key,
         captured_length: captured.length,
+        detected_language: classification.detected_language,
       });
       const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
       return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
@@ -1587,6 +1763,54 @@ async function handleReplyForActiveRun(
       consumed: true,
       flow_run_id: run.id,
       outcome: outcome.outcome,
+    };
+  }
+
+  // When customer sent text while flow is waiting on interactive menus (buttons/list/carousel)
+  if (
+    message.kind === "text" &&
+    (currentNode.node_type === "send_buttons" ||
+      currentNode.node_type === "send_list" ||
+      currentNode.node_type === "send_carousel")
+  ) {
+    // 1. Check if the typed text matches the current flow's entry trigger keywords to restart
+    if (
+      flow.trigger_type === "keyword" &&
+      matchesKeywordTrigger(message.text, flow.trigger_config as KeywordTriggerConfig)
+    ) {
+      await endRun(db, run.id, "completed", "restarted_by_keyword");
+      return startNewRun(
+        db,
+        flow,
+        {
+          accountId: run.account_id,
+          userId: run.user_id,
+          contactId: run.contact_id!,
+          conversationId: run.conversation_id!,
+          message,
+        },
+        nodes,
+      );
+    }
+
+    // 2. Off-script message (e.g. "I want a book", "Hello"):
+    // Pause the flow and route to AI Auto-Reply or agent!
+    await db
+      .from("flow_runs")
+      .update({
+        status: "paused_by_agent",
+        end_reason: "interrupted_by_user",
+      })
+      .eq("id", run.id);
+
+    await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
+      action: "paused_for_ai",
+      text_length: message.text.length,
+    });
+    return {
+      consumed: false,
+      flow_run_id: run.id,
+      outcome: "no_match",
     };
   }
 
@@ -1635,7 +1859,7 @@ async function handleReplyForActiveRun(
         await sendListAndSuspend(db, run, currentNode);
       } else if (currentNode.node_type === "send_carousel") {
         await sendCarouselAndSuspend(db, run, currentNode);
-      } else if (currentNode.node_type === "collect_input") {
+      } else if (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow") {
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.
         const cfg = currentNode.config as unknown as CollectInputNodeConfig;
@@ -1717,6 +1941,32 @@ async function startNewRun(
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  // Pre-seed contact info into run vars so {{contact.name}}, {{contact.phone}}, {{contact.email}} work
+  let initialVars: Record<string, unknown> = {};
+  if (input.contactId) {
+    try {
+      const { data: contact } = await db
+        .from("contacts")
+        .select("name, phone, email")
+        .eq("id", input.contactId)
+        .maybeSingle();
+      if (contact) {
+        initialVars = {
+          "contact.name": (contact as any).name || "",
+          "contact.phone": (contact as any).phone || "",
+          "contact.email": (contact as any).email || "",
+          contact: {
+            name: (contact as any).name || "",
+            phone: (contact as any).phone || "",
+            email: (contact as any).email || "",
+          },
+        };
+      }
+    } catch {
+      // Non-fatal if contact lookup fails
+    }
+  }
+
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
@@ -1736,6 +1986,7 @@ async function startNewRun(
       conversation_id: input.conversationId,
       status: "active",
       current_node_key: flow.entry_node_id,
+      vars: initialVars,
     })
     .select("*")
     .maybeSingle();
