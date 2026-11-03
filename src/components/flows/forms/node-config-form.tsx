@@ -406,6 +406,8 @@ export function NodeConfigForm({
             label="Save to Variable Key"
             value={(cfg as { var_key?: string }).var_key ?? ""}
             onChange={(v) => onUpdateConfig({ var_key: v })}
+            placeholder="e.g. name or email"
+            hideVariablePicker
           />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}

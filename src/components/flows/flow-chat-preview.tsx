@@ -136,11 +136,16 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
   const [pausedNodeKey, setPausedNodeKey] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [activeListModal, setActiveListModal] = useState<ChatMessage | null>(null);
-  const [simVars, setSimVars] = useState<Record<string, string>>({
-    'contact.name': 'Alex Johnson',
-    'contact.phone': '+1 (555) 019-2834',
-    'contact.email': 'alex@example.com',
-  });
+  const initialVars = useMemo(
+    () => ({
+      'contact.name': 'Alex Johnson',
+      'contact.phone': '+1 (555) 019-2834',
+      'contact.email': 'alex@example.com',
+    }),
+    []
+  );
+  const [simVars, setSimVars] = useState<Record<string, any>>(initialVars);
+  const simVarsRef = useRef<Record<string, any>>(initialVars);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const nodeMap = useMemo(() => {
@@ -187,23 +192,37 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
   };
 
   const interpolate = useCallback(
-    (text?: string) => {
+    (text?: string, varsContext?: Record<string, any>) => {
       if (!text) return '';
+      const v = varsContext || simVarsRef.current || simVars;
       return text.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, rawKey) => {
         // Direct
-        if (simVars[rawKey] !== undefined) return String(simVars[rawKey]);
+        if (v[rawKey] !== undefined && v[rawKey] !== null) return String(v[rawKey]);
         // Stripped "vars."
         if (rawKey.startsWith('vars.')) {
           const stripped = rawKey.slice(5);
-          if (simVars[stripped] !== undefined) return String(simVars[stripped]);
+          if (v[stripped] !== undefined && v[stripped] !== null) return String(v[stripped]);
         }
         // Prefixed "vars."
         const prefixed = `vars.${rawKey}`;
-        if (simVars[prefixed] !== undefined) return String(simVars[prefixed]);
+        if (v[prefixed] !== undefined && v[prefixed] !== null) return String(v[prefixed]);
+        // Nested lookup (e.g. contact.name or vars.contact.name)
+        if (rawKey.includes('.')) {
+          const parts = rawKey.split('.');
+          let cur: any = v;
+          for (const p of parts) {
+            if (cur && typeof cur === 'object') cur = cur[p];
+            else {
+              cur = undefined;
+              break;
+            }
+          }
+          if (cur !== undefined && cur !== null) return String(cur);
+        }
         // Contact attributes fallback simulation
-        if (rawKey === 'contact.name' || rawKey === 'vars.contact.name') return 'John Doe';
-        if (rawKey === 'contact.phone' || rawKey === 'vars.contact.phone') return '+1234567890';
-        if (rawKey === 'contact.email' || rawKey === 'vars.contact.email') return 'john@example.com';
+        if (rawKey === 'contact.name' || rawKey === 'vars.contact.name') return v['contact.name'] || 'Alex Johnson';
+        if (rawKey === 'contact.phone' || rawKey === 'vars.contact.phone') return v['contact.phone'] || '+1 (555) 019-2834';
+        if (rawKey === 'contact.email' || rawKey === 'vars.contact.email') return v['contact.email'] || 'alex@example.com';
         return `{{${rawKey}}}`;
       });
     },
@@ -216,7 +235,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
 
   // Node Execution Engine
   const executeNode = useCallback(
-    (nodeKey: string, currentHistory: ChatMessage[], vars = simVars): ChatMessage[] => {
+    (nodeKey: string, currentHistory: ChatMessage[], vars = simVarsRef.current): ChatMessage[] => {
       const node = nodeMap.get(nodeKey);
       if (!node) {
         return [
@@ -245,10 +264,10 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         }
 
         case 'send_message': {
-          const text = interpolate(cfg.text as string);
+          const text = interpolate(cfg.text as string, vars);
           const headerType = (cfg.header_type as string) || 'none';
-          const headerText = interpolate((cfg.header_text as string) || '');
-          const footerText = interpolate((cfg.footer_text as string) || '');
+          const headerText = interpolate((cfg.header_text as string) || '', vars);
+          const footerText = interpolate((cfg.footer_text as string) || '', vars);
           const next = cfg.next_node_key as string | undefined;
 
           const nextHistory: ChatMessage[] = [
@@ -274,7 +293,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         case 'send_media': {
           const mediaUrl = (cfg.media_url as string) || '';
           const mediaType = (cfg.media_type as string) || 'image';
-          const caption = interpolate(cfg.caption as string);
+          const caption = interpolate(cfg.caption as string, vars);
           const next = cfg.next_node_key as string | undefined;
 
           const nextHistory: ChatMessage[] = [
@@ -297,9 +316,9 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         }
 
         case 'send_buttons': {
-          const text = interpolate((cfg.text as string) || '');
-          const headerText = interpolate((cfg.header_text as string) || '');
-          const footerText = interpolate((cfg.footer_text as string) || '');
+          const text = interpolate((cfg.text as string) || '', vars);
+          const headerText = interpolate((cfg.header_text as string) || '', vars);
+          const footerText = interpolate((cfg.footer_text as string) || '', vars);
           const headerMediaUrl = (cfg.header_media_url as string) || '';
           const headerType = (cfg.header_type as string) || 'none';
           const buttons = Array.isArray(cfg.buttons) ? cfg.buttons : [];
@@ -323,9 +342,9 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         }
 
         case 'send_list': {
-          const bodyText = interpolate((cfg.body_text as string) || (cfg.text as string) || '');
-          const headerText = interpolate((cfg.header_text as string) || '');
-          const footerText = interpolate((cfg.footer_text as string) || '');
+          const bodyText = interpolate((cfg.body_text as string) || (cfg.text as string) || '', vars);
+          const headerText = interpolate((cfg.header_text as string) || '', vars);
+          const footerText = interpolate((cfg.footer_text as string) || '', vars);
           const buttonLabel = (cfg.button_label as string) || 'View options';
           const sections = Array.isArray(cfg.sections) ? cfg.sections : [];
           setWaitingForInput(null);
@@ -405,7 +424,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
 
         case 'collect_input':
         case 'input_flow': {
-          const prompt = interpolate((cfg.prompt_text as string) || '');
+          const prompt = interpolate((cfg.prompt_text as string) || '', vars);
           setWaitingForInput(node.node_key);
           return [
             ...currentHistory,
@@ -421,7 +440,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         }
 
         case 'ai_response': {
-          const prompt = interpolate((cfg.prompt as string) || '');
+          const prompt = interpolate((cfg.prompt as string) || '', vars);
           const aiResponseText = prompt
             ? `AI Response: Here is the information regarding "${prompt}". How else may I assist you today?`
             : "AI Response: Hello! I'm here to assist with any questions about our products and services.";
@@ -561,7 +580,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         }
 
         case 'book_appointment': {
-          const prompt = (cfg.prompt_text as string) || 'Book your appointment online:';
+          const prompt = interpolate((cfg.prompt_text as string) || 'Book your appointment online:', vars);
           const next = cfg.next_node_key as string | undefined;
           const nextHistory: ChatMessage[] = [
             ...currentHistory,
@@ -598,7 +617,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
           setWaitingForInput(null);
           const agentName = (cfg.agent_name as string) || (cfg.assign_to as string) || '';
           const agentEmail = (cfg.agent_email as string) || '';
-          const msg = interpolate((cfg.message as string) || (cfg.note as string) || 'Transferring you to our team. Please wait...');
+          const msg = interpolate((cfg.message as string) || (cfg.note as string) || 'Transferring you to our team. Please wait...', vars);
           const agentDetail = agentName ? `${agentName}${agentEmail ? ` (${agentEmail})` : ''}` : 'Queued in inbox';
 
           return [
@@ -644,9 +663,12 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
 
   // Reset simulation to completely empty
   const resetSimulation = () => {
+    simVarsRef.current = { ...initialVars };
+    setSimVars(initialVars);
     setMessages([]);
     setCurrentNodeKey(null);
     setWaitingForInput(null);
+    setPausedNodeKey(null);
     setActiveListModal(null);
   };
 
@@ -702,12 +724,13 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
     // Priority 1: Check if this message is a trigger keyword match!
     // A matching trigger keyword ALWAYS starts/restarts the workflow from entry node,
     // regardless of whether prior messages were sent or flow was already running.
+    // In preview simulator: if keyword matches OR if this is the first message sent, launch entry node!
     const isKeywordMatch = checkTriggerMatch(text);
 
-    if (isKeywordMatch) {
+    if (isKeywordMatch || (messages.length === 0 && entryKey)) {
       setWaitingForInput(null);
       if (entryKey) {
-        const advanced = executeNode(entryKey, newHistory);
+        const advanced = executeNode(entryKey, newHistory, simVarsRef.current);
         setMessages(advanced);
       } else {
         setMessages([
@@ -751,7 +774,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         // Resume paused workflow!
         const targetKey = pausedNodeKey;
         setPausedNodeKey(null);
-        const advanced = executeNode(targetKey, newHistory);
+        const advanced = executeNode(targetKey, newHistory, simVarsRef.current);
         setMessages(advanced);
         return;
       }
@@ -761,11 +784,13 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         const cleanVal = classification.extracted_value ?? text;
         const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
         const updatedVars = {
+          ...simVarsRef.current,
           ...simVars,
           [varKey]: cleanVal,
           [rawKey]: cleanVal,
           [`vars.${rawKey}`]: cleanVal,
         };
+        simVarsRef.current = updatedVars;
         setSimVars(updatedVars);
         setPausedNodeKey(null);
         const nextKey = pausedNode?.config?.next_node_key as string | undefined;
@@ -835,11 +860,13 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       const cleanVal = classification?.extracted_value ?? text;
       const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
       const updatedVars = {
+        ...simVarsRef.current,
         ...simVars,
         [varKey]: cleanVal,
         [rawKey]: cleanVal,
         [`vars.${rawKey}`]: cleanVal,
       };
+      simVarsRef.current = updatedVars;
       setSimVars(updatedVars);
       setWaitingForInput(null);
 
@@ -901,7 +928,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
 
     const newHistory = [...messages, userChoiceMsg];
     if (button.next_node_key) {
-      const advanced = executeNode(button.next_node_key, newHistory);
+      const advanced = executeNode(button.next_node_key, newHistory, simVarsRef.current);
       setMessages(advanced);
     } else {
       setMessages(newHistory);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -789,7 +790,8 @@ export function AgentHandoverForm({
   config: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
 }) {
-  const [members, setMembers] = useState<Array<{ userId: string; fullName: string | null; email: string | null }>>([]);
+  const { user, profile } = useAuth();
+  const [members, setMembers] = useState<Array<{ userId: string; fullName: string; email: string }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -797,14 +799,65 @@ export function AgentHandoverForm({
     async function loadMembers() {
       try {
         const res = await fetch('/api/account/members');
+        let fetchedList: any[] = [];
         if (res.ok) {
           const data = await res.json();
-          if (!cancelled && Array.isArray(data)) {
-            setMembers(data);
+          fetchedList = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.members)
+            ? data.members
+            : [];
+        }
+
+        const map = new Map<string, { userId: string; fullName: string; email: string }>();
+
+        // 1. Current logged-in user ("including me")
+        const currentUserId = user?.id || profile?.id;
+        if (currentUserId) {
+          const currentName = profile?.full_name || (user?.user_metadata as any)?.full_name || profile?.email || 'You';
+          const currentEmail = profile?.email || user?.email || '';
+          map.set(currentUserId, {
+            userId: currentUserId,
+            fullName: `${currentName} (You)`,
+            email: currentEmail,
+          });
+        }
+
+        // 2. Add all account members returned by API
+        for (const m of fetchedList) {
+          const id = m.user_id || m.userId || m.id;
+          if (!id) continue;
+          const name = m.full_name || m.fullName || '';
+          const email = m.email || '';
+          if (map.has(id)) {
+            const existing = map.get(id)!;
+            map.set(id, {
+              userId: id,
+              fullName: existing.fullName,
+              email: email || existing.email,
+            });
+          } else {
+            map.set(id, {
+              userId: id,
+              fullName: name,
+              email: email,
+            });
           }
+        }
+
+        if (!cancelled) {
+          setMembers(Array.from(map.values()));
         }
       } catch (err) {
         console.error('Failed to load team members:', err);
+        const currentUserId = user?.id || profile?.id;
+        if (currentUserId && !cancelled) {
+          setMembers([{
+            userId: currentUserId,
+            fullName: `${profile?.full_name || 'You'} (You)`,
+            email: profile?.email || user?.email || '',
+          }]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -813,7 +866,7 @@ export function AgentHandoverForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user, profile]);
 
   const assignTo = (config.assign_to as string) || '';
   const message = (config.message as string) ?? 'Transferring you to our team. Please wait...';
@@ -821,9 +874,10 @@ export function AgentHandoverForm({
 
   const handleSelectMember = (userId: string) => {
     const member = members.find((m) => m.userId === userId);
+    const cleanName = member?.fullName ? member.fullName.replace(/\s*\(You\)$/, '') : (member?.email || 'Agent');
     onChange({
       assign_to: userId,
-      agent_name: member?.fullName || member?.email || 'Agent',
+      agent_name: cleanName,
       agent_email: member?.email || '',
     });
   };
@@ -835,13 +889,13 @@ export function AgentHandoverForm({
         <Label className="text-xs font-semibold text-slate-800">Assign to Agent</Label>
         <Select value={assignTo || '__none__'} onValueChange={(val: string | null) => handleSelectMember(val && val !== '__none__' ? val : '')}>
           <SelectTrigger className="h-9 text-xs border-slate-200 bg-white">
-            <SelectValue placeholder={loading ? 'Loading agents...' : 'Select an agent...'} />
+            <SelectValue placeholder={loading && members.length === 0 ? 'Loading agents...' : 'Select an agent...'} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-56">
             <SelectItem value="__none__">Select an agent...</SelectItem>
             {members.map((m) => (
               <SelectItem key={m.userId} value={m.userId}>
-                {m.fullName ? `${m.fullName} (${m.email || 'No email'})` : (m.email || m.userId)}
+                {m.fullName ? `${m.fullName} ${m.email ? `(${m.email})` : ''}` : (m.email || m.userId)}
               </SelectItem>
             ))}
           </SelectContent>
