@@ -1,3 +1,4 @@
+import { formatDisplayDate } from "@/lib/utils";
 "use client";
 
 import { useState } from "react";
@@ -202,8 +203,8 @@ Password: ${createdAdminResult.temporaryPassword}`;
                       {adm.admin_role || "super_admin"}
                     </Badge>
                   </td>
-                  <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                    {new Date(adm.created_at).toLocaleDateString()}
+                  <td className="py-3.5 px-4 text-xs text-muted-foreground" suppressHydrationWarning>
+                    {formatDisplayDate(adm.created_at)}
                   </td>
                   <td className="py-3.5 px-4 text-right">
                     <Button

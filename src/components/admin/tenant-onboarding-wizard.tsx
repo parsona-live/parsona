@@ -166,8 +166,12 @@ Please log in and update your password under Settings. Reach out if you need any
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId: createdData.account.id }),
       });
-      if (!res.ok) throw new Error("Failed to start impersonation");
-      window.location.href = "/dashboard";
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to start impersonation");
+      }
+      const data = await res.json();
+      window.location.href = data.redirectUrl || "/dashboard";
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to enter workspace");
       setImpersonating(false);

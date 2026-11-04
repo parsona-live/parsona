@@ -1,4 +1,6 @@
 "use client";
+import { formatDisplayDate } from "@/lib/utils";
+
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -83,10 +85,12 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
         body: JSON.stringify({ accountId: account.id }),
       });
       if (!res.ok) {
-        throw new Error("Failed to impersonate");
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to impersonate");
       }
-      // Redirect to client dashboard in tenant's context
-      window.location.href = "/dashboard";
+      const data = await res.json();
+      // Redirect to authentic tenant session
+      window.location.href = data.redirectUrl || "/dashboard";
     } catch (err) {
       alert(err instanceof Error ? err.message : "Impersonation failed");
       setLoadingId(null);
@@ -264,8 +268,8 @@ export function TenantsManager({ initialTenants, templates }: TenantsManagerProp
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        {new Date(tenant.created_at).toLocaleDateString()}
+                      <td className="py-3.5 px-4 text-xs text-muted-foreground" suppressHydrationWarning>
+                        {formatDisplayDate(tenant.created_at)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">

@@ -401,6 +401,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signOut = useCallback(async () => {
+    // If currently impersonating, exiting impersonation should return cleanly to the Super Admin panel
+    if (
+      typeof document !== "undefined" &&
+      document.cookie.split(";").some((c) => c.trim().startsWith("wapp_is_impersonating="))
+    ) {
+      try {
+        const res = await fetch("/api/admin/impersonate", { method: "DELETE" });
+        const data = await res.json().catch(() => ({}));
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+          return;
+        }
+      } catch {
+        // Fall back to standard sign-out if network failure occurs
+      }
+    }
+
     const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);

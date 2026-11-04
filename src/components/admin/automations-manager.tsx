@@ -20,7 +20,7 @@ import {
   Globe2,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatDisplayDate } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -577,8 +577,8 @@ export function AutomationsManager({ initialTemplates, tenants }: AutomationsMan
                       <td className="py-3 px-4 text-xs text-muted-foreground">
                         <div>{flow.execution_count} runs</div>
                         {flow.last_executed_at && (
-                          <div className="text-[10px] text-muted-foreground/70">
-                            {new Date(flow.last_executed_at).toLocaleDateString()}
+                          <div className="text-[10px] text-muted-foreground/70" suppressHydrationWarning>
+                            {formatDisplayDate(flow.last_executed_at)}
                           </div>
                         )}
                       </td>

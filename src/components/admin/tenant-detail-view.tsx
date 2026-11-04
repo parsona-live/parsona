@@ -1,3 +1,4 @@
+import { formatDisplayDate } from "@/lib/utils";
 "use client";
 
 import { useState } from "react";
@@ -77,6 +78,7 @@ export interface TenantDetailData {
   } | null;
   members: Array<{
     id: string;
+    user_id?: string;
     email: string;
     full_name: string | null;
     account_role: string;
@@ -133,16 +135,21 @@ export function TenantDetailView({ initialData }: { initialData: TenantDetailDat
   };
 
   // Action: Impersonate
-  const handleImpersonate = async () => {
+  const handleImpersonate = async (targetUserId?: string | unknown) => {
+    const resolvedUserId = typeof targetUserId === "string" ? targetUserId : undefined;
     try {
       setImpersonating(true);
       const res = await fetch("/api/admin/impersonate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: account.id }),
+        body: JSON.stringify({ accountId: account.id, userId: resolvedUserId }),
       });
-      if (!res.ok) throw new Error("Failed to impersonate");
-      window.location.href = "/dashboard";
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to impersonate");
+      }
+      const data = await res.json();
+      window.location.href = data.redirectUrl || "/dashboard";
     } catch (err) {
       alert(err instanceof Error ? err.message : "Impersonation failed");
       setImpersonating(false);
@@ -421,8 +428,8 @@ export function TenantDetailView({ initialData }: { initialData: TenantDetailDat
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-border/50">
                   <span className="text-muted-foreground">Registered On</span>
-                  <span className="font-medium text-foreground">
-                    {new Date(account.created_at).toLocaleDateString()}
+                  <span className="font-medium text-foreground" suppressHydrationWarning>
+                    {formatDisplayDate(account.created_at)}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-border/50">
@@ -531,8 +538,8 @@ export function TenantDetailView({ initialData }: { initialData: TenantDetailDat
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                          {new Date(flow.updated_at || flow.created_at).toLocaleDateString()}
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground" suppressHydrationWarning>
+                          {formatDisplayDate(flow.updated_at || flow.created_at)}
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <Button
@@ -804,6 +811,7 @@ export function TenantDetailView({ initialData }: { initialData: TenantDetailDat
                   <th className="py-3 px-4">Email</th>
                   <th className="py-3 px-4">Role</th>
                   <th className="py-3 px-4">Joined Date</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -821,14 +829,27 @@ export function TenantDetailView({ initialData }: { initialData: TenantDetailDat
                           {member.account_role}
                         </Badge>
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        {new Date(member.created_at).toLocaleDateString()}
+                      <td className="py-3.5 px-4 text-xs text-muted-foreground" suppressHydrationWarning>
+                        {formatDisplayDate(member.created_at)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/15"
+                          onClick={() => handleImpersonate(member.user_id || member.id)}
+                          disabled={impersonating}
+                          title={`Impersonate as ${member.full_name || member.email}`}
+                        >
+                          <LogIn className="h-3.5 w-3.5 mr-1" />
+                          Impersonate
+                        </Button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                       No members found for this tenant.
                     </td>
                   </tr>

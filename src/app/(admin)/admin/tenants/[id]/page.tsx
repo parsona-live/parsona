@@ -52,7 +52,7 @@ export default async function TenantDetailPage({
       .maybeSingle(),
     adminClient
       .from("profiles")
-      .select("id, email, full_name, account_role, created_at")
+      .select("id, user_id, email, full_name, account_role, created_at")
       .eq("account_id", tenantId)
       .order("created_at", { ascending: true }),
     adminClient
