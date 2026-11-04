@@ -135,14 +135,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     !!account?.name &&
     account.name !== profile?.full_name;
 
-  // Close the drawer when route changes — users opened it to navigate,
-  // so once they pick a destination the drawer should get out of the way.
-  useEffect(() => {
-    onClose?.();
-    // Only pathname drives this — onClose identity doesn't need to re-run it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
   // Lock body scroll and allow Escape to close while the drawer is open on
   // mobile. No-ops on desktop because the sidebar isn't positioned there.
   useEffect(() => {
@@ -190,7 +182,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" onClick={onClose} className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <MessageSquare className="h-4 w-4" />
             </div>
@@ -229,8 +221,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               return (
                 <li key={item.href}>
                   <Link
-                    scroll={false}
                     href={item.href}
+                    onClick={onClose}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
@@ -279,6 +271,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <li>
                 <Link
                   href="/admin"
+                  onClick={onClose}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 mb-1"
                 >
                   <ShieldAlert className="h-4 w-4 text-amber-400" />
@@ -291,8 +284,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               return (
                 <li key={item.href}>
                   <Link
-                    scroll={false}
                     href={item.href}
+                    onClick={onClose}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
                       isActive
