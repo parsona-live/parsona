@@ -8,13 +8,8 @@ import { getT } from '@/lib/i18n/translate'
 const t = getT('Api')
 
 /**
- * GET /api/flows — list the caller's flows.
+ * GET /api/flows — list the caller's flows (excluding master templates).
  * POST /api/flows — create a new (draft) flow.
- *
- * Available to every authenticated user. The previous per-account
- * beta gate was removed when Flows went to soft-GA; the UI still
- * shows a "Beta" label so users know the surface is young, but the
- * routes themselves are open.
  */
 
 async function requireUser(): Promise<
@@ -36,12 +31,27 @@ export async function GET() {
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status })
   }
-  const { supabase } = guard
+  const { supabase, userId } = guard
 
-  const { data, error } = await supabase
+  // Resolve caller's account_id to scope to the tenant workspace
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('account_id')
+    .eq('user_id', userId)
+    .single()
+  const accountId = profile?.account_id as string | undefined
+
+  let query = supabase
     .from('flows')
     .select('*')
+    .eq('is_template', false)
     .order('created_at', { ascending: false })
+
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  const { data, error } = await query
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
