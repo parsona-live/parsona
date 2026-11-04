@@ -11,6 +11,7 @@ import {
   IMPERSONATED_TENANT_NAME_COOKIE,
   IMPERSONATED_USER_EMAIL_COOKIE,
   IMPERSONATED_USER_ROLE_COOKIE,
+  IMPERSONATED_AT_COOKIE,
   IMPERSONATION_MAX_AGE_SECONDS,
 } from "@/lib/admin/impersonation";
 
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
       secure: isProd,
     });
 
-    cookieStore.set(IMPERSONATED_TENANT_NAME_COOKIE, encodeURIComponent(account.name), {
+    cookieStore.set(IMPERSONATED_TENANT_NAME_COOKIE, account.name, {
       path: "/",
       maxAge: IMPERSONATION_MAX_AGE_SECONDS,
       sameSite: "lax",
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
       secure: isProd,
     });
 
-    cookieStore.set(IMPERSONATED_USER_EMAIL_COOKIE, encodeURIComponent(targetProfile.email), {
+    cookieStore.set(IMPERSONATED_USER_EMAIL_COOKIE, targetProfile.email, {
       path: "/",
       maxAge: IMPERSONATION_MAX_AGE_SECONDS,
       sameSite: "lax",
@@ -185,6 +186,14 @@ export async function POST(request: NextRequest) {
     });
 
     cookieStore.set(IMPERSONATED_USER_ROLE_COOKIE, targetProfile.account_role || "owner", {
+      path: "/",
+      maxAge: IMPERSONATION_MAX_AGE_SECONDS,
+      sameSite: "lax",
+      httpOnly: false,
+      secure: isProd,
+    });
+
+    cookieStore.set(IMPERSONATED_AT_COOKIE, String(now), {
       path: "/",
       maxAge: IMPERSONATION_MAX_AGE_SECONDS,
       sameSite: "lax",
@@ -222,6 +231,7 @@ export async function DELETE() {
       cookieStore.delete(IMPERSONATED_TENANT_NAME_COOKIE);
       cookieStore.delete(IMPERSONATED_USER_EMAIL_COOKIE);
       cookieStore.delete(IMPERSONATED_USER_ROLE_COOKIE);
+      cookieStore.delete(IMPERSONATED_AT_COOKIE);
     };
 
     if (!impersonatorCookie) {

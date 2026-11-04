@@ -7,6 +7,7 @@ export const IMPERSONATED_ACCOUNT_ID_COOKIE = "wapp_impersonate_account_id";
 export const IMPERSONATED_TENANT_NAME_COOKIE = "wapp_impersonated_tenant_name";
 export const IMPERSONATED_USER_EMAIL_COOKIE = "wapp_impersonated_user_email";
 export const IMPERSONATED_USER_ROLE_COOKIE = "wapp_impersonated_user_role";
+export const IMPERSONATED_AT_COOKIE = "wapp_impersonated_at";
 
 export const IMPERSONATION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 hours
 
