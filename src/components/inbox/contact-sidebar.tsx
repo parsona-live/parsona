@@ -10,7 +10,6 @@ import {
   Mail,
   Copy,
   Check,
-  User,
   Tag as TagIcon,
   DollarSign,
   StickyNote,
@@ -21,6 +20,33 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
+
+const AVATAR_COLORS = [
+  "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300",
+  "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300",
+  "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
+  "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300",
+  "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300",
+  "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300",
+  "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300",
+  "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300",
+  "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300",
+  "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300",
+  "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300",
+  "bg-lime-100 text-lime-600 dark:bg-lime-900/40 dark:text-lime-300",
+  "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300",
+  "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300",
+  "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300",
+];
+
+function getAvatarColor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % AVATAR_COLORS.length;
+  }
+  return AVATAR_COLORS[Math.abs(hash)];
+}
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -125,7 +151,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   if (!contact) {
     return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
+      <div className="flex h-full w-80 items-center justify-center border-l border-border bg-card">
         <p className="text-sm text-muted-foreground">{tThread("selectConversation")}</p>
       </div>
     );
@@ -133,14 +159,20 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   const displayName = contact.name || contactHandle(contact);
   const initials = displayName.charAt(0).toUpperCase();
+  const avatarColor = getAvatarColor(contact.id || displayName);
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
+    <div className="flex h-full w-80 flex-col border-l border-border bg-card">
       <ScrollArea className="flex-1">
         <div className="p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">
+            <div
+              className={cn(
+                "flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold",
+                avatarColor
+              )}
+            >
               {contact.avatar_url ? (
                 <img
                   src={contact.avatar_url}
@@ -151,11 +183,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 initials
               )}
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground">
+            <h3 className="mt-3 text-base font-semibold text-foreground">
               {displayName}
             </h3>
             {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
+              <p className="text-sm text-muted-foreground">{contact.company}</p>
             )}
           </div>
 

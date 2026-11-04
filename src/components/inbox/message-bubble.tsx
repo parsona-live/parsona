@@ -392,8 +392,9 @@ export function MessageBubble({
   const t = useTranslations("Inbox.bubble");
 
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
+  const isSystem = (message as any).sender_type === "system";
   const time = format(new Date(message.created_at), "HH:mm");
-  const failure = isAgent ? failureReason(message) : null;
+  const failure = isAgent && !isSystem ? failureReason(message) : null;
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
@@ -401,66 +402,78 @@ export function MessageBubble({
     <div
       className={cn(
         "flex flex-col",
-        isAgent ? "items-end" : "items-start",
+        isSystem ? "items-center" : isAgent ? "items-end" : "items-start",
       )}
     >
-      <div
-        className={cn(
-          "relative rounded-2xl px-3 py-2",
-          isAgent
-            ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md bg-muted text-foreground",
-        )}
-      >
-        {reply && (
-          <ReplyQuote
-            authorLabel={reply.authorLabel}
-            preview={reply.preview}
-            onPrimary={isAgent}
-          />
-        )}
-        <MessageContent
-          message={message}
-          template={template}
-          t={t}
-          isAgent={isAgent}
-          onOpenMedia={onOpenMedia}
-        />
-        <div
-          className={cn(
-            "mt-1 flex items-center gap-1",
-            isAgent ? "justify-end" : "justify-start",
-          )}
-        >
-          {/* AI badge — only on replies the auto-reply bot generated
-              (always outbound, so it sits on the primary fill). Lets
-              agents tell an AI reply from their own / a Flow's at a
-              glance. */}
-          {message.ai_generated && (
-            <span
-              className="inline-flex items-center gap-0.5 rounded-full bg-primary-foreground/20 px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide text-primary-foreground"
-              title={t("aiBadgeTitle")}
-            >
-              <Sparkles className="h-2.5 w-2.5" />
-              {t("aiBadge")}
-            </span>
-          )}
-          <span
-            className={cn(
-              "text-[10px]",
-              // Outbound bubbles sit on the primary fill, so the
-              // timestamp must read against that (not the neutral
-              // foreground) — otherwise it goes low-contrast in light
-              // mode. Inbound bubbles use the muted surface.
-              isAgent ? "text-primary-foreground/70" : "text-muted-foreground",
-            )}
-          >
+      {isSystem ? (
+        <div className="my-2 max-w-[85%] rounded-lg bg-muted/60 px-3 py-1.5 text-center">
+          <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+            <LinkifyText text={message.content_text ?? ""} isAgent={false} />
+          </p>
+          <span className="mt-0.5 block text-[9px] text-muted-foreground/70">
             {time}
           </span>
-          {isAgent && <StatusIcon status={message.status} title={failure} />}
         </div>
-      </div>
-      {failure && (
+      ) : (
+        <>
+          <div
+            className={cn(
+              "relative rounded-2xl px-3 py-2 shadow-sm",
+              isAgent
+                ? "rounded-br-md bg-[#dcf8c6] text-black dark:bg-[#005c4b] dark:text-white"
+                : "rounded-bl-md bg-white text-black dark:bg-[#202c33] dark:text-white",
+            )}
+          >
+            {reply && (
+              <ReplyQuote
+                authorLabel={reply.authorLabel}
+                preview={reply.preview}
+                onPrimary={isAgent}
+              />
+            )}
+            <MessageContent
+              message={message}
+              template={template}
+              t={t}
+              isAgent={isAgent}
+              onOpenMedia={onOpenMedia}
+            />
+            <div
+              className={cn(
+                "mt-1 flex items-center gap-1",
+                isAgent ? "justify-end" : "justify-start",
+              )}
+            >
+              {message.ai_generated && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide",
+                    isAgent
+                      ? "bg-black/10 text-black/70 dark:bg-white/20 dark:text-white/80"
+                      : "bg-primary/10 text-primary"
+                  )}
+                  title={t("aiBadgeTitle")}
+                >
+                  <Sparkles className="h-2.5 w-2.5" />
+                  {t("aiBadge")}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "text-[10px]",
+                  isAgent
+                    ? "text-black/60 dark:text-white/70"
+                    : "text-muted-foreground",
+                )}
+              >
+                {time}
+              </span>
+              {isAgent && <StatusIcon status={message.status} title={failure} />}
+            </div>
+          </div>
+        </>
+      )}
+      {failure && !isSystem && (
         <p
           className="mt-0.5 px-1 text-[10px] leading-tight text-muted-foreground"
           title={failure}
@@ -468,7 +481,7 @@ export function MessageBubble({
           {t("notDelivered")}: {failure}
         </p>
       )}
-      {reactions && reactions.length > 0 && onToggleReaction && (
+      {reactions && reactions.length > 0 && onToggleReaction && !isSystem && (
         <MessageReactions
           reactions={reactions}
           onToggle={onToggleReaction}

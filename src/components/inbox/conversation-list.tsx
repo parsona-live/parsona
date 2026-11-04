@@ -39,10 +39,37 @@ interface ConversationListProps {
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: "bg-primary",
+  open: "bg-emerald-500",
   pending: "bg-amber-500",
-  closed: "bg-muted-foreground",
+  closed: "bg-red-500",
 };
+
+const AVATAR_COLORS = [
+  "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300",
+  "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300",
+  "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
+  "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300",
+  "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300",
+  "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300",
+  "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300",
+  "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300",
+  "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300",
+  "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300",
+  "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300",
+  "bg-lime-100 text-lime-600 dark:bg-lime-900/40 dark:text-lime-300",
+  "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300",
+  "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300",
+  "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300",
+];
+
+function getAvatarColor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % AVATAR_COLORS.length;
+  }
+  return AVATAR_COLORS[Math.abs(hash)];
+}
 
 
 export function ConversationList({
@@ -442,6 +469,7 @@ function ConversationItem({
   const contact = conversation.contact;
   const displayName = contact?.name || contact?.phone || t("unknown");
   const initials = displayName.charAt(0).toUpperCase();
+  const avatarColor = getAvatarColor(contact?.id || displayName);
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -463,7 +491,12 @@ function ConversationItem({
       )}
     >
       {/* Avatar */}
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium",
+          avatarColor
+        )}
+      >
         {contact?.avatar_url ? (
           <img
             src={contact.avatar_url}
@@ -487,20 +520,26 @@ function ConversationItem({
           <span className="truncate block text-xs text-muted-foreground">
             {conversation.last_message_text || t("noMessagesYet")}
           </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                {conversation.unread_count}
-              </span>
-            )}
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full",
-                STATUS_COLORS[conversation.status]
+            <span className="flex shrink-0 items-center gap-1.5">
+              {conversation.unread_count > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {conversation.unread_count}
+                </span>
               )}
-              title={conversation.status}
-            />
-          </span>
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  STATUS_COLORS[conversation.status]
+                )}
+                title={
+                  conversation.status === "open"
+                    ? t("filterOpen")
+                    : conversation.status === "pending"
+                      ? t("filterPending")
+                      : t("filterClosed")
+                }
+              />
+            </span>
         </span>
       </span>
     </button>
