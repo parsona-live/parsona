@@ -39,6 +39,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -197,45 +198,13 @@ export function NodeConfigForm({
 
     case "collect_input":
       return (
-        <>
-          <TextRow
-            label={t("promptToCustomer")}
-            value={(cfg as { prompt_text?: string }).prompt_text ?? ""}
-            onChange={(v) => onUpdateConfig({ prompt_text: v })}
-            rows={2}
-          />
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">
-              {t("varKeyLabel")}
-            </label>
-            <Input
-              value={(cfg as { var_key?: string }).var_key ?? ""}
-              onChange={(e) =>
-                onUpdateConfig({
-                  var_key: e.target.value.replace(/[^a-zA-Z0-9_]/g, ""),
-                })
-              }
-              placeholder={t("varKeyPlaceholder")}
-              className="bg-muted font-mono text-xs"
-            />
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {t("varKeyHelp")}{" "}
-              <code className="rounded bg-muted px-1">
-                {"{{vars."}
-                {(cfg as { var_key?: string }).var_key || "name"}
-                {"}}"}
-              </code>
-              .
-            </p>
-          </div>
-          <NextNodeRow
-            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
-            allNodes={allNodes}
-            currentKey={node.node_key}
-            onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label={t("advanceAfterCapture")}
-          />
-        </>
+        <CollectInputForm
+          cfg={cfg as Record<string, unknown>}
+          allNodes={allNodes}
+          currentNodeKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
       );
 
     case "condition":
@@ -395,28 +364,13 @@ export function NodeConfigForm({
 
     case "input_flow":
       return (
-        <div className="space-y-4">
-          <TextRow
-            label="Prompt Text"
-            value={(cfg as { prompt_text?: string }).prompt_text ?? ""}
-            onChange={(v) => onUpdateConfig({ prompt_text: v })}
-            rows={2}
-          />
-          <TextRow
-            label="Save to Variable Key"
-            value={(cfg as { var_key?: string }).var_key ?? ""}
-            onChange={(v) => onUpdateConfig({ var_key: v })}
-            placeholder="e.g. name or email"
-            hideVariablePicker
-          />
-          <NextNodeRow
-            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
-            allNodes={allNodes}
-            currentKey={node.node_key}
-            onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label={t("advancesTo")}
-          />
-        </div>
+        <CollectInputForm
+          cfg={cfg as Record<string, unknown>}
+          allNodes={allNodes}
+          currentNodeKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
+        />
       );
 
     case "close_conversation":
@@ -433,6 +387,144 @@ export function NodeConfigForm({
         </p>
       );
   }
+}
+
+// ============================================================
+// collect_input / input_flow
+// ============================================================
+
+function CollectInputForm({
+  cfg,
+  allNodes,
+  currentNodeKey,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: {
+    prompt_text?: string;
+    var_key?: string;
+    validation?: string;
+    regex?: string;
+    invalid_message?: string;
+    allow_interruption?: boolean;
+    next_node_key?: string;
+  };
+  allNodes: BuilderNode[];
+  currentNodeKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const validation = cfg.validation || "any";
+  const allowInterruption = cfg.allow_interruption !== false; // default true
+
+  return (
+    <div className="space-y-4">
+      <TextRow
+        label={t("promptToCustomer")}
+        value={cfg.prompt_text ?? ""}
+        onChange={(v) => onUpdateConfig({ prompt_text: v })}
+        rows={2}
+      />
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+          {t("varKeyLabel")}
+        </label>
+        <Input
+          value={cfg.var_key ?? ""}
+          onChange={(e) =>
+            onUpdateConfig({
+              var_key: e.target.value.replace(/[^a-zA-Z0-9_]/g, ""),
+            })
+          }
+          placeholder={t("varKeyPlaceholder")}
+          className="bg-muted font-mono text-xs"
+        />
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          {t("varKeyHelp")}{" "}
+          <code className="rounded bg-muted px-1">
+            {"{{vars."}
+            {cfg.var_key || "input"}
+            {"}}"}
+          </code>
+          .
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+          Expected Input Type
+        </label>
+        <Select
+          value={validation}
+          onValueChange={(val) => onUpdateConfig({ validation: val })}
+        >
+          <SelectTrigger className="w-full text-xs">
+            <SelectValue placeholder="Select input validation" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Text (Any)</SelectItem>
+            <SelectItem value="name">Person Name</SelectItem>
+            <SelectItem value="email">Email Address</SelectItem>
+            <SelectItem value="phone">Phone Number</SelectItem>
+            <SelectItem value="number">Number</SelectItem>
+            <SelectItem value="regex">Custom Regex</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {validation === "regex" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+            Custom Regex Pattern
+          </label>
+          <Input
+            value={cfg.regex ?? ""}
+            onChange={(e) => onUpdateConfig({ regex: e.target.value })}
+            placeholder="e.g. ^[A-Z]{3}-\d{4}$"
+            className="font-mono text-xs"
+          />
+        </div>
+      )}
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+          Custom Invalid Input Message (Optional)
+        </label>
+        <Input
+          value={cfg.invalid_message ?? ""}
+          onChange={(e) => onUpdateConfig({ invalid_message: e.target.value })}
+          placeholder="e.g. I couldn't identify a valid email. Please try again."
+          className="text-xs"
+        />
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Sent when the user response cannot be understood or fails validation.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="space-y-0.5 pr-2">
+          <label className="text-xs font-medium text-slate-800 dark:text-slate-200">
+            Allow AI Interruption
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            Pause flow and answer customer questions using the AI knowledge base.
+          </p>
+        </div>
+        <Switch
+          checked={allowInterruption}
+          onCheckedChange={(checked) => onUpdateConfig({ allow_interruption: checked })}
+        />
+      </div>
+
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentNodeKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label={t("advanceAfterCapture")}
+      />
+    </div>
+  );
 }
 
 // ============================================================

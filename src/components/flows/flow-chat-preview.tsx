@@ -50,7 +50,6 @@ import {
 import { cn } from '@/lib/utils';
 import type { BuilderNode, NodeType } from './shared';
 import type { FlowRow } from '@/lib/flows/types';
-import { fastClassifyHeuristic } from '@/lib/flows/ai-classifier-shared';
 
 interface FlowChatPreviewProps {
   flow: FlowRow;
@@ -129,7 +128,78 @@ function FormattedWhatsAppText({ text }: { text?: string }) {
   );
 }
 
-export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) {
+function getPreviewDefaultInvalidMessage(validation?: string): string {
+  switch (validation) {
+    case 'name':
+      return "I couldn't understand your name. Could you please share your name again?";
+    case 'email':
+      return "I couldn't identify a valid email address. Could you please provide your email again?";
+    case 'phone':
+      return "Please share a valid contact number so we can continue.";
+    case 'number':
+      return "Please provide a valid number so we can continue.";
+    default:
+      return "Please provide a valid response so we can continue.";
+  }
+}
+
+async function queryInputAnalysis(payload: {
+  text: string;
+  promptText?: string;
+  varKey?: string;
+  validation?: string;
+  regex?: string;
+  allowInterruption?: boolean;
+  currentVars?: Record<string, unknown>;
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}): Promise<{
+  intent: 'valid_input' | 'unclear_input' | 'interruption' | 'resume' | 'cancel' | 'restart';
+  extracted_value: string | null;
+  ai_response?: string | null;
+  reason?: string;
+}> {
+  try {
+    const res = await fetch('/api/flows/analyze-input', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // API failed, use client fallback
+  }
+
+  const trimmed = payload.text.trim();
+  const lower = trimmed.toLowerCase();
+  if (/^(cancel|stop|quit|exit|band\s*karo)$/i.test(lower)) {
+    return { intent: 'cancel', extracted_value: null };
+  }
+  if (/^(restart|start\s*over|reset|shuru\s*se)$/i.test(lower)) {
+    return { intent: 'restart', extracted_value: null };
+  }
+  if (/^(resume|continue|aage\s*badho)$/i.test(lower)) {
+    return { intent: 'resume', extracted_value: null };
+  }
+  if (
+    trimmed.includes('?') ||
+    /^(what|how|why|when|where|who|can|could|is|are|check|status)\b/i.test(trimmed)
+  ) {
+    if (payload.allowInterruption !== false) {
+      return {
+        intent: 'interruption',
+        extracted_value: null,
+        ai_response: `I'd be happy to answer your question regarding "${trimmed}".`,
+      };
+    }
+    return { intent: 'unclear_input', extracted_value: null };
+  }
+  return { intent: 'valid_input', extracted_value: trimmed };
+}
+
+export function FlowChatPreview({
+ flow, nodes, onClose }: FlowChatPreviewProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentNodeKey, setCurrentNodeKey] = useState<string | null>(null);
   const [waitingForInput, setWaitingForInput] = useState<string | null>(null);
@@ -707,7 +777,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
   );
 
   // Handle user sending text message
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend ?? inputText).trim();
     if (!text) return;
     setInputText('');
@@ -723,13 +793,11 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
     const newHistory = [...messages, userMsg];
 
     // Priority 1: Check if this message is a trigger keyword match!
-    // A matching trigger keyword ALWAYS starts/restarts the workflow from entry node,
-    // regardless of whether prior messages were sent or flow was already running.
-    // In preview simulator: if keyword matches OR if this is the first message sent, launch entry node!
     const isKeywordMatch = checkTriggerMatch(text);
 
     if (isKeywordMatch || (messages.length === 0 && entryKey)) {
       setWaitingForInput(null);
+      setPausedNodeKey(null);
       if (entryKey) {
         const advanced = executeNode(entryKey, newHistory, simVarsRef.current);
         setMessages(advanced);
@@ -747,16 +815,34 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       return;
     }
 
-    // Priority 2: If workflow was paused, check for resume or answer
+    // Priority 2: If workflow was paused, check for resume, answer, cancel, restart, or continued inquiry
     if (pausedNodeKey) {
       const pausedNode = nodeMap.get(pausedNodeKey);
-      const isCollect = pausedNode?.node_type === 'collect_input' || pausedNode?.node_type === 'input_flow';
+      const isCollect =
+        pausedNode?.node_type === 'collect_input' || pausedNode?.node_type === 'input_flow';
       const varKey = (pausedNode?.config?.var_key as string) || 'input';
       const promptText = (pausedNode?.config?.prompt_text as string) || '';
-      const validation = (pausedNode?.config?.validation as any) || 'any';
-      const classification = fastClassifyHeuristic(text, promptText, varKey, validation);
+      const validation = (pausedNode?.config?.validation as string) || 'any';
+      const customRegex = (pausedNode?.config?.regex as string) || undefined;
+      const allowInterruption = pausedNode?.config?.allow_interruption !== false;
 
-      if (classification?.intent === 'cancel') {
+      const classification = await queryInputAnalysis({
+        text,
+        promptText,
+        varKey,
+        validation,
+        regex: customRegex,
+        allowInterruption,
+        currentVars: simVarsRef.current,
+        conversationHistory: messages
+          .filter((m) => m.text)
+          .map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.text ?? '',
+          })),
+      });
+
+      if (classification.intent === 'cancel') {
         setPausedNodeKey(null);
         setWaitingForInput(null);
         setMessages([
@@ -771,7 +857,21 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         return;
       }
 
-      if (classification?.intent === 'resume') {
+      if (classification.intent === 'restart') {
+        setPausedNodeKey(null);
+        setWaitingForInput(null);
+        simVarsRef.current = {};
+        setSimVars({});
+        if (entryKey) {
+          const advanced = executeNode(entryKey, newHistory, {});
+          setMessages(advanced);
+        } else {
+          setMessages(newHistory);
+        }
+        return;
+      }
+
+      if (classification.intent === 'resume') {
         // Resume paused workflow!
         const targetKey = pausedNodeKey;
         setPausedNodeKey(null);
@@ -780,7 +880,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         return;
       }
 
-      if (classification?.intent === 'answer' && isCollect) {
+      if (classification.intent === 'valid_input' && isCollect) {
         // Answering the paused question directly!
         const cleanVal = classification.extracted_value ?? text;
         const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
@@ -810,7 +910,9 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         {
           id: `ai-${Date.now()}`,
           sender: 'ai',
-          text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' to continue.)_`,
+          text:
+            classification.ai_response ||
+            `I understand your question about "${text}". Let me help with that.`,
           timestamp: time,
         },
       ]);
@@ -822,10 +924,28 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
       const node = nodeMap.get(waitingForInput);
       const varKey = (node?.config?.var_key as string) || 'user_response';
       const promptText = (node?.config?.prompt_text as string) || '';
-      const validation = (node?.config?.validation as any) || 'any';
-      const classification = fastClassifyHeuristic(text, promptText, varKey, validation);
+      const validation = (node?.config?.validation as string) || 'any';
+      const customRegex = (node?.config?.regex as string) || undefined;
+      const invalidMessage = (node?.config?.invalid_message as string) || undefined;
+      const allowInterruption = node?.config?.allow_interruption !== false;
 
-      if (classification?.intent === 'cancel') {
+      const classification = await queryInputAnalysis({
+        text,
+        promptText,
+        varKey,
+        validation,
+        regex: customRegex,
+        allowInterruption,
+        currentVars: simVarsRef.current,
+        conversationHistory: messages
+          .filter((m) => m.text)
+          .map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.text ?? '',
+          })),
+      });
+
+      if (classification.intent === 'cancel') {
         setWaitingForInput(null);
         setMessages([
           ...newHistory,
@@ -839,9 +959,20 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         return;
       }
 
-      // Check if user is asking an unrelated question or changing topic (interruption)
-      const isQuestion = text.includes('?') || /^(what|how|why|when|where|can|could|is|are|kya|kaise|kab|kahan|kyun|check|status)\b/i.test(text);
-      if (isQuestion || classification?.intent === 'interruption') {
+      if (classification.intent === 'restart') {
+        setWaitingForInput(null);
+        simVarsRef.current = {};
+        setSimVars({});
+        if (entryKey) {
+          const advanced = executeNode(entryKey, newHistory, {});
+          setMessages(advanced);
+        } else {
+          setMessages(newHistory);
+        }
+        return;
+      }
+
+      if (classification.intent === 'interruption') {
         // Pause the workflow and route to AI!
         setPausedNodeKey(waitingForInput);
         setWaitingForInput(null);
@@ -850,15 +981,32 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
           {
             id: `ai-${Date.now()}`,
             sender: 'ai',
-            text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' to continue.)_`,
+            text:
+              classification.ai_response ||
+              `I'd be happy to answer your question regarding "${text}".`,
             timestamp: time,
           },
         ]);
         return;
       }
 
-      // Smart Input Extraction: clean extracted entity (e.g. "Yash Tupkar" from "My name is Yash Tupkar")
-      const cleanVal = classification?.extracted_value ?? text;
+      if (classification.intent === 'unclear_input') {
+        // Send polite corrective message without updating variables or advancing
+        const corrective = invalidMessage || getPreviewDefaultInvalidMessage(validation);
+        setMessages([
+          ...newHistory,
+          {
+            id: `bot-${Date.now()}`,
+            sender: 'bot',
+            text: corrective,
+            timestamp: time,
+          },
+        ]);
+        return;
+      }
+
+      // Valid input extraction: clean extracted entity
+      const cleanVal = classification.extracted_value ?? text;
       const rawKey = varKey.startsWith('vars.') ? varKey.slice(5) : varKey;
       const updatedVars = {
         ...simVarsRef.current,
@@ -889,6 +1037,29 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
         currentNode?.node_type === 'send_list' ||
         currentNode?.node_type === 'send_carousel'
       ) {
+        const lower = text.toLowerCase().trim();
+        if (/^(cancel|stop|quit|exit|band\s*karo)$/i.test(lower)) {
+          setMessages([
+            ...newHistory,
+            {
+              id: `sys-${Date.now()}`,
+              sender: 'system',
+              text: 'Workflow cancelled.',
+              timestamp: time,
+            },
+          ]);
+          return;
+        }
+        if (/^(restart|start\s*over|reset|shuru\s*se)$/i.test(lower)) {
+          simVarsRef.current = {};
+          setSimVars({});
+          if (entryKey) {
+            const advanced = executeNode(entryKey, newHistory, {});
+            setMessages(advanced);
+          }
+          return;
+        }
+
         // Customer typed text instead of tapping button -> pause and route to AI!
         setPausedNodeKey(currentNodeKey);
         setMessages([
@@ -896,7 +1067,7 @@ export function FlowChatPreview({ flow, nodes, onClose }: FlowChatPreviewProps) 
           {
             id: `ai-${Date.now()}`,
             sender: 'ai',
-            text: `AI Auto-Reply: Responding to "${text}".\n\n_(Workflow paused. Reply 'resume' or tap an option to continue.)_`,
+            text: `I'd be happy to answer your question regarding "${text}".`,
             timestamp: time,
           },
         ]);

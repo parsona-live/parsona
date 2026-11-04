@@ -46,7 +46,13 @@ import {
 } from "./meta-send";
 import { sendTypingIndicator } from "@/lib/whatsapp/meta-api";
 import { resolveFallbackPolicy, decideFallback } from "./fallback";
-import { classifyInputOrInterruption } from "./ai-classifier";
+import {
+  analyzeFlowInput,
+  validateAndNormalize,
+  getDefaultInvalidMessage,
+  checkFlowCommand,
+} from "./input-analyzer";
+import { buildConversationContext } from "@/lib/ai/context";
 import { localizeNode } from "./localization";
 import { loadAiConfig } from "@/lib/ai/config";
 import { dispatchEmail, type EmailConfigData } from "@/lib/email/email-service";
@@ -1679,22 +1685,46 @@ async function handleReplyForActiveRun(
   if (run.status === "paused_by_agent") {
     if (message.kind === "text") {
       const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
-      const collectCfg = (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow")
-        ? (currentNode.config as unknown as CollectInputNodeConfig)
-        : null;
+      const collectCfg =
+        currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow"
+          ? (currentNode.config as unknown as CollectInputNodeConfig)
+          : null;
 
-      const classification = await classifyInputOrInterruption({
+      const history = run.conversation_id
+        ? await buildConversationContext(db, run.conversation_id, 6).catch(() => [])
+        : [];
+
+      const classification = await analyzeFlowInput({
         text: message.text,
         promptText: collectCfg?.prompt_text || "",
         varKey: collectCfg?.var_key || "",
         validation: collectCfg?.validation,
         regex: collectCfg?.regex,
+        currentVars: run.vars,
+        conversationHistory: history,
         aiConfig: aiCfg,
+        allowInterruption: collectCfg?.allow_interruption !== false,
       });
 
       if (classification.intent === "cancel") {
         await endRun(db, run.id, "cancelled", "user_cancelled");
         return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+      }
+
+      if (classification.intent === "restart") {
+        await endRun(db, run.id, "cancelled", "user_restarted");
+        return startNewRun(
+          db,
+          flow,
+          {
+            accountId: run.account_id,
+            userId: run.user_id,
+            contactId: run.contact_id!,
+            conversationId: run.conversation_id!,
+            message,
+          },
+          nodes,
+        );
       }
 
       if (classification.intent === "resume") {
@@ -1707,7 +1737,10 @@ async function handleReplyForActiveRun(
           await sendButtonsAndSuspend(db, run, currentNode);
         } else if (currentNode.node_type === "send_list") {
           await sendListAndSuspend(db, run, currentNode);
-        } else if ((currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow") && collectCfg) {
+        } else if (
+          (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow") &&
+          collectCfg
+        ) {
           await engineSendText({
             accountId: run.account_id,
             userId: run.user_id,
@@ -1719,30 +1752,38 @@ async function handleReplyForActiveRun(
         return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
       }
 
-      if (classification.intent === "answer" && collectCfg) {
+      if (classification.intent === "valid_input" && collectCfg) {
         // User answered the paused step directly! Reactivate and advance!
-        const cleanVal = (classification.extracted_value ?? message.text).trim();
-        await db.from("flow_runs").update({ status: "active", end_reason: null }).eq("id", run.id);
-        run.status = "active";
-        const rawKey = collectCfg.var_key.startsWith("vars.") ? collectCfg.var_key.slice(5) : collectCfg.var_key;
-        const newVars = {
-          ...run.vars,
-          [collectCfg.var_key]: cleanVal,
-          [rawKey]: cleanVal,
-          [`vars.${rawKey}`]: cleanVal,
-          _locale: classification.detected_language || (run.vars._locale as string) || "en",
-        };
-        if (!(await claimReplyTransition(db, run, collectCfg.next_node_key, { vars: newVars }))) {
-          return lostReplyRace(db, run, currentNode.node_key);
+        const rawCaptured = (classification.extracted_value ?? message.text).trim();
+        const { isValid, normalized } = validateAndNormalize(
+          collectCfg.validation,
+          rawCaptured,
+          collectCfg.regex,
+        );
+
+        if (isValid && normalized !== null && collectCfg.var_key && collectCfg.next_node_key) {
+          await db.from("flow_runs").update({ status: "active", end_reason: null, reprompt_count: 0 }).eq("id", run.id);
+          run.status = "active";
+          run.reprompt_count = 0;
+          const rawKey = collectCfg.var_key.startsWith("vars.") ? collectCfg.var_key.slice(5) : collectCfg.var_key;
+          const newVars = {
+            ...run.vars,
+            [collectCfg.var_key]: normalized,
+            [rawKey]: normalized,
+            [`vars.${rawKey}`]: normalized,
+          };
+          if (!(await claimReplyTransition(db, run, collectCfg.next_node_key, { vars: newVars, reprompt_count: 0 }))) {
+            return lostReplyRace(db, run, currentNode.node_key);
+          }
+          run.vars = newVars;
+          await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+            action: "flow_resumed_with_answer",
+            captured_key: collectCfg.var_key,
+            captured_value: normalized,
+          });
+          const outcome = await advanceFromNodeKey(db, run, collectCfg.next_node_key, nodes);
+          return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
         }
-        run.vars = newVars;
-        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-          action: "flow_resumed_with_answer",
-          captured_key: collectCfg.var_key,
-          captured_value: cleanVal,
-        });
-        const outcome = await advanceFromNodeKey(db, run, collectCfg.next_node_key, nodes);
-        return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
       }
 
       // Customer is still asking off-topic questions -> keep paused and route to AI!
@@ -1765,19 +1806,42 @@ async function handleReplyForActiveRun(
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
     const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
 
+    const history = run.conversation_id
+      ? await buildConversationContext(db, run.conversation_id, 6).catch(() => [])
+      : [];
+
     // AI Intent Classification & Smart Entity Extraction
-    const classification = await classifyInputOrInterruption({
+    const classification = await analyzeFlowInput({
       text: message.text,
       promptText: cfg.prompt_text,
       varKey: cfg.var_key,
       validation: cfg.validation,
       regex: cfg.regex,
+      currentVars: run.vars,
+      conversationHistory: history,
       aiConfig: aiCfg,
+      allowInterruption: cfg.allow_interruption !== false,
     });
 
     if (classification.intent === "cancel") {
       await endRun(db, run.id, "cancelled", "user_cancelled");
       return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+    }
+
+    if (classification.intent === "restart") {
+      await endRun(db, run.id, "cancelled", "user_restarted");
+      return startNewRun(
+        db,
+        flow,
+        {
+          accountId: run.account_id,
+          userId: run.user_id,
+          contactId: run.contact_id!,
+          conversationId: run.conversation_id!,
+          message,
+        },
+        nodes,
+      );
     }
 
     if (classification.intent === "interruption") {
@@ -1793,8 +1857,7 @@ async function handleReplyForActiveRun(
       await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
         action: "paused_for_ai",
         text_length: message.text.length,
-        detected_language: classification.detected_language,
-        reasoning: classification.reasoning,
+        reason: classification.reason,
       });
 
       return {
@@ -1804,29 +1867,96 @@ async function handleReplyForActiveRun(
       };
     }
 
-    // Intent is "answer": extract clean value (e.g. "Yash Tupkar" from "My name is Yash Tupkar")
-    const captured = (classification.extracted_value ?? message.text).trim();
-    if (captured.length > 0 && cfg.var_key && cfg.next_node_key) {
-      const rawKey = cfg.var_key.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
-      const newVars = {
-        ...run.vars,
-        [cfg.var_key]: captured,
-        [rawKey]: captured,
-        [`vars.${rawKey}`]: captured,
-        _locale: classification.detected_language || (run.vars._locale as string) || "en",
-      };
-      if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: newVars }))) {
-        return lostReplyRace(db, run, currentNode.node_key);
+    if (classification.intent === "valid_input") {
+      // Intent is valid_input: validate and extract clean value
+      const rawCaptured = (classification.extracted_value ?? message.text).trim();
+      const { isValid, normalized } = validateAndNormalize(cfg.validation, rawCaptured, cfg.regex);
+
+      if (isValid && normalized !== null && cfg.var_key && cfg.next_node_key) {
+        const rawKey = cfg.var_key.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
+        const newVars = {
+          ...run.vars,
+          [cfg.var_key]: normalized,
+          [rawKey]: normalized,
+          [`vars.${rawKey}`]: normalized,
+        };
+        if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: newVars, reprompt_count: 0 }))) {
+          return lostReplyRace(db, run, currentNode.node_key);
+        }
+        run.vars = newVars;
+        run.reprompt_count = 0;
+        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+          captured_key: cfg.var_key,
+          captured_length: normalized.length,
+        });
+        const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+        return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
       }
-      run.vars = newVars;
-      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-        captured_key: cfg.var_key,
-        captured_length: captured.length,
-        detected_language: classification.detected_language,
-      });
-      const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
-      return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
     }
+
+    // Unclear input or validation failed: evaluate fallback policy and reprompt/handoff/end
+    const newReprompts = run.reprompt_count + 1;
+    const policy = resolveFallbackPolicy(flow.fallback_policy);
+    const action = decideFallback({ policy, reprompt_count: newReprompts });
+
+    if (action.type === "reprompt") {
+      await db.from("flow_runs").update({ reprompt_count: newReprompts }).eq("id", run.id);
+      run.reprompt_count = newReprompts;
+
+      const correctiveMessage =
+        cfg.invalid_message?.trim() ||
+        getDefaultInvalidMessage(cfg.validation);
+
+      await engineSendText({
+        accountId: run.account_id,
+        userId: run.user_id,
+        conversationId: run.conversation_id!,
+        contactId: run.contact_id!,
+        text: interpolateVars(correctiveMessage, run.vars),
+      });
+
+      await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
+        action: "reprompt_invalid_input",
+        reprompt_count: newReprompts,
+        reason: classification.reason,
+      });
+
+      return { consumed: true, flow_run_id: run.id, outcome: "advanced" };
+    }
+
+    const fallbackClaim: Record<string, unknown> = {
+      reprompt_count: newReprompts,
+      status: action.type === "handoff" ? "handed_off" : "completed",
+      ended_at: new Date().toISOString(),
+      end_reason:
+        action.type === "handoff"
+          ? "fallback_exhausted"
+          : "fallback_exhausted_end",
+    };
+
+    if (!(await claimFallbackTransition(db, run, fallbackClaim))) {
+      return lostReplyRace(db, run, currentNode.node_key);
+    }
+
+    await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
+      action: action.type,
+      reprompt_count: newReprompts,
+    });
+
+    if (action.type === "handoff") {
+      if (run.conversation_id) {
+        await db
+          .from("conversations")
+          .update({ status: "pending", updated_at: new Date().toISOString() })
+          .eq("id", run.conversation_id);
+      }
+      await logEvent(db, run.id, "handoff", run.current_node_key, {
+        reason: "fallback_exhausted",
+      });
+      return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+    }
+
+    return { consumed: true, flow_run_id: run.id, outcome: "completed" };
   }
 
   if (matched) {
@@ -1848,6 +1978,28 @@ async function handleReplyForActiveRun(
       currentNode.node_type === "send_list" ||
       currentNode.node_type === "send_carousel")
   ) {
+    // 0. Check explicit flow command
+    const cmd = checkFlowCommand(message.text);
+    if (cmd === "cancel") {
+      await endRun(db, run.id, "cancelled", "user_cancelled");
+      return { consumed: true, flow_run_id: run.id, outcome: "completed" };
+    }
+    if (cmd === "restart") {
+      await endRun(db, run.id, "cancelled", "user_restarted");
+      return startNewRun(
+        db,
+        flow,
+        {
+          accountId: run.account_id,
+          userId: run.user_id,
+          contactId: run.contact_id!,
+          conversationId: run.conversation_id!,
+          message,
+        },
+        nodes,
+      );
+    }
+
     // 1. Check if the typed text matches the current flow's entry trigger keywords to restart
     if (
       flow.trigger_type === "keyword" &&

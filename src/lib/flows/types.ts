@@ -226,6 +226,14 @@ export interface HandoffNodeConfig {
  * builder still surfaces the field so users can author flows that
  * v2 will start enforcing.
  */
+export type InputValidationType =
+  | "any"
+  | "name"
+  | "email"
+  | "phone"
+  | "number"
+  | "regex";
+
 export interface CollectInputNodeConfig {
   /** Prompt text sent to the customer before they reply. */
   prompt_text: string;
@@ -235,13 +243,13 @@ export interface CollectInputNodeConfig {
    * `condition` nodes and `handoff` notes via interpolation.
    */
   var_key: string;
-  /**
-   * Reserved for v2. Accepted on the config but ignored by the v1.5
-   * runner — captures any non-empty text.
-   */
-  validation?: "any" | "email" | "phone" | "regex";
+  validation?: InputValidationType;
   /** Used only when `validation === 'regex'`. */
   regex?: string;
+  /** Custom invalid-input corrective message sent when input does not validate. */
+  invalid_message?: string;
+  /** When true (default), interruptions pause the flow and yield to Full AI Agent. When false, off-topic messages are treated as unclear input. */
+  allow_interruption?: boolean;
   /** Node to advance to after capture. */
   next_node_key: string;
 }
@@ -391,8 +399,10 @@ export interface AgentHandoverNodeConfig {
 export interface InputFlowNodeConfig {
   prompt_text: string;
   var_key: string;
-  validation?: "any" | "email" | "phone" | "number" | "regex";
+  validation?: InputValidationType;
   regex?: string;
+  invalid_message?: string;
+  allow_interruption?: boolean;
   next_node_key: string;
 }
 
