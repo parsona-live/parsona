@@ -1854,6 +1854,14 @@ async function handleReplyForActiveRun(
         })
         .eq("id", run.id);
 
+      // Ensure AI auto-reply is enabled on this conversation so the interruption query gets answered
+      if (run.conversation_id) {
+        await db
+          .from("conversations")
+          .update({ ai_autoreply_disabled: false })
+          .eq("id", run.conversation_id);
+      }
+
       await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
         action: "paused_for_ai",
         text_length: message.text.length,

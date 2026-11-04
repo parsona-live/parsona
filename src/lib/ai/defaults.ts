@@ -14,7 +14,14 @@ export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4-mini',
   anthropic: 'claude-haiku-4-5-20251001',
   openai_compatible: 'model-id',
-  openrouter: 'deepseek/deepseek-chat',
+  openrouter: 'openai/gpt-4o-mini-2024-07-18',
+}
+
+export const AI_PROVIDER_DEFAULT_EMBEDDING_MODEL: Record<AiProvider, string> = {
+  openai: 'text-embedding-3-small',
+  anthropic: 'text-embedding-3-small',
+  openai_compatible: 'text-embedding-3-small',
+  openrouter: 'openai/text-embedding-3-small',
 }
 
 /**

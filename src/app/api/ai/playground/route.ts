@@ -75,12 +75,16 @@ export async function POST(request: Request) {
       )
     }
 
+    const query = latestUserMessage(messages)
     const knowledge = await retrieveKnowledge(
       supabase,
       accountId,
       config,
-      latestUserMessage(messages),
+      query,
     )
+    if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_AI) {
+      console.log(`[ai/playground] query: "${query}" -> retrieved ${knowledge.length} knowledge chunk(s)`)
+    }
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',

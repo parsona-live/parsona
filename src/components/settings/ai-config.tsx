@@ -26,7 +26,10 @@ import {
 } from '@/components/ui/select';
 import { SettingsPanelHead } from './settings-panel-head';
 import { AiKnowledgeCard } from './ai-knowledge';
-import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
+import {
+  AI_PROVIDER_DEFAULT_MODEL,
+  AI_PROVIDER_DEFAULT_EMBEDDING_MODEL,
+} from '@/lib/ai/defaults';
 import type { AiProvider } from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
@@ -41,8 +44,8 @@ const HANDOFF_QUEUE = '__queue__';
 
 const PROVIDER_LABEL: Record<Exclude<AiProvider, 'openai_compatible'>, string> = {
   openai: 'OpenAI',
-  anthropic: 'Anthropic (Claude)',
-  openrouter: 'OpenRouter (DeepSeek, Llama, Claude, etc.)',
+  anthropic: 'Anthropic',
+  openrouter: 'OpenRouter',
 };
 
 const KEY_PLACEHOLDER: Record<AiProvider, string> = {
@@ -63,8 +66,11 @@ export function AiConfig() {
   const [removing, setRemoving] = useState(false);
 
   const [configured, setConfigured] = useState(false);
-  const [provider, setProvider] = useState<AiProvider>('openai');
-  const [model, setModel] = useState(AI_PROVIDER_DEFAULT_MODEL.openai);
+  const [provider, setProvider] = useState<AiProvider>('openrouter');
+  const [model, setModel] = useState(AI_PROVIDER_DEFAULT_MODEL.openrouter);
+  const [embeddingModel, setEmbeddingModel] = useState(
+    AI_PROVIDER_DEFAULT_EMBEDDING_MODEL.openrouter,
+  );
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [keyEdited, setKeyEdited] = useState(false);
@@ -100,6 +106,10 @@ export function AiConfig() {
         setConfigured(true);
         setProvider(data.provider);
         setModel(data.model);
+        setEmbeddingModel(
+          AI_PROVIDER_DEFAULT_EMBEDDING_MODEL[data.provider as AiProvider] ??
+            'openai/text-embedding-3-small',
+        );
         setBaseUrl(data.base_url ?? '');
         setSystemPrompt(data.system_prompt ?? '');
         setIsActive(data.is_active);
@@ -139,7 +149,8 @@ export function AiConfig() {
       model === AI_PROVIDER_DEFAULT_MODEL.anthropic ||
       model === AI_PROVIDER_DEFAULT_MODEL.openai_compatible ||
       model.trim() === '';
-    if (isDefaultModel) setModel(next === 'openai_compatible' ? '' : AI_PROVIDER_DEFAULT_MODEL[next]);
+    setModel(AI_PROVIDER_DEFAULT_MODEL[next]);
+    setEmbeddingModel(AI_PROVIDER_DEFAULT_EMBEDDING_MODEL[next]);
   };
 
   const keyPayload = () => (keyEdited ? apiKey.trim() : undefined);
@@ -284,34 +295,37 @@ export function AiConfig() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ai-provider" className="text-sm font-semibold">
+                {t('provider')}
+              </Label>
+              <Select
+                value={provider}
+                onValueChange={(v) => handleProviderChange(v as AiProvider)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="ai-provider" className="w-full h-11 text-sm bg-background">
+                  <SelectValue placeholder="Select AI Provider" />
+                </SelectTrigger>
+                <SelectContent className="w-[--radix-select-trigger-width]">
+                  <SelectItem value="openrouter" className="py-2.5">
+                    {PROVIDER_LABEL.openrouter}
+                  </SelectItem>
+                  <SelectItem value="openai" className="py-2.5">
+                    {PROVIDER_LABEL.openai}
+                  </SelectItem>
+                  <SelectItem value="anthropic" className="py-2.5">
+                    {PROVIDER_LABEL.anthropic}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>{t('provider')}</Label>
-                <Select
-                  value={provider}
-                  onValueChange={(v) => handleProviderChange(v as AiProvider)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">{PROVIDER_LABEL.openai}</SelectItem>
-                    <SelectItem value="anthropic">
-                      {PROVIDER_LABEL.anthropic}
-                    </SelectItem>
-                    <SelectItem value="openrouter">
-                      {PROVIDER_LABEL.openrouter}
-                    </SelectItem>
-                    <SelectItem value="openai_compatible">
-                      {t('providerOpenAiCompatible')}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ai-model">{t('model')}</Label>
+                <Label htmlFor="ai-model" className="text-xs font-semibold">
+                  {t('model')} (Chat & Auto-Reply)
+                </Label>
                 <Input
                   id="ai-model"
                   value={model}
@@ -319,22 +333,30 @@ export function AiConfig() {
                   placeholder={AI_PROVIDER_DEFAULT_MODEL[provider]}
                   disabled={disabled}
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  {provider === 'openrouter'
+                    ? 'Default: openai/gpt-4o-mini-2024-07-18'
+                    : 'Model used for drafts, auto-replies, and WhatsApp flows.'}
+                </p>
               </div>
 
-              {provider === 'openai_compatible' && (
-                <div className="space-y-2">
-                  <Label htmlFor="ai-base-url">{t('baseUrl')}</Label>
-                  <Input
-                    id="ai-base-url"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.example.com/v1"
-                    disabled={disabled}
-                    autoComplete="off"
-                  />
-                  <p className="text-xs text-muted-foreground">{t('baseUrlHint')}</p>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="ai-embeddings-model" className="text-xs font-semibold">
+                  Embeddings Model (Knowledge Base)
+                </Label>
+                <Input
+                  id="ai-embeddings-model"
+                  value={embeddingModel}
+                  onChange={(e) => setEmbeddingModel(e.target.value)}
+                  placeholder={AI_PROVIDER_DEFAULT_EMBEDDING_MODEL[provider]}
+                  disabled={disabled}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {provider === 'openrouter'
+                    ? 'Default: openai/text-embedding-3-small'
+                    : 'Model used for knowledge base vector semantic search.'}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -391,7 +413,9 @@ export function AiConfig() {
               <Label htmlFor="ai-embeddings-key">
                 {t('embeddingsKey')}{' '}
                 <span className="font-normal text-muted-foreground">
-                  {t('optionalSemanticSearch')}
+                  {provider === 'openrouter'
+                    ? '(Shared automatically with OpenRouter key above)'
+                    : t('optionalSemanticSearch')}
                 </span>
               </Label>
               <Input
@@ -408,14 +432,20 @@ export function AiConfig() {
                     setEmbeddingsKeyEdited(true);
                   }
                 }}
-                placeholder="sk-... (OpenAI)"
+                placeholder={
+                  provider === 'openrouter'
+                    ? 'Same as OpenRouter API key (leave blank to share)'
+                    : 'sk-... (OpenAI)'
+                }
                 disabled={disabled}
                 autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
-                {t('embeddingsHint', {
-                  sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
-                })}
+                {provider === 'openrouter'
+                  ? 'With OpenRouter, your main API key above is automatically used for embeddings (openai/text-embedding-3-small). You do not need a separate key.'
+                  : t('embeddingsHint', {
+                      sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
+                    })}
               </p>
             </div>
           </CardContent>

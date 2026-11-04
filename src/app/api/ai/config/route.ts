@@ -55,7 +55,9 @@ export async function GET() {
     return NextResponse.json({
       configured: true,
       has_key: !!api_key,
-      has_embeddings_key: !!embeddings_api_key,
+      has_embeddings_key:
+        !!embeddings_api_key ||
+        ((data.provider === 'openrouter' || data.provider === 'openai') && !!api_key),
       ...safe,
     })
   } catch (err) {

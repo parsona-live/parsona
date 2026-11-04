@@ -7,7 +7,7 @@ vi.mock('./embeddings', () => ({
   toVectorLiteral: (v: number[]) => `[${v.join(',')}]`,
 }))
 
-import { retrieveKnowledge, ingestDocument } from './knowledge'
+import { retrieveKnowledge, ingestDocument, parseVector, cosineSimilarity } from './knowledge'
 
 interface FakeState {
   semantic: { id: string; content: string }[]
@@ -200,5 +200,21 @@ describe('ingestDocument', () => {
     await ingestDocument(db, 'acct', { embeddingsApiKey: null }, 'doc-1', 'hello world')
     expect(state.events.filter((e) => e === 'delete')).toHaveLength(3)
     expect(state.deletedIds).toHaveLength(250)
+  })
+})
+
+describe('vector math & parsing helpers', () => {
+  it('parses array and string literals correctly', () => {
+    expect(parseVector([0.1, 0.2])).toEqual([0.1, 0.2])
+    expect(parseVector('[0.1,0.2,-0.3]')).toEqual([0.1, 0.2, -0.3])
+    expect(parseVector(null)).toBeNull()
+    expect(parseVector('invalid')).toBeNull()
+  })
+
+  it('computes cosine similarity correctly', () => {
+    expect(cosineSimilarity([1, 0], [1, 0])).toBeCloseTo(1.0)
+    expect(cosineSimilarity([1, 0], [0, 1])).toBeCloseTo(0.0)
+    expect(cosineSimilarity([1, 0], [-1, 0])).toBeCloseTo(-1.0)
+    expect(cosineSimilarity([], [])).toBe(0)
   })
 })

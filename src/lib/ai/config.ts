@@ -53,6 +53,8 @@ export async function loadAiConfig(
   // rather than letting decrypt() throw on null.
   if (!row.api_key) return null
 
+  const apiKey = decrypt(row.api_key)
+
   // The embeddings key is optional and independent of the chat key —
   // a corrupt/undecryptable one should downgrade to lexical KB, not
   // take down draft/auto-reply, so decrypt failures are swallowed here.
@@ -70,11 +72,16 @@ export async function loadAiConfig(
     }
   }
 
+  // If no separate embeddings key is set, automatically reuse the main API key for OpenRouter or OpenAI!
+  if (!embeddingsApiKey && (row.provider === 'openrouter' || row.provider === 'openai')) {
+    embeddingsApiKey = apiKey
+  }
+
   return {
     provider: row.provider,
     model: row.model,
     baseUrl: row.base_url,
-    apiKey: decrypt(row.api_key),
+    apiKey,
     systemPrompt: row.system_prompt,
     isActive: row.is_active,
     autoReplyEnabled: row.auto_reply_enabled,
@@ -101,16 +108,37 @@ export async function loadEmbeddingsKey(
 ): Promise<{ key: string | null; corrupt: boolean }> {
   const { data, error } = await db
     .from('ai_configs')
-    .select('embeddings_api_key')
+    .select('provider, api_key, embeddings_api_key')
     .eq('account_id', accountId)
     .maybeSingle()
-  if (error || !data?.embeddings_api_key) return { key: null, corrupt: false }
-  try {
-    return { key: decrypt(data.embeddings_api_key), corrupt: false }
-  } catch {
-    console.error(
-      `[ai config] embeddings key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY.`,
-    )
-    return { key: null, corrupt: true }
+
+  if (error || !data) return { key: null, corrupt: false }
+
+  const row = data as {
+    provider?: AiProvider
+    api_key?: string
+    embeddings_api_key?: string | null
   }
+
+  if (row.embeddings_api_key) {
+    try {
+      return { key: decrypt(row.embeddings_api_key), corrupt: false }
+    } catch {
+      console.error(
+        `[ai config] embeddings key for account ${accountId} could not be decrypted — check ENCRYPTION_KEY.`,
+      )
+      return { key: null, corrupt: true }
+    }
+  }
+
+  // Fallback to main API key for OpenRouter and OpenAI
+  if ((row.provider === 'openrouter' || row.provider === 'openai') && row.api_key) {
+    try {
+      return { key: decrypt(row.api_key), corrupt: false }
+    } catch {
+      return { key: null, corrupt: true }
+    }
+  }
+
+  return { key: null, corrupt: false }
 }
