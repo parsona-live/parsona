@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { AiConfig, AiProvider } from './types'
+import { parseAiPersona } from './defaults'
 
 interface AiConfigRow {
   provider: AiProvider
@@ -77,6 +78,8 @@ export async function loadAiConfig(
     embeddingsApiKey = apiKey
   }
 
+  const { persona } = parseAiPersona(row.system_prompt)
+
   return {
     provider: row.provider,
     model: row.model,
@@ -88,6 +91,7 @@ export async function loadAiConfig(
     autoReplyMaxPerConversation: row.auto_reply_max_per_conversation,
     handoffAgentId: row.handoff_agent_id,
     embeddingsApiKey,
+    persona,
   }
 }
 

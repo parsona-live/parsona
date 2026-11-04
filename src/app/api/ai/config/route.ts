@@ -11,6 +11,7 @@ import { embedTexts } from '@/lib/ai/embeddings'
 import { AiError, type AiProvider } from '@/lib/ai/types'
 import { normalizeOpenAiCompatibleBaseUrl } from '@/lib/ai/providers/openai-compatible'
 import { canReuseStoredAiKey } from '@/lib/ai/stored-key'
+import { parseAiPersona, injectAiPersona } from '@/lib/ai/defaults'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -52,6 +53,7 @@ export async function GET() {
     // The keys are selected only to derive the has_* flags; neither is
     // returned to the client.
     const { api_key, embeddings_api_key, ...safe } = data
+    const { persona, cleanPrompt } = parseAiPersona(data.system_prompt)
     return NextResponse.json({
       configured: true,
       has_key: !!api_key,
@@ -59,6 +61,10 @@ export async function GET() {
         !!embeddings_api_key ||
         ((data.provider === 'openrouter' || data.provider === 'openai') && !!api_key),
       ...safe,
+      system_prompt: cleanPrompt,
+      language: persona.language,
+      tone: persona.tone,
+      response_length: persona.responseLength,
     })
   } catch (err) {
     return toErrorResponse(err)
@@ -230,11 +236,25 @@ export async function POST(request: Request) {
     }
 
     const encryptedKey = rawKey ? encrypt(rawKey) : null
+
+    const language = typeof body.language === 'string' ? body.language.trim() : undefined
+    const tone = typeof body.tone === 'string' ? body.tone.trim() : undefined
+    const responseLength = typeof body.response_length === 'string' ? body.response_length.trim() : undefined
+
+    let finalSystemPrompt = systemPrompt
+    if (language || tone || responseLength) {
+      finalSystemPrompt = injectAiPersona(systemPrompt, {
+        language: language as any,
+        tone: tone as any,
+        responseLength: responseLength as any,
+      })
+    }
+
     const shared: Record<string, unknown> = {
       provider,
       model,
       base_url: baseUrl,
-      system_prompt: systemPrompt,
+      system_prompt: finalSystemPrompt,
       is_active: isActive,
       auto_reply_enabled: autoReplyEnabled,
       auto_reply_max_per_conversation: maxPer,

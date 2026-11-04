@@ -8,6 +8,34 @@
 
 export type AiProvider = 'openai' | 'anthropic' | 'openai_compatible' | 'openrouter'
 
+export type AiLanguage =
+  | 'auto'
+  | 'hinglish'
+  | 'english'
+  | 'hindi'
+  | 'marathi'
+  | 'spanish'
+  | 'portuguese'
+  | 'arabic'
+
+export type AiTone =
+  | 'friendly'
+  | 'professional'
+  | 'casual'
+  | 'persuasive'
+  | 'direct'
+
+export type AiResponseLength =
+  | 'short'
+  | 'balanced'
+  | 'detailed'
+
+export interface AiPersona {
+  language: AiLanguage
+  tone: AiTone
+  responseLength: AiResponseLength
+}
+
 /**
  * Account AI setup, decrypted and ready to use. Produced by
  * `loadAiConfig` — `apiKey` is the plaintext BYO provider key
@@ -31,6 +59,8 @@ export interface AiConfig {
    *  knowledge base is embedded and semantic retrieval turns on; when
    *  null, retrieval falls back to lexical full-text search. */
   embeddingsApiKey: string | null
+  /** Configured AI Persona (Language, Tone, Response Length). */
+  persona?: AiPersona
 }
 
 /** A single conversation turn in the shape both providers accept. */

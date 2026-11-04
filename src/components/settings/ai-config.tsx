@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, CheckCircle2, Trash2, Eye, EyeOff } from 'lucide-react';
+import {
+  Loader2,
+  Sparkles,
+  CheckCircle2,
+  Trash2,
+  Eye,
+  EyeOff,
+  Languages,
+  Smile,
+  MessageSquare,
+  AlignLeft,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
@@ -30,7 +41,12 @@ import {
   AI_PROVIDER_DEFAULT_MODEL,
   AI_PROVIDER_DEFAULT_EMBEDDING_MODEL,
 } from '@/lib/ai/defaults';
-import type { AiProvider } from '@/lib/ai/types';
+import type {
+  AiProvider,
+  AiLanguage,
+  AiTone,
+  AiResponseLength,
+} from '@/lib/ai/types';
 import type { AccountMember } from '@/types';
 import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { useTranslations } from 'next-intl';
@@ -54,6 +70,31 @@ const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   openai_compatible: 'your-api-key',
   openrouter: 'sk-or-v1-...',
 };
+
+const LANGUAGE_OPTIONS: { value: AiLanguage; label: string; flag: string }[] = [
+  { value: 'auto', label: 'Auto-detect (Match Customer Language)', flag: '🌐' },
+  { value: 'hinglish', label: 'Hinglish (Hindi in English Script)', flag: '🇮🇳' },
+  { value: 'marathi', label: 'Marathi (मराठी)', flag: '🇮🇳' },
+  { value: 'hindi', label: 'Hindi (हिन्दी)', flag: '🇮🇳' },
+  { value: 'english', label: 'English', flag: '🇬🇧' },
+  { value: 'spanish', label: 'Spanish (Español)', flag: '🇪🇸' },
+  { value: 'portuguese', label: 'Portuguese (Português)', flag: '🇧🇷' },
+  { value: 'arabic', label: 'Arabic (العربية)', flag: '🇦🇪' },
+];
+
+const TONE_OPTIONS: { value: AiTone; label: string; desc: string; icon: string }[] = [
+  { value: 'friendly', label: 'Friendly', desc: 'Warm & conversational', icon: '😊' },
+  { value: 'professional', label: 'Professional', desc: 'Formal & polite', icon: '👔' },
+  { value: 'casual', label: 'Casual', desc: 'Modern & relaxed', icon: '💬' },
+  { value: 'persuasive', label: 'Persuasive', desc: 'Benefit-focused & sales', icon: '🚀' },
+  { value: 'direct', label: 'Direct', desc: 'Crisp & strictly facts', icon: '🎯' },
+];
+
+const LENGTH_OPTIONS: { value: AiResponseLength; label: string; hint: string; words: string }[] = [
+  { value: 'short', label: 'Short', hint: '1–2 sentences', words: '~40 words' },
+  { value: 'balanced', label: 'Balanced', hint: '2–4 sentences', words: '~80 words' },
+  { value: 'detailed', label: 'Detailed', hint: 'Comprehensive', words: '~150 words' },
+];
 
 export function AiConfig() {
   const { accountId, accountRole, profileLoading } = useAuth();
@@ -80,6 +121,9 @@ export function AiConfig() {
   const [embeddingsKeyEdited, setEmbeddingsKeyEdited] = useState(false);
   const [hasStoredEmbeddingsKey, setHasStoredEmbeddingsKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [language, setLanguage] = useState<AiLanguage>('auto');
+  const [tone, setTone] = useState<AiTone>('friendly');
+  const [responseLength, setResponseLength] = useState<AiResponseLength>('balanced');
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [maxPerConversation, setMaxPerConversation] = useState(3);
@@ -112,6 +156,9 @@ export function AiConfig() {
         );
         setBaseUrl(data.base_url ?? '');
         setSystemPrompt(data.system_prompt ?? '');
+        setLanguage(data.language ?? 'auto');
+        setTone(data.tone ?? 'friendly');
+        setResponseLength(data.response_length ?? 'balanced');
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
         setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
@@ -166,6 +213,9 @@ export function AiConfig() {
     api_key: keyPayload(),
     embeddings_api_key: embeddingsKeyPayload(),
     system_prompt: systemPrompt.trim() || null,
+    language,
+    tone,
+    response_length: responseLength,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
     auto_reply_max_per_conversation: maxPerConversation,
@@ -248,6 +298,9 @@ export function AiConfig() {
         setIsActive(false);
         setAutoReplyEnabled(false);
         setSystemPrompt('');
+        setLanguage('auto');
+        setTone('friendly');
+        setResponseLength('balanced');
         setHandoffAgentId('');
       } else {
         const data = await res.json();
@@ -447,6 +500,127 @@ export function AiConfig() {
                       sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
                     })}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* AI Persona & Voice Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Languages className="h-4 w-4 text-primary" /> AI Persona & Voice
+                </CardTitle>
+                <CardDescription>
+                  Configure the response language, conversational tone, and message length for WhatsApp replies.
+                </CardDescription>
+              </div>
+              <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+                <Sparkles className="h-3 w-3" />
+                {TONE_OPTIONS.find((t) => t.value === tone)?.icon}{' '}
+                {TONE_OPTIONS.find((t) => t.value === tone)?.label} •{' '}
+                {LANGUAGE_OPTIONS.find((l) => l.value === language)?.label.split(' ')[0]} •{' '}
+                {LENGTH_OPTIONS.find((len) => len.value === responseLength)?.label}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Language Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="ai-language" className="text-xs font-semibold">
+                Default Conversation Language
+              </Label>
+              <Select
+                value={language}
+                onValueChange={(v) => setLanguage(v as AiLanguage)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="ai-language" className="w-full h-10 bg-background text-sm">
+                  <SelectValue placeholder="Select Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="py-2">
+                      <span className="mr-2">{opt.flag}</span>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {language === 'hinglish'
+                  ? 'Indian WhatsApp style: Hindi written in English script (e.g. "Haan ji, humare working hours Monday se Friday 9 AM se 6 PM tak hain").'
+                  : language === 'auto'
+                  ? 'Automatically detects and replies in the exact language the customer writes in.'
+                  : `Replies will strictly be generated in ${LANGUAGE_OPTIONS.find((l) => l.value === language)?.label}.`}
+              </p>
+            </div>
+
+            {/* Conversational Tone */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <Smile className="h-3.5 w-3.5 text-muted-foreground" /> Conversational Tone
+                </Label>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {TONE_OPTIONS.find((t) => t.value === tone)?.desc}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {TONE_OPTIONS.map((opt) => {
+                  const isSelected = tone === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setTone(opt.value)}
+                      className={`flex flex-col items-center justify-center gap-1 rounded-lg border p-2.5 text-xs font-medium transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary shadow-sm font-semibold'
+                          : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span className="text-base">{opt.icon}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Response Length */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                  <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" /> Response Length
+                </Label>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {LENGTH_OPTIONS.find((l) => l.value === responseLength)?.words}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {LENGTH_OPTIONS.map((opt) => {
+                  const isSelected = responseLength === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setResponseLength(opt.value)}
+                      className={`flex flex-col items-center justify-center gap-0.5 rounded-lg border p-2.5 text-xs transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary shadow-sm font-semibold'
+                          : 'border-border bg-card hover:bg-muted/50 text-muted-foreground'
+                      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-[10px] opacity-75">{opt.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
