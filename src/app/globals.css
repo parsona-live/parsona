@@ -306,4 +306,17 @@ html[data-theme="rose"] {
   html {
     @apply font-sans;
   }
+
+  /* Scrollbar theming */
+  html[data-mode="dark"] {
+    scrollbar-color: #4a4c4b #131413;
+  }
+
+  html[data-mode="light"] {
+    scrollbar-color: #c7c9c8 #f7f7f7;
+  }
+
+  * {
+    scrollbar-width: thin;
+  }
 }
