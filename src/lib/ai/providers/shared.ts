@@ -28,6 +28,8 @@ export function normalizeUsage(raw: {
   prompt?: unknown
   completion?: unknown
   total?: unknown
+  cost?: unknown
+  total_cost?: unknown
 }): AiUsage | null {
   const num = (v: unknown): number =>
     typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0
@@ -38,7 +40,13 @@ export function normalizeUsage(raw: {
   if (promptTokens === 0 && completionTokens === 0 && totalTokens === 0) {
     return null
   }
-  return { promptTokens, completionTokens, totalTokens }
+  const rawCost =
+    typeof raw.cost === 'number' && Number.isFinite(raw.cost)
+      ? raw.cost
+      : typeof raw.total_cost === 'number' && Number.isFinite(raw.total_cost)
+      ? raw.total_cost
+      : undefined
+  return { promptTokens, completionTokens, totalTokens, cost: rawCost }
 }
 
 /** Map a fetch rejection (timeout / DNS / offline) to a typed AiError. */

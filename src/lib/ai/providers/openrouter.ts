@@ -48,17 +48,36 @@ export async function generateOpenRouter(args: ProviderArgs): Promise<ProviderRe
       prompt_tokens?: number
       completion_tokens?: number
       total_tokens?: number
+      cost?: number
+      total_cost?: number
+      cost_details?: {
+        upstream_inference_cost?: number
+        upstream_inference_prompt_cost?: number
+        upstream_inference_completions_cost?: number
+      }
     }
   }
 
   const json = (await res.json()) as OpenRouterResponse
   const text = json.choices?.[0]?.message?.content?.trim() ?? ''
+
+  // OpenRouter returns exact cost charged in `usage.cost` (or in `usage.total_cost` / `cost_details`)
+  const reportedCost =
+    typeof json.usage?.cost === 'number'
+      ? json.usage.cost
+      : typeof json.usage?.total_cost === 'number'
+      ? json.usage.total_cost
+      : typeof json.usage?.cost_details?.upstream_inference_cost === 'number'
+      ? json.usage.cost_details.upstream_inference_cost
+      : undefined
+
   return {
     text,
     usage: normalizeUsage({
       prompt: json.usage?.prompt_tokens,
       completion: json.usage?.completion_tokens,
       total: json.usage?.total_tokens,
+      cost: reportedCost,
     }),
   }
 }

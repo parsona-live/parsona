@@ -2402,14 +2402,20 @@
       "empty": "Nenhum uso de IA nos últimos {days} dias ainda.",
       "emptyHint": "Isto é preenchido conforme o assistente redige e responde automaticamente.",
       "totalTokens": "Total de tokens",
+      "actualCost": "Custo de API (Real)",
+      "noCostReported": "Aguardando dados de custo da API",
+      "avgCostPerCall": "Média / chamada",
       "llmCalls": "Chamadas ao LLM",
       "autoReply": "Resposta automática",
       "drafts": "Rascunhos",
+      "flowTranslation": "Tradução de fluxo",
       "tokens": "Tokens",
       "tokensPerDay": "Tokens por dia",
       "byModel": "Por modelo",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# chamada} other {# chamadas}}",
-      "partialWindow": "Exibindo uma janela parcial — o uso é alto o suficiente para que apenas os registros mais recentes sejam resumidos aqui."
+      "partialWindow": "Exibindo uma janela parcial — o uso é alto o suficiente para que apenas os registros mais recentes sejam resumidos aqui.",
+      "requestLogs": "Registros de solicitações LLM",
+      "requestLogsHint": "Chamadas LLM recentes com custos reais de provedor, contagens de tokens e modelos."
     }
   },
   "Interactive": {

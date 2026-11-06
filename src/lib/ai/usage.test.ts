@@ -59,4 +59,27 @@ describe('logAiUsage', () => {
       }),
     ).resolves.toBeUndefined()
   })
+
+  it('includes cost in the insert when reported by provider', async () => {
+    const { db, insert } = fakeDb()
+    await logAiUsage(db, {
+      accountId: 'acct-1',
+      conversationId: 'conv-1',
+      mode: 'auto_reply',
+      provider: 'openrouter',
+      model: 'google/gemini-2.0-flash',
+      usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150, cost: 0.000045 },
+    })
+    expect(insert).toHaveBeenCalledWith({
+      account_id: 'acct-1',
+      conversation_id: 'conv-1',
+      mode: 'auto_reply',
+      provider: 'openrouter',
+      model: 'google/gemini-2.0-flash',
+      prompt_tokens: 100,
+      completion_tokens: 50,
+      total_tokens: 150,
+      cost: 0.000045,
+    })
+  })
 })

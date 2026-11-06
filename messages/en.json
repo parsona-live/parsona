@@ -2402,14 +2402,20 @@
       "empty": "No AI usage in the last {days} days yet.",
       "emptyHint": "This fills in as the assistant drafts and auto-replies.",
       "totalTokens": "Total tokens",
+      "actualCost": "API Cost (Real)",
+      "noCostReported": "Awaiting API cost data",
+      "avgCostPerCall": "Avg / Call",
       "llmCalls": "LLM calls",
       "autoReply": "Auto-reply",
       "drafts": "Drafts",
+      "flowTranslation": "Flow Translation",
       "tokens": "Tokens",
       "tokensPerDay": "Tokens per day",
       "byModel": "By model",
       "modelCalls": "{tokens} tok · {count, plural, =1 {# call} other {# calls}}",
-      "partialWindow": "Showing a partial window — usage is high enough that only the most recent records are summarized here."
+      "partialWindow": "Showing a partial window — usage is high enough that only the most recent records are summarized here.",
+      "requestLogs": "LLM Request Logs",
+      "requestLogsHint": "Recent LLM calls with actual OpenRouter/provider costs, token counts, and models."
     }
   },
   "Interactive": {

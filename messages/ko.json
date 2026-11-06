@@ -2402,14 +2402,20 @@
       "empty": "최근 {days}일 동안 AI 사용량이 없습니다.",
       "emptyHint": "어시스턴트가 초안을 작성하고 자동 응답하면 채워집니다.",
       "totalTokens": "총 토큰",
+      "actualCost": "API 사용 비용 (실제)",
+      "noCostReported": "API 비용 데이터 대기 중",
+      "avgCostPerCall": "호출당 평균",
       "llmCalls": "LLM 호출",
       "autoReply": "자동 응답",
       "drafts": "초안",
+      "flowTranslation": "플로우 번역",
       "tokens": "토큰",
       "tokensPerDay": "일별 토큰",
       "byModel": "모델별",
       "modelCalls": "{tokens} 토큰 · 호출 {count}회",
-      "partialWindow": "일부 기간만 표시 중 — 사용량이 많아 최근 기록만 요약되었습니다."
+      "partialWindow": "일부 기간만 표시 중 — 사용량이 많아 최근 기록만 요약되었습니다.",
+      "requestLogs": "LLM 요청 기록",
+      "requestLogsHint": "실제 제공자 비용, 토큰 수 및 모델이 포함된 최근 LLM 호출입니다."
     }
   },
   "Interactive": {

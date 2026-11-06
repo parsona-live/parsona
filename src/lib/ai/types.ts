@@ -78,6 +78,7 @@ export interface AiUsage {
   promptTokens: number
   completionTokens: number
   totalTokens: number
+  cost?: number
 }
 
 /** Raw text + usage a provider adapter returns before handoff parsing. */

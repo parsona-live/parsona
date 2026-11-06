@@ -32,7 +32,7 @@ export async function logAiUsage(
 ): Promise<void> {
   if (!args.usage) return
   try {
-    const { error } = await db.from('ai_usage_log').insert({
+    const insertPayload: Record<string, unknown> = {
       account_id: args.accountId,
       conversation_id: args.conversationId,
       mode: args.mode,
@@ -41,9 +41,24 @@ export async function logAiUsage(
       prompt_tokens: args.usage.promptTokens,
       completion_tokens: args.usage.completionTokens,
       total_tokens: args.usage.totalTokens,
-    })
+    }
+    if (typeof args.usage.cost === 'number' && Number.isFinite(args.usage.cost)) {
+      insertPayload.cost = args.usage.cost
+    }
+
+    const { error } = await db.from('ai_usage_log').insert(insertPayload)
     if (error) {
-      console.error('[ai usage] log insert failed:', error)
+      // If the database has not yet been migrated to include the 'cost' column,
+      // retry without cost so the usage tokens are still successfully recorded.
+      if (insertPayload.cost !== undefined && String(error.message).toLowerCase().includes('cost')) {
+        delete insertPayload.cost
+        const retry = await db.from('ai_usage_log').insert(insertPayload)
+        if (retry.error) {
+          console.error('[ai usage] log insert retry failed:', retry.error)
+        }
+      } else {
+        console.error('[ai usage] log insert failed:', error)
+      }
     }
   } catch (err) {
     console.error('[ai usage] log insert threw:', err)

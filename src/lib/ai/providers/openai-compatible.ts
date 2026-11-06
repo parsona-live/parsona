@@ -86,6 +86,8 @@ interface OpenAiCompatibleResponse {
     prompt_tokens?: number
     completion_tokens?: number
     total_tokens?: number
+    cost?: number
+    total_cost?: number
   }
 }
 
@@ -147,6 +149,7 @@ export async function generateOpenAiCompatible(
       prompt: data?.usage?.prompt_tokens,
       completion: data?.usage?.completion_tokens,
       total: data?.usage?.total_tokens,
+      cost: data?.usage?.cost ?? data?.usage?.total_cost,
     }),
   }
 }
