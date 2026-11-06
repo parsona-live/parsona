@@ -47,12 +47,12 @@ export function FlowSidebar({
 
   if (isCollapsed) {
     return (
-      <div className="relative flex flex-col items-center border-r border-slate-200 bg-white py-3 px-1.5 shadow-sm transition-all duration-300 z-10 w-12 shrink-0">
+      <div className="relative flex flex-col items-center border-r border-border bg-card py-3 px-1.5 shadow-sm transition-all duration-300 z-10 w-12 shrink-0">
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggleCollapse}
-          className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
           title="Expand Node Library"
         >
           <PanelLeftOpen className="h-4 w-4" />
@@ -62,17 +62,17 @@ export function FlowSidebar({
   }
 
   return (
-    <aside className="relative flex flex-col border-r border-slate-200 bg-white transition-all duration-300 z-10 w-72 shrink-0 h-full select-none">
-      {/* Top Tabs: Messages vs Actions (Matching User Mockup) */}
-      <div className="flex items-center border-b border-slate-200 bg-white px-2">
+    <aside className="relative flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300 z-10 w-72 shrink-0 h-full select-none">
+      {/* Top Tabs: Messages vs Actions */}
+      <div className="flex items-center border-b border-border bg-card px-2">
         <button
           type="button"
           onClick={() => setActiveTab('messages')}
           className={cn(
             'flex-1 py-3.5 text-xs font-semibold text-center transition-all relative',
             activeTab === 'messages'
-              ? 'text-slate-900 border-b-2 border-slate-900'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-foreground border-b-2 border-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           Messages
@@ -83,8 +83,8 @@ export function FlowSidebar({
           className={cn(
             'flex-1 py-3.5 text-xs font-semibold text-center transition-all relative',
             activeTab === 'actions'
-              ? 'text-slate-900 border-b-2 border-slate-900'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-foreground border-b-2 border-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           Actions
@@ -93,7 +93,7 @@ export function FlowSidebar({
           variant="ghost"
           size="icon"
           onClick={onToggleCollapse}
-          className="h-7 w-7 text-slate-400 hover:text-slate-700 ml-1 rounded"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted ml-1 rounded"
           title="Collapse Sidebar"
         >
           <PanelLeftClose className="h-3.5 w-3.5" />
@@ -101,22 +101,22 @@ export function FlowSidebar({
       </div>
 
       {/* Search Input */}
-      <div className="px-3 py-2 border-b border-slate-100">
+      <div className="px-3 py-2 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Search ${activeTab}...`}
-            className="h-8 pl-8 text-xs bg-slate-50/70 border-slate-200 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-slate-400"
+            className="h-8 pl-8 text-xs bg-muted/60 border-input text-foreground placeholder:text-muted-foreground focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       </div>
 
-      {/* Node List (Matching User's Screenshot Layout with Grip Handles) */}
+      {/* Node List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {filteredNodes.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400">
+          <div className="py-8 text-center text-xs text-muted-foreground">
             No matching {activeTab} found
           </div>
         ) : (
@@ -134,17 +134,17 @@ export function FlowSidebar({
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onClick={() => onAddNode(type)}
-                className="group flex items-center justify-between px-3.5 py-3 bg-white border border-slate-200 rounded-xl shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing select-none text-left"
+                className="group flex items-center justify-between px-3.5 py-3 bg-card hover:bg-accent/40 border border-border hover:border-border/80 rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-grab active:cursor-grabbing select-none text-left"
               >
                 <div className="flex items-center gap-3 min-w-0 pr-2">
-                  <Icon className="h-4 w-4 text-slate-700 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-800 truncate group-hover:text-slate-950">
+                  <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+                  <span className="text-xs font-semibold text-foreground truncate">
                     {def.label}
                   </span>
                 </div>
 
-                {/* 6-dot drag grip handle on right matching user mockup */}
-                <GripVertical className="h-4 w-4 text-slate-400 group-hover:text-slate-600 shrink-0" />
+                {/* 6-dot drag grip handle on right */}
+                <GripVertical className="h-4 w-4 text-muted-foreground/60 group-hover:text-foreground shrink-0" />
               </div>
             );
           })
@@ -152,8 +152,8 @@ export function FlowSidebar({
       </div>
 
       {/* Drag-and-drop hint */}
-      <div className="px-3 pb-3 pt-1 border-t border-slate-100">
-        <p className="text-[10px] text-slate-400 leading-relaxed">
+      <div className="px-3 pb-3 pt-1 border-t border-border">
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
           Drag a node onto the canvas to place it anywhere, or click to add it at the center.
         </p>
       </div>

@@ -1108,7 +1108,7 @@ export function FlowChatPreview({
   };
 
   return (
-    <aside className="w-[380px] lg:w-[420px] h-full border-l border-slate-200 bg-white flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
+    <aside className="w-[380px] lg:w-[420px] h-full border-l border-border bg-white flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
       {/* ================= CHAT HEADER ================= */}
       <div className="h-14 border-b border-slate-200 bg-[#f0f2f5] px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">

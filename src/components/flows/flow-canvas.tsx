@@ -119,7 +119,7 @@ function slotColor(nodeType: NodeType, slotId: string, fallback: string) {
   return fallback;
 }
 
-const HANDLE_BASE = '!h-2.5 !w-2.5 !border-[1.5px] !bg-card';
+const HANDLE_BASE = '!h-2.5 !w-2.5 !border-[1.5px] !bg-white !border-slate-400';
 
 const VERTICAL_ACTION_NODES = new Set<string>([
   'input_flow',
@@ -136,7 +136,7 @@ const VERTICAL_ACTION_NODES = new Set<string>([
 
 /** Muted placeholder for empty fields. */
 function Placeholder({ children }: { children: React.ReactNode }) {
-  return <span className="text-muted-foreground/60 italic">{children}</span>;
+  return <span className="text-slate-400 italic">{children}</span>;
 }
 
 /** Small "icon + text" line used by the compact body variants. */
@@ -148,7 +148,7 @@ function IconLine({
   children: React.ReactNode;
 }) {
   return (
-    <div className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
+    <div className="text-slate-500 flex items-center gap-1.5 text-[11px]">
       <Icon className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">{children}</span>
     </div>
@@ -157,7 +157,7 @@ function IconLine({
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="bg-muted text-muted-foreground w-fit rounded px-1.5 py-0.5 font-mono text-[10px]">
+    <span className="bg-slate-100 text-slate-600 w-fit rounded px-1.5 py-0.5 font-mono text-[10px]">
       {children}
     </span>
   );
@@ -167,7 +167,7 @@ function BodyText({ children, lines = 3 }: { children: React.ReactNode; lines?: 
   return (
     <p
       className={cn(
-        'text-foreground text-xs leading-relaxed whitespace-pre-wrap',
+        'text-slate-700 text-xs leading-relaxed whitespace-pre-wrap',
         lines === 2 && 'line-clamp-2',
         lines === 3 && 'line-clamp-3',
         lines === 4 && 'line-clamp-4'
@@ -196,7 +196,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
         <img
           src={headerMediaUrl}
           alt=""
-          className="bg-muted max-h-28 w-full rounded-md object-cover"
+          className="bg-slate-100 max-h-28 w-full rounded-md object-cover"
           onError={(e) => {
             (e.target as HTMLElement).style.display = 'none';
           }}
@@ -210,7 +210,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       return <IconLine icon={FileText}>{headerFilename || 'Document.pdf'}</IconLine>;
     }
     if (headerType === 'text' && headerText) {
-      return <p className="text-foreground text-xs font-semibold">{headerText}</p>;
+      return <p className="text-slate-900 text-xs font-semibold">{headerText}</p>;
     }
     return null;
   };
@@ -240,7 +240,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
             <img
               src={mediaUrl}
               alt=""
-              className="bg-muted max-h-28 w-full rounded-md object-cover"
+              className="bg-slate-100 max-h-28 w-full rounded-md object-cover"
               onError={(e) => {
                 (e.target as HTMLElement).style.display = 'none';
               }}
@@ -263,7 +263,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       return (
         <>
           <IconLine icon={MapPin}>
-            <span className="text-foreground font-medium">{name}</span>
+            <span className="text-slate-900 font-medium">{name}</span>
           </IconLine>
           {address && <BodyText lines={2}>{address}</BodyText>}
           {lat !== undefined && lng !== undefined && (
@@ -282,7 +282,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       return (
         <>
           <IconLine icon={User}>
-            <span className="text-foreground font-medium">{formatted_name}</span>
+            <span className="text-slate-900 font-medium">{formatted_name}</span>
           </IconLine>
           {phone && <Chip>{phone}</Chip>}
         </>
@@ -296,7 +296,7 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
         <>
           <BodyText lines={2}>{body}</BodyText>
           <div className="flex items-center gap-1.5">
-            <Truck className="text-muted-foreground h-3.5 w-3.5" />
+            <Truck className="text-slate-400 h-3.5 w-3.5" />
             <Chip>{country}</Chip>
           </div>
         </>
@@ -355,10 +355,10 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       const op = (cfg.operator as string) || 'equals';
       const val = (cfg.value as string) ?? '';
       return (
-        <p className="text-foreground font-mono text-[11px] leading-relaxed">
-          <span className="text-muted-foreground">if </span>
+        <p className="text-slate-800 font-mono text-[11px] leading-relaxed">
+          <span className="text-slate-500">if </span>
           &#123;&#123;{key}&#125;&#125;{' '}
-          <span className="text-muted-foreground">{op}</span>
+          <span className="text-slate-500">{op}</span>
           {val && <> &quot;{val}&quot;</>}
         </p>
       );
@@ -1031,12 +1031,12 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
       target: e.target,
       sourceHandle: e.sourceHandle,
       label: e.label,
-      // Mode-aware via CSS tokens so edge chrome flips with light/dark.
-      labelStyle: { fill: 'var(--muted-foreground)', fontSize: 11 },
-      labelBgStyle: { fill: 'var(--card)' },
-      labelBgPadding: [4, 2] as [number, number],
+      // Keep connecting curves and labels strictly in white-mode colors on the white canvas.
+      labelStyle: { fill: '#475569', fontSize: 11, fontWeight: 500 },
+      labelBgStyle: { fill: '#ffffff', stroke: '#cbd5e1', strokeWidth: 1 },
+      labelBgPadding: [6, 3] as [number, number],
       labelBgBorderRadius: 4,
-      style: { stroke: 'var(--border)', strokeWidth: 1.5 },
+      style: { stroke: '#94a3b8', strokeWidth: 1.25 },
     }));
 
     return rfEdges;
@@ -1225,7 +1225,7 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
 
   if (rfNodes.length === 0) {
     return (
-      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-sm">
+      <div className="text-slate-500 bg-white flex h-full flex-col items-center justify-center gap-3 text-sm [color-scheme:light]">
         <p>{t('noNodesYet')}</p>
         <CanvasAddNodeButton t={t} />
       </div>
@@ -1235,7 +1235,7 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
   return (
     <>
       <div
-        className="h-full w-full overflow-hidden bg-[#fafafa] relative"
+        className="h-full w-full overflow-hidden bg-white [color-scheme:light] relative"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onDragLeave={handleDragLeave}
@@ -1269,6 +1269,10 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
           // size, so we don't need to zoom past 1.5x.
           minZoom={0.2}
           maxZoom={1.5}
+          defaultEdgeOptions={{
+            style: { stroke: '#94a3b8', strokeWidth: 1.25 },
+          }}
+          connectionLineStyle={{ stroke: '#94a3b8', strokeWidth: 1.25 }}
         >
           {/* Dot grid, clean white-mode aesthetic. */}
           <Background
@@ -1340,15 +1344,15 @@ function NodeEditPanel({
   if (!node) return null;
   const def = NODE_REGISTRY[node.node_type];
   return (
-    <aside className="w-[380px] lg:w-[420px] h-full border-l border-slate-200 bg-white flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
-      <div className="h-14 border-b border-slate-200 bg-slate-50/60 px-5 flex items-center justify-between shrink-0">
+    <aside className="w-[380px] lg:w-[420px] h-full border-l border-border bg-card text-card-foreground flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
+      <div className="h-14 border-b border-border bg-muted/40 px-5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <NodeIconChip type={node.node_type} size={32} iconSize={16} />
           <div className="min-w-0 flex-1">
-            <h4 className="text-xs font-semibold text-slate-800 truncate">
+            <h4 className="text-xs font-semibold text-foreground truncate">
               {def?.label || t(`nodes.${node.node_type}.label`)}
             </h4>
-            <p className="text-[11px] text-slate-500 truncate">
+            <p className="text-[11px] text-muted-foreground truncate">
               {def?.blurb || t(`nodes.${node.node_type}.blurb`)}
             </p>
           </div>
@@ -1356,14 +1360,14 @@ function NodeEditPanel({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Close panel"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 bg-card">
         <NodeConfigForm
           node={node}
           allNodes={allNodes}
@@ -1372,9 +1376,9 @@ function NodeEditPanel({
         />
       </div>
 
-      <div className="border-slate-200 border-t px-5 py-3 sm:flex-row sm:justify-between bg-slate-50/60 flex items-center gap-2">
+      <div className="border-border border-t px-5 py-3 sm:flex-row sm:justify-between bg-muted/40 flex items-center gap-2">
         {!isEntry && node.node_type !== 'trigger' ? (
-          <Button variant="ghost" size="sm" onClick={onSetEntry} className="text-slate-700 hover:text-slate-900">
+          <Button variant="ghost" size="sm" onClick={onSetEntry} className="text-muted-foreground hover:text-foreground hover:bg-muted">
             Set as entry
           </Button>
         ) : (

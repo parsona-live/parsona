@@ -51,7 +51,7 @@ export default function FlowEditorPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-white">
+      <div className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-background text-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -59,7 +59,7 @@ export default function FlowEditorPage() {
 
   if (notFound || !flow) {
     return (
-      <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center gap-3 bg-white">
+      <div className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center gap-3 bg-background text-foreground">
         <p className="text-sm text-muted-foreground">{t("notFound")}</p>
         <button
           type="button"

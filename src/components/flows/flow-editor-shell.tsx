@@ -21,6 +21,8 @@ import {
   Loader2,
   Play,
   Pause,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 import { FlowCanvas } from "./flow-canvas";
@@ -30,6 +32,7 @@ import { FlowChatPreview } from "./flow-chat-preview";
 import { IssueLine } from "./validation-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/use-theme";
 import type { FlowRow, FlowNodeRow } from "@/lib/flows/types";
 import type { BuilderNode } from "./shared";
 
@@ -48,6 +51,7 @@ export function FlowEditorShell({ initialFlow, initialNodes }: Props) {
 
 function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
   const router = useRouter();
+  const { mode, toggleMode } = useTheme();
   const {
     state,
     setState,
@@ -74,12 +78,12 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col h-screen w-screen bg-white overflow-hidden select-none">
+    <div className="fixed inset-0 z-40 flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden select-none">
       {/* ================= COMPACT HEADER ================= */}
-      <header className="h-14 border-b border-slate-200 bg-white px-5 flex items-center justify-between shrink-0 z-20">
+      <header className="h-14 border-b border-border bg-card text-card-foreground px-5 flex items-center justify-between shrink-0 z-20">
         {/* Left: Flow icon, name input, Edit badge, dirty indicator */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-800">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground">
             <Workflow className="h-4 w-4" />
           </div>
           <div className="flex items-center gap-1.5">
@@ -88,35 +92,27 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
               value={state.name}
               onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
               placeholder="Untitled Flow"
-              className="text-sm font-semibold text-slate-900 bg-transparent outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-300 rounded px-1.5 py-0.5 max-w-[240px] truncate"
+              className="text-sm font-semibold text-foreground bg-transparent outline-none hover:bg-muted/50 focus:bg-background focus:ring-1 focus:ring-ring rounded px-1.5 py-0.5 max-w-[240px] truncate"
             />
             <button
               type="button"
               onClick={() => nameInputRef.current?.focus()}
-              className="px-2 py-0.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
+              className="px-2 py-0.5 text-xs font-medium bg-muted hover:bg-muted/80 text-foreground rounded transition-colors"
             >
               Edit
             </button>
           </div>
           {dirty && (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
               Edited
             </span>
           )}
         </div>
 
-        {/* Center: Subtle Dropdown Chevron */}
-        <div className="hidden md:flex items-center">
-          <button
-            type="button"
-            className="flex items-center justify-center h-6 w-6 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-        </div>
+     
 
-        {/* Right: Validation Issues, Go Back, Save, Publish */}
+        {/* Right: Validation Issues, Live Preview, Theme Toggle, Go Back, Save, Publish */}
         <div className="flex items-center gap-2.5">
           {/* Validation Issues Alert Pill & Popover */}
           <div className="relative">
@@ -127,8 +123,8 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors shadow-2xs",
                   errors.length > 0
-                    ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                    : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
+                    : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
                 )}
               >
                 <AlertTriangle className="h-3.5 w-3.5" />
@@ -137,22 +133,22 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
                 </span>
               </button>
             ) : (
-              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-lg">
+              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
                 <Check className="h-3 w-3" /> Ready
               </span>
             )}
 
             {/* Floating Issues Dropdown Popover */}
             {issuesOpen && issues.length > 0 && (
-              <div className="absolute right-0 top-full mt-2 w-80 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl z-50 animate-in fade-in-50 zoom-in-95">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                  <span className="text-xs font-semibold text-slate-800">
+              <div className="absolute right-0 top-full mt-2 w-80 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-50 zoom-in-95">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+                  <span className="text-xs font-semibold text-foreground">
                     Validation Issues ({issues.length})
                   </span>
                   <button
                     type="button"
                     onClick={() => setIssuesOpen(false)}
-                    className="text-slate-400 hover:text-slate-600 text-xs font-medium"
+                    className="text-muted-foreground hover:text-foreground text-xs font-medium"
                   >
                     Close
                   </button>
@@ -180,18 +176,35 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
             className={cn(
               "h-8 px-3 gap-1.5 rounded-lg border text-xs font-semibold shadow-2xs transition-all flex items-center",
               previewOpen
-                ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold"
-                : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold"
+                : "border-border bg-card hover:bg-muted text-foreground"
             )}
           >
             <Play
               className={cn(
                 "h-3.5 w-3.5",
-                previewOpen ? "fill-emerald-600 text-emerald-600" : "fill-emerald-500 text-emerald-500"
+                previewOpen ? "fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" : "fill-emerald-500 text-emerald-500"
               )}
             />
             <span>Preview</span>
           </button>
+
+          {/* Theme Toggle Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleMode}
+            className="h-8 w-8 p-0 rounded-lg border-border bg-card hover:bg-muted text-foreground shadow-2xs"
+            title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label="Toggle theme mode"
+          >
+            {mode === "dark" ? (
+              <Sun className="h-3.5 w-3.5 text-amber-400" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 text-muted-foreground" />
+            )}
+          </Button>
 
           {/* Go Back */}
           <Button
@@ -199,7 +212,7 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
             variant="outline"
             size="sm"
             onClick={() => router.push("/flows")}
-            className="h-8 gap-1.5 rounded-lg border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs"
+            className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold text-foreground shadow-2xs"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Go Back</span>
@@ -243,13 +256,13 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
       </header>
 
       {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + CHAT PREVIEW) ================= */}
-      <div className="flex-1 flex overflow-hidden min-h-0 bg-white relative">
+      <div className="flex-1 flex overflow-hidden min-h-0 bg-background relative">
         <FlowSidebar
           onAddNode={(type) => addNode(type)}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
         />
-        <div className="flex-1 h-full min-w-0 relative flex">
+        <div className="flex-1 h-full min-w-0 relative flex bg-white [color-scheme:light]">
           <FlowCanvas onTestNode={handleTestNode} />
         </div>
         {previewOpen && (
