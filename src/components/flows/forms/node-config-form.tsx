@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow, HeaderMediaSelector } from "./fields";
+import { TranslationsSection } from "./translations-section";
 import {
   AiResponseForm,
   SendEmailForm,
@@ -103,9 +104,10 @@ export function NodeConfigForm({
           <TextRow
             label={t("textToCustomer")}
             value={(cfg as { text?: string }).text ?? ""}
-            onChange={(v) => onUpdateConfig({ text: v })}
+            onChange={(v) => onUpdateConfig({ text: v, translations: undefined })}
             rows={3}
           />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
             allNodes={allNodes}
@@ -118,49 +120,61 @@ export function NodeConfigForm({
 
     case "send_buttons":
       return (
-        <SendButtonsForm
-          cfg={cfg as SendButtonsCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          showAdvanced={showAdvanced}
-          t={t}
-        />
+        <div className="space-y-3">
+          <SendButtonsForm
+            cfg={cfg as SendButtonsCfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            showAdvanced={showAdvanced}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "send_list":
       return (
-        <SendListForm
-          cfg={cfg as SendListCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          showAdvanced={showAdvanced}
-          t={t}
-        />
+        <div className="space-y-3">
+          <SendListForm
+            cfg={cfg as SendListCfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            showAdvanced={showAdvanced}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "send_media":
       return (
-        <SendMediaForm
-          cfg={cfg as SendMediaCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          t={t}
-        />
+        <div className="space-y-3">
+          <SendMediaForm
+            cfg={cfg as SendMediaCfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "send_carousel":
       return (
-        <SendCarouselForm
-          cfg={cfg as SendCarouselCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          showAdvanced={showAdvanced}
-          t={t}
-        />
+        <div className="space-y-3">
+          <SendCarouselForm
+            cfg={cfg as SendCarouselCfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            showAdvanced={showAdvanced}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "send_location":
@@ -187,24 +201,30 @@ export function NodeConfigForm({
 
     case "request_address":
       return (
-        <RequestAddressForm
-          cfg={cfg as RequestAddressCfg}
-          allNodes={allNodes}
-          currentKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          t={t}
-        />
+        <div className="space-y-3">
+          <RequestAddressForm
+            cfg={cfg as RequestAddressCfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "collect_input":
       return (
-        <CollectInputForm
-          cfg={cfg as Record<string, unknown>}
-          allNodes={allNodes}
-          currentNodeKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          t={t}
-        />
+        <div className="space-y-3">
+          <CollectInputForm
+            cfg={cfg as Record<string, unknown>}
+            allNodes={allNodes}
+            currentNodeKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "condition":
@@ -232,10 +252,13 @@ export function NodeConfigForm({
     case "handoff":
     case "agent_handover":
       return (
-        <AgentHandoverForm
-          config={cfg as Record<string, unknown>}
-          onChange={onUpdateConfig}
-        />
+        <div className="space-y-3">
+          <AgentHandoverForm
+            config={cfg as Record<string, unknown>}
+            onChange={onUpdateConfig}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "trigger":
@@ -364,13 +387,16 @@ export function NodeConfigForm({
 
     case "input_flow":
       return (
-        <CollectInputForm
-          cfg={cfg as Record<string, unknown>}
-          allNodes={allNodes}
-          currentNodeKey={node.node_key}
-          onUpdateConfig={onUpdateConfig}
-          t={t}
-        />
+        <div className="space-y-3">
+          <CollectInputForm
+            cfg={cfg as Record<string, unknown>}
+            allNodes={allNodes}
+            currentNodeKey={node.node_key}
+            onUpdateConfig={onUpdateConfig}
+            t={t}
+          />
+          <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
       );
 
     case "close_conversation":

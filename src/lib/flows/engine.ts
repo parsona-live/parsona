@@ -53,7 +53,8 @@ import {
   checkFlowCommand,
 } from "./input-analyzer";
 import { buildConversationContext } from "@/lib/ai/context";
-import { localizeNode } from "./localization";
+import { localizeNode, localizeText } from "./localization";
+import { detectLanguage, fastPathDetectLanguage } from "./language-detector";
 import { loadAiConfig } from "@/lib/ai/config";
 import { dispatchEmail, type EmailConfigData } from "@/lib/email/email-service";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
@@ -573,7 +574,13 @@ async function executeHandoff(
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<void> {
-  const cfg = node.config as { assign_to?: string; note?: string; message?: string };
+  const targetLocale = (run.vars?.locale || run.vars?.language) as string | undefined;
+  let effectiveNode = node;
+  if (targetLocale && !targetLocale.toLowerCase().startsWith("en")) {
+    const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+    effectiveNode = await localizeNode(node, targetLocale, aiCfg, db, run.account_id);
+  }
+  const cfg = effectiveNode.config as { assign_to?: string; note?: string; message?: string };
   const handoverMsg = cfg.message || cfg.note;
   if (handoverMsg) {
     try {
@@ -775,12 +782,20 @@ async function advanceFromNodeKey(
       node_type: node.node_type,
     });
 
+    // Dynamic AI localization: translate & load cached translations for non-English locales (e.g. Hindi, Hinglish)
+    const targetLocale = (run.vars?.locale || run.vars?.language) as string | undefined;
+    let effectiveNode = node;
+    if (targetLocale && !targetLocale.toLowerCase().startsWith("en")) {
+      const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+      effectiveNode = await localizeNode(node, targetLocale, aiCfg, db, run.account_id);
+    }
+
     if (node.node_type === "start") {
       currentKey = (node.config as unknown as StartNodeConfig).next_node_key;
       continue;
     }
     if (node.node_type === "send_message") {
-      const cfg = node.config as unknown as SendMessageNodeConfig;
+      const cfg = effectiveNode.config as unknown as SendMessageNodeConfig;
       try {
         let whatsapp_message_id: string;
         if (
@@ -830,7 +845,7 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "send_media") {
-      const cfg = node.config as unknown as SendMediaNodeConfig;
+      const cfg = effectiveNode.config as unknown as SendMediaNodeConfig;
       try {
         const { whatsapp_message_id } = await engineSendMedia({
           accountId: run.account_id,
@@ -992,7 +1007,7 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "request_address") {
-      const cfg = node.config as unknown as RequestAddressNodeConfig;
+      const cfg = effectiveNode.config as unknown as RequestAddressNodeConfig;
       try {
         const { whatsapp_message_id } = await engineSendAddressMessage({
           accountId: run.account_id,
@@ -1023,7 +1038,7 @@ async function advanceFromNodeKey(
     if (node.node_type === "collect_input" || node.node_type === "input_flow") {
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
-      const cfg = node.config as unknown as CollectInputNodeConfig;
+      const cfg = effectiveNode.config as unknown as CollectInputNodeConfig;
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
@@ -1132,7 +1147,7 @@ async function advanceFromNodeKey(
       // console.error'd and left the run active + stuck on the prior
       // node with nothing in flow_run_events.
       try {
-        await sendButtonsAndSuspend(db, run, node);
+        await sendButtonsAndSuspend(db, run, effectiveNode);
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_buttons_failed",
@@ -1157,7 +1172,7 @@ async function advanceFromNodeKey(
     }
     if (node.node_type === "send_list") {
       try {
-        await sendListAndSuspend(db, run, node);
+        await sendListAndSuspend(db, run, effectiveNode);
       } catch (err) {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_list_failed",
@@ -1181,7 +1196,7 @@ async function advanceFromNodeKey(
     }
     if (node.node_type === "send_carousel") {
       try {
-        await sendCarouselAndSuspend(db, run, node);
+        await sendCarouselAndSuspend(db, run, effectiveNode);
       } catch (err) {
         console.error("[flows] send_carousel failed:", err);
         await logEvent(db, run.id, "error", node.node_key, {
@@ -1615,6 +1630,19 @@ export async function dispatchInboundToFlows(
 
         // Fire typing indicator immediately so customer sees "typing..." instantly
         void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
+
+        // Language detection: adapt dynamically if customer switches or writes in Hindi/Hinglish
+        if (input.message.kind === "text" && input.message.text) {
+          const fast = fastPathDetectLanguage(input.message.text);
+          if (fast && fast.locale && fast.locale !== "en") {
+            activeRun.vars = {
+              ...activeRun.vars,
+              locale: fast.locale,
+              language: fast.locale,
+            };
+          }
+        }
+
         return handleReplyForActiveRun(
           db,
           activeRun,
@@ -1911,9 +1939,15 @@ async function handleReplyForActiveRun(
       await db.from("flow_runs").update({ reprompt_count: newReprompts }).eq("id", run.id);
       run.reprompt_count = newReprompts;
 
-      const correctiveMessage =
+      let correctiveMessage =
         cfg.invalid_message?.trim() ||
         getDefaultInvalidMessage(cfg.validation);
+
+      const targetLocale = (run.vars?.locale || run.vars?.language) as string | undefined;
+      if (targetLocale && !targetLocale.toLowerCase().startsWith("en")) {
+        const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+        correctiveMessage = await localizeText(correctiveMessage, targetLocale, aiCfg, db, run.account_id);
+      }
 
       await engineSendText({
         accountId: run.account_id,
@@ -2088,16 +2122,23 @@ async function handleReplyForActiveRun(
     // failure here is logged but does not end the run — the customer
     // still has the original prompt on screen and can retry.
     try {
-      if (currentNode.node_type === "send_buttons") {
-        await sendButtonsAndSuspend(db, run, currentNode);
-      } else if (currentNode.node_type === "send_list") {
-        await sendListAndSuspend(db, run, currentNode);
-      } else if (currentNode.node_type === "send_carousel") {
-        await sendCarouselAndSuspend(db, run, currentNode);
-      } else if (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow") {
+      const targetLocale = (run.vars?.locale || run.vars?.language) as string | undefined;
+      let effectiveCurrentNode = currentNode;
+      if (targetLocale && !targetLocale.toLowerCase().startsWith("en")) {
+        const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
+        effectiveCurrentNode = await localizeNode(currentNode, targetLocale, aiCfg, db, run.account_id);
+      }
+
+      if (effectiveCurrentNode.node_type === "send_buttons") {
+        await sendButtonsAndSuspend(db, run, effectiveCurrentNode);
+      } else if (effectiveCurrentNode.node_type === "send_list") {
+        await sendListAndSuspend(db, run, effectiveCurrentNode);
+      } else if (effectiveCurrentNode.node_type === "send_carousel") {
+        await sendCarouselAndSuspend(db, run, effectiveCurrentNode);
+      } else if (effectiveCurrentNode.node_type === "collect_input" || effectiveCurrentNode.node_type === "input_flow") {
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.
-        const cfg = currentNode.config as unknown as CollectInputNodeConfig;
+        const cfg = effectiveCurrentNode.config as unknown as CollectInputNodeConfig;
         await engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
@@ -2201,6 +2242,24 @@ async function startNewRun(
       // Non-fatal if contact lookup fails
     }
   }
+
+  // Detect customer's initial language (e.g. Hindi, Hinglish, English)
+  let detectedLocale = "en";
+  if (input.message.kind === "text" && input.message.text) {
+    const fast = fastPathDetectLanguage(input.message.text);
+    if (fast) {
+      detectedLocale = fast.locale;
+    } else {
+      const aiCfg = await loadAiConfig(db, flow.account_id).catch(() => null);
+      const det = await detectLanguage(input.message.text, aiCfg).catch(() => null);
+      if (det?.locale) {
+        detectedLocale = det.locale;
+      }
+    }
+  }
+
+  initialVars.locale = detectedLocale;
+  initialVars.language = detectedLocale;
 
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
