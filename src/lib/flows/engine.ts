@@ -126,6 +126,10 @@ export function matchReplyId(
  * Case-insensitive contains/exact match against a list of keywords.
  * Used by the trigger evaluator. Stable enough that the v3 builder
  * UI can preview matches by passing canned strings.
+ *
+ * NOTE: For "contains", matches on whole-word/phrase boundaries using Unicode
+ * characters so that short keywords like "hi" or "he" do not erroneously match
+ * substrings inside unrelated words (e.g. Hindi "chahiye", English "this" or "machine").
  */
 export function matchesKeywordTrigger(
   text: string,
@@ -136,9 +140,22 @@ export function matchesKeywordTrigger(
   const haystack = cfg.case_sensitive ? text : text.toLowerCase();
   for (const raw of cfg.keywords) {
     if (!raw) continue;
-    const needle = cfg.case_sensitive ? raw : raw.toLowerCase();
-    if (matchType === "exact" ? haystack === needle : haystack.includes(needle)) {
-      return true;
+    const needle = cfg.case_sensitive ? raw.trim() : raw.trim().toLowerCase();
+    if (!needle) continue;
+
+    if (matchType === "exact") {
+      if (haystack.trim() === needle) return true;
+    } else {
+      // Match whole word or phrase with Unicode boundaries:
+      // Prevents "hi" from triggering on "chahiye", "this", "machine", etc.
+      const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const wordBoundaryRegex = new RegExp(
+        `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+        cfg.case_sensitive ? "u" : "iu",
+      );
+      if (wordBoundaryRegex.test(haystack)) {
+        return true;
+      }
     }
   }
   return false;

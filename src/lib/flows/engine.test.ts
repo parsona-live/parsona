@@ -264,6 +264,18 @@ describe("matchesKeywordTrigger", () => {
     expect(matchesKeywordTrigger("support center", cfg)).toBe(true);
     expect(matchesKeywordTrigger("nope", cfg)).toBe(false);
   });
+
+  it("does not match short keywords inside unrelated words (word-boundary safe)", () => {
+    const cfg = { keywords: ["hi"] };
+    // "chahiye" has letters c-h-a-[h-i]-y-e; must NOT match
+    expect(matchesKeywordTrigger("Mujhe company ki details chahiye", cfg)).toBe(false);
+    expect(matchesKeywordTrigger("I need this", cfg)).toBe(false);
+    expect(matchesKeywordTrigger("machine", cfg)).toBe(false);
+    // Standalone "hi" must match
+    expect(matchesKeywordTrigger("Hi", cfg)).toBe(true);
+    expect(matchesKeywordTrigger("Hi there!", cfg)).toBe(true);
+    expect(matchesKeywordTrigger("Hello, hi", cfg)).toBe(true);
+  });
 });
 
 describe("node classification helpers", () => {
