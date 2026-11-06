@@ -7,6 +7,7 @@ import { PipelineBoard } from "@/components/pipelines/pipeline-board";
 import { PipelineSettings } from "@/components/pipelines/pipeline-settings";
 import { DealForm } from "@/components/pipelines/deal-form";
 import { PipelineAnalytics } from "@/components/pipelines/pipeline-analytics";
+import { PipelinesPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -301,19 +302,7 @@ export default function PipelinesPage() {
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-          <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
-        </div>
-        <div className="flex gap-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-96 w-72 animate-pulse rounded-xl bg-muted/50" />
-          ))}
-        </div>
-      </div>
-    );
+    return <PipelinesPageSkeleton />;
   }
 
   return (

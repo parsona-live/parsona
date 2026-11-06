@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, MessageSquare, Zap } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslations } from "next-intl";
 
 import {
@@ -61,8 +62,13 @@ export function QuickReplyPicker({
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <div className="space-y-2 p-2">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-2 rounded-lg border border-border/50">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+              ))}
             </div>
           ) : items.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">

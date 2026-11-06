@@ -14,6 +14,7 @@ import { ConversationList } from "@/components/inbox/conversation-list";
 import { parseInboxFilter } from "@/lib/inbox/inbox-filters";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
+import { InboxSkeleton } from "@/components/skeletons/page-skeletons";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 // wrapper supplies it; the inner component holds all the inbox state.
 export default function InboxPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<InboxSkeleton />}>
       <InboxPageInner />
     </Suspense>
   );

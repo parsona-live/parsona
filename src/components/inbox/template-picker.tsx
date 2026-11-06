@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   ChevronRight,
@@ -211,8 +212,16 @@ export function TemplatePicker({
         {!selected ? (
           <div className="max-h-[60vh] space-y-2 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div className="space-y-2 py-1">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={idx} className="rounded-lg border border-border p-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                ))}
               </div>
             ) : templates.length === 0 ? (
               <div className="rounded-md border border-border bg-background/50 p-6 text-center">

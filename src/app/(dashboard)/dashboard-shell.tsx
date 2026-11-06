@@ -10,6 +10,7 @@ import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BrowserNotificationsListener } from "@/components/notifications/browser-notifications-listener";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
+import { DashboardSkeleton } from "@/components/skeletons/page-skeletons";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -50,12 +51,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />
           {loading ? (
-            <div className="flex h-full min-h-[350px] items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <p className="text-sm text-muted-foreground">{t("loading")}</p>
-              </div>
-            </div>
+            <DashboardSkeleton />
           ) : !user ? null : (
             children
           )}

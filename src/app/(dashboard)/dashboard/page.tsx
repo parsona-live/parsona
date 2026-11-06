@@ -30,13 +30,14 @@ import { PipelineCard } from '@/components/dashboard/pipeline-card'
 import { ReplyQueueCard } from '@/components/dashboard/reply-queue-card'
 import { SetupChecklist } from '@/components/dashboard/setup-checklist'
 import { TeamCard } from '@/components/dashboard/team-card'
+import { DashboardSkeleton } from '@/components/skeletons/page-skeletons'
 
 const POLL_MS = 60_000
 const REALTIME_DEBOUNCE_MS = 2_000
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<DashboardSkeleton />}>
       <DashboardPageInner />
     </Suspense>
   )

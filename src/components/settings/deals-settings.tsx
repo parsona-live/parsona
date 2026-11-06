@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -67,6 +68,19 @@ export function DealsSettings() {
     await refreshProfile();
     setSaving(false);
     toast.success(t("saveSuccess"));
+  }
+
+  if (profileLoading) {
+    return (
+      <section className="max-w-2xl animate-in fade-in-50 duration-200">
+        <SettingsPanelHead title={t("title")} description={t("description")} />
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-10 w-full max-w-xs rounded-lg" />
+        </Card>
+      </section>
+    );
   }
 
   return (

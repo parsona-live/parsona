@@ -9,6 +9,7 @@ import { AiUsageCard } from '@/components/agents/ai-usage';
 import { AiConfig } from '@/components/settings/ai-config';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
+import { AgentsPageSkeleton } from '@/components/skeletons/page-skeletons';
 
 type Tab = 'setup' | 'usage';
 
@@ -23,6 +24,10 @@ export default function AgentsPage() {
     setDecided(true);
   }, []);
 
+  if (!decided) {
+    return <AgentsPageSkeleton />;
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2">
@@ -35,7 +40,6 @@ export default function AgentsPage() {
         {t('description')}
       </p>
 
-      {decided && (
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v as Tab)}
@@ -69,7 +73,6 @@ export default function AgentsPage() {
             </TabsContent>
           )}
         </Tabs>
-      )}
     </div>
   );
 }

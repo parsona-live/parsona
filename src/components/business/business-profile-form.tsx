@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -91,10 +92,21 @@ export function BusinessProfileForm() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-10 w-full rounded-lg" />
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </Card>
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </div>
+        </Card>
       </div>
-    )
+    );
   }
 
   return (

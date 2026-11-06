@@ -16,12 +16,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+import { AuthCardSkeleton } from "@/components/skeletons/page-skeletons";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
 export default function SignupPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AuthCardSkeleton />}>
       <SignupPageInner />
     </Suspense>
   );

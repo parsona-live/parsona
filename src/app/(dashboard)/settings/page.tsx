@@ -21,6 +21,7 @@ import { EmailSettings } from '@/components/settings/email-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { BillingPanel } from '@/components/settings/billing-panel';
+import { SettingsPageSkeleton, SettingsTabSkeleton } from '@/components/skeletons/page-skeletons';
 import {
   resolveSection,
   type SettingsSection,
@@ -36,7 +37,7 @@ import {
 // the boundary; the inner component reads the query string.
 export default function SettingsPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SettingsPageSkeleton />}>
       <SettingsPageInner />
     </Suspense>
   );
@@ -111,7 +112,11 @@ function SettingsPageInner() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
         <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">{panel[section]}</div>
+        <div className="min-w-0">
+          <Suspense key={section} fallback={<SettingsTabSkeleton />}>
+            {panel[section]}
+          </Suspense>
+        </div>
       </div>
     </div>
   );

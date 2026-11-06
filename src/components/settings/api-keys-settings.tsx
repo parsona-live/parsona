@@ -22,6 +22,7 @@ import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -128,9 +129,28 @@ export function ApiKeysSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="text-primary size-6 animate-spin" />
-      </div>
+      <section className="animate-in fade-in-50 space-y-6 duration-200">
+        <SettingsPanelHead
+          title={t('title')}
+          description={t('description')}
+        />
+        <div className="flex justify-end">
+          <Skeleton className="h-9 w-36 rounded-lg" />
+        </div>
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex justify-between items-center py-2 border-b border-border/50">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-3 w-56" />
+                </div>
+                <Skeleton className="h-8 w-16 rounded-md" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
     );
   }
 

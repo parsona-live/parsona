@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MessageSquare, UsersRound } from "lucide-react";
+import { AuthCardSkeleton } from "@/components/skeletons/page-skeletons";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -24,7 +25,7 @@ import { MessageSquare, UsersRound } from "lucide-react";
 // string on the client.
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AuthCardSkeleton />}>
       <LoginPageInner />
     </Suspense>
   );

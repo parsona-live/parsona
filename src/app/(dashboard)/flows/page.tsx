@@ -20,12 +20,16 @@ import {
   Search,
   Share2,
   ArrowRight,
+  Clock,
 } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { FlowsPageSkeleton } from "@/components/skeletons/page-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { GatedButton } from "@/components/ui/gated-button";
 import {
   Dialog,
@@ -328,11 +332,7 @@ export default function FlowsPage() {
   });
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center p-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <FlowsPageSkeleton />;
   }
 
   return (
@@ -414,6 +414,23 @@ export default function FlowsPage() {
                   onEdit={() => router.push(`/flows/${flow.id}`)}
                   onDelete={() => handleDelete(flow)}
                   onPromote={() => openPromoteModal(flow)}
+                  onToggleStatus={async () => {
+                    const next = flow.status === "active" ? "draft" : "active";
+                    try {
+                      const res = await fetch(`/api/flows/${flow.id}/activate`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: next }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "Failed");
+                      setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, status: data.flow.status } : f)));
+                      toast.success(next === "active" ? "Flow activated" : "Flow deactivated");
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    }
+                  }}
+                  onViewRuns={() => router.push(`/flows/${flow.id}/runs`)}
                   t={t}
                 />
               ))}
@@ -464,9 +481,17 @@ export default function FlowsPage() {
 
           {/* Grid of Library Templates */}
           {loadingLibrary ? (
-            <div className="flex items-center justify-center p-12 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              Loading templates...
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div key={idx} className="rounded-xl border border-border bg-card p-5 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <Skeleton className="h-5 w-36" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-8 w-24 rounded-md" />
+                </div>
+              ))}
             </div>
           ) : filteredLibrary.length === 0 ? (
             <div className="border border-dashed border-border rounded-xl p-10 text-center text-muted-foreground text-sm">
@@ -696,6 +721,8 @@ function FlowCard({
   onEdit,
   onDelete,
   onPromote,
+  onToggleStatus,
+  onViewRuns,
   t,
 }: {
   flow: FlowRow;
@@ -703,6 +730,8 @@ function FlowCard({
   onEdit: () => void;
   onDelete: () => void;
   onPromote: () => void;
+  onToggleStatus: () => void;
+  onViewRuns: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   const triggerSummary = describeTrigger(flow, t);
@@ -731,12 +760,11 @@ function FlowCard({
 
       <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{flow.description || triggerSummary}</p>
 
-      <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
+      <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <MessageSquare className="h-3 w-3" />
           {t("runCount", { count: flow.execution_count })}
         </span>
-
         {isSuperAdmin && (
           <button
             onClick={onPromote}
@@ -749,20 +777,30 @@ function FlowCard({
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border pt-3">
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Pencil className="h-3.5 w-3.5" />
-          {t("edit")}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("delete")}
-        </Button>
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+        <div className="flex items-center gap-2">
+          <Switch checked={flow.status === "active"} onCheckedChange={onToggleStatus} />
+          <span className="text-xs text-muted-foreground">{flow.status === "active" ? "Active" : "Inactive"}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" size="sm" onClick={onViewRuns}>
+            <Clock className="h-3.5 w-3.5" />
+            Runs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5" />
+            {t("edit")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {t("delete")}
+          </Button>
+        </div>
       </div>
     </div>
   );

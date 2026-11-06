@@ -17,6 +17,7 @@ import { Radio, Plus, Loader2 } from 'lucide-react';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
+import { BroadcastsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { useTranslations } from 'next-intl';
 
 /**
@@ -133,11 +134,7 @@ export default function BroadcastsPage() {
   }, [anySending]);
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
+    return <BroadcastsPageSkeleton />;
   }
 
   if (error) {

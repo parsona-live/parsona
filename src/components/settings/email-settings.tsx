@@ -32,6 +32,7 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SettingsPanelHead } from './settings-panel-head';
 
 export function EmailSettings() {
@@ -196,8 +197,22 @@ export function EmailSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6 animate-in fade-in-50 duration-200">
+        <SettingsPanelHead
+          title="Email Settings"
+          description="Centralized email delivery configuration for all flows and automations. Choose between Brevo API or standard SMTP."
+        />
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-5 w-40" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </div>
+          <div className="space-y-3 pt-2">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </div>
+        </Card>
       </div>
     );
   }

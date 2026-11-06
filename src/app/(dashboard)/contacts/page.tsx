@@ -56,6 +56,7 @@ import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
+import { ContactsTableRowsSkeleton } from "@/components/skeletons/page-skeletons";
 import { useTranslations } from 'next-intl';
 import {
   contactSearchFilter,
@@ -571,14 +572,7 @@ export default function ContactsPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="size-6 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">{t('loading')}</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <ContactsTableRowsSkeleton rows={8} />
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
                 <TableCell colSpan={8} className="text-center py-12">

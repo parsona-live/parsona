@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import { SettingsPanelHead } from './settings-panel-head';
 import {
   Accordion,
@@ -497,8 +498,30 @@ export function WhatsAppConfig() {
           title={t("title")}
           description={t("description")}
         />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-primary" />
+        <div className="space-y-6 mt-4">
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1.5">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-72" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="space-y-3 pt-2">
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6 space-y-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-10 w-full rounded-lg" />
+          </Card>
         </div>
       </section>
     );

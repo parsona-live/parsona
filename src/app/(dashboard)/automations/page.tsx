@@ -23,6 +23,7 @@ import { useCan } from "@/hooks/use-can"
 import { useTranslations } from "next-intl"
 import type { Automation } from "@/types"
 import { Button } from "@/components/ui/button"
+import { AutomationsPageSkeleton } from "@/components/skeletons/page-skeletons";
 import { GatedButton } from "@/components/ui/gated-button"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -150,11 +151,7 @@ export default function AutomationsPage() {
   }
 
   if (automations === null) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    )
+    return <AutomationsPageSkeleton />;
   }
 
   const showTemplates = automations.length < 3

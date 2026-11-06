@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/client";
 
 interface PaymentTransaction {
@@ -181,9 +182,25 @@ export function BillingPanel() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-        <Loader2 className="h-7 w-7 animate-spin mb-2 text-primary" />
-        <p className="text-sm">Loading billing agreement and invoice details...</p>
+      <div className="space-y-6 animate-in fade-in-50 duration-200">
+        <Card className="p-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1.5">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-6 w-24 rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <Skeleton className="h-20 w-full rounded-lg" />
+            <Skeleton className="h-20 w-full rounded-lg" />
+            <Skeleton className="h-20 w-full rounded-lg" />
+          </div>
+        </Card>
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+        </Card>
       </div>
     );
   }
