@@ -110,7 +110,8 @@ const LIBRARY_CATEGORIES = [
 export default function FlowsPage() {
   const router = useRouter();
   const canCreate = useCan("send-messages");
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isAdmin, isOwner } = useAuth();
+  const canPromote = Boolean(isSuperAdmin || isAdmin || isOwner);
   const t = useTranslations("Flows.list");
   const tGate = useTranslations("GatedButton");
 
@@ -410,7 +411,7 @@ export default function FlowsPage() {
                 <FlowCard
                   key={flow.id}
                   flow={flow}
-                  isSuperAdmin={Boolean(isSuperAdmin)}
+                  canPromote={canPromote}
                   onEdit={() => router.push(`/flows/${flow.id}`)}
                   onDelete={() => handleDelete(flow)}
                   onPromote={() => openPromoteModal(flow)}
@@ -717,7 +718,7 @@ function EmptyState({
 
 function FlowCard({
   flow,
-  isSuperAdmin,
+  canPromote,
   onEdit,
   onDelete,
   onPromote,
@@ -726,7 +727,7 @@ function FlowCard({
   t,
 }: {
   flow: FlowRow;
-  isSuperAdmin: boolean;
+  canPromote: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onPromote: () => void;
@@ -765,11 +766,12 @@ function FlowCard({
           <MessageSquare className="h-3 w-3" />
           {t("runCount", { count: flow.execution_count })}
         </span>
-        {isSuperAdmin && (
+        {canPromote && (
           <button
+            type="button"
             onClick={onPromote}
-            className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
-            title="Publish this flow to Master Library"
+            className="flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 transition-colors"
+            title="Publish this flow to Master Library / Prebuilt Flows"
           >
             <Share2 className="h-3 w-3" />
             Publish to Library
@@ -782,7 +784,19 @@ function FlowCard({
           <Switch checked={flow.status === "active"} onCheckedChange={onToggleStatus} />
           <span className="text-xs text-muted-foreground">{flow.status === "active" ? "Active" : "Inactive"}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
+          {canPromote && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onPromote}
+              className="text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+              title="Publish this flow to Master Library / Admin Dashboard"
+            >
+              <Share2 className="h-3.5 w-3.5 mr-1" />
+              Publish
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={onViewRuns}>
             <Clock className="h-3.5 w-3.5" />
             Runs

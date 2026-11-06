@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireSuperAdmin } from '@/lib/auth/account'
+import { requireSuperAdmin, requireRole } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 
 export const dynamic = 'force-dynamic'
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
  * POST /api/admin/flows/promote
  *
  * Promotes an existing client flow into a global master template.
- * Available only to Super Admins.
+ * Available to Super Admins and Account Admins/Owners.
  *
  * Body: {
  *   sourceFlowId: string
@@ -19,7 +19,19 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: Request) {
   try {
-    const { userId } = await requireSuperAdmin()
+    let userId: string
+    let isSuper = false
+    let callerAccountId: string | null = null
+
+    try {
+      const superCtx = await requireSuperAdmin()
+      userId = superCtx.userId
+      isSuper = true
+    } catch {
+      const actCtx = await requireRole('admin')
+      userId = actCtx.userId
+      callerAccountId = actCtx.accountId
+    }
 
     const body = (await request.json().catch(() => null)) as {
       sourceFlowId?: string
@@ -43,6 +55,14 @@ export async function POST(request: Request) {
 
     if (sourceErr || !sourceFlow) {
       return NextResponse.json({ error: 'Source flow not found' }, { status: 404 })
+    }
+
+    // If caller is not super admin, ensure they own or administer the source flow's account
+    if (!isSuper && callerAccountId && sourceFlow.account_id !== callerAccountId) {
+      return NextResponse.json(
+        { error: 'Forbidden: you cannot publish a flow from another account' },
+        { status: 403 }
+      )
     }
 
     // 2. Fetch source flow nodes
@@ -122,4 +142,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 403 })
   }
 }
-
