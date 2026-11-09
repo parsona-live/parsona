@@ -110,8 +110,23 @@ const LIBRARY_CATEGORIES = [
 export default function FlowsPage() {
   const router = useRouter();
   const canCreate = useCan("send-messages");
-  const { isSuperAdmin, isAdmin, isOwner } = useAuth();
-  const canPromote = Boolean(isSuperAdmin || isAdmin || isOwner);
+  const { isSuperAdmin, isImpersonating } = useAuth();
+  const [cookieImpersonating, setCookieImpersonating] = useState(false);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie.split(";").map((c) => c.trim());
+      const hasFlag = cookies.some(
+        (c) =>
+          c.startsWith("wapp_is_impersonating=") ||
+          c.startsWith("wapp_impersonate_account_id=")
+      );
+      if (hasFlag) setCookieImpersonating(true);
+    }
+  }, []);
+
+  // Only super admins or admins currently impersonating a client account can promote flows to the master library
+  const canPromote = Boolean(isSuperAdmin || isImpersonating || cookieImpersonating);
   const t = useTranslations("Flows.list");
   const tGate = useTranslations("GatedButton");
 

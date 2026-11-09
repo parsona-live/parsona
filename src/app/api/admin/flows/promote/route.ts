@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
-import { requireSuperAdmin, requireRole } from '@/lib/auth/account'
+import { cookies } from 'next/headers'
+import { requireSuperAdmin } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import {
+  verifyImpersonationToken,
+  IMPERSONATOR_COOKIE_NAME,
+} from '@/lib/admin/impersonation'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,7 +13,7 @@ export const dynamic = 'force-dynamic'
  * POST /api/admin/flows/promote
  *
  * Promotes an existing client flow into a global master template.
- * Available to Super Admins and Account Admins/Owners.
+ * Available to Super Admins and Admins actively impersonating an account.
  *
  * Body: {
  *   sourceFlowId: string
@@ -21,16 +26,28 @@ export async function POST(request: Request) {
   try {
     let userId: string
     let isSuper = false
-    let callerAccountId: string | null = null
+    let impersonatedAccountId: string | null = null
 
     try {
       const superCtx = await requireSuperAdmin()
       userId = superCtx.userId
       isSuper = true
     } catch {
-      const actCtx = await requireRole('admin')
-      userId = actCtx.userId
-      callerAccountId = actCtx.accountId
+      // Check if caller is an admin actively impersonating this account
+      const cookieStore = await cookies()
+      const impersonatorCookie = cookieStore.get(IMPERSONATOR_COOKIE_NAME)?.value
+      const tokenPayload = impersonatorCookie ? verifyImpersonationToken(impersonatorCookie) : null
+
+      if (tokenPayload) {
+        userId = tokenPayload.adminUserId
+        impersonatedAccountId = tokenPayload.tenantAccountId
+        isSuper = true
+      } else {
+        return NextResponse.json(
+          { error: 'Forbidden: only super administrators or admin impersonators can publish to the master library' },
+          { status: 403 }
+        )
+      }
     }
 
     const body = (await request.json().catch(() => null)) as {
@@ -57,8 +74,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Source flow not found' }, { status: 404 })
     }
 
-    // If caller is not super admin, ensure they own or administer the source flow's account
-    if (!isSuper && callerAccountId && sourceFlow.account_id !== callerAccountId) {
+    // If caller is impersonating, ensure they are publishing from the impersonated account
+    if (impersonatedAccountId && sourceFlow.account_id !== impersonatedAccountId) {
       return NextResponse.json(
         { error: 'Forbidden: you cannot publish a flow from another account' },
         { status: 403 }

@@ -119,6 +119,8 @@ interface AuthContextValue {
   defaultCurrency: string;
   /** True if the caller has platform super admin privileges. */
   isSuperAdmin: boolean;
+  /** True if the current session is an active admin impersonation of a tenant account. */
+  isImpersonating: boolean;
   /** True if `accountRole === 'owner'`. */
   isOwner: boolean;
   /** True if `accountRole === 'admin'` (does NOT include owner — use canManageMembers for "admin or above"). */
@@ -176,6 +178,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // settles later. Callers that gate on `profile.*` need to know which
   // window they're in — see the type doc above.
   const [profileLoading, setProfileLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie.split(";").map((c) => c.trim());
+      const hasFlag = cookies.some(
+        (c) =>
+          c.startsWith("wapp_is_impersonating=") ||
+          c.startsWith("wapp_impersonate_account_id=")
+      );
+      setIsImpersonating(hasFlag);
+    }
+  }, []);
 
   // Tracks the user ID we've successfully initiated/completed fetching
   // a profile for. This prevents redundant re-fetches and toggling
@@ -476,6 +491,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
         accountStatus,
         accountStatusDetail: statusDetail,
+        isImpersonating,
         ...derived,
       }}
     >
@@ -513,6 +529,7 @@ export function useAuth(): AuthContextValue {
       accountId: null,
       accountRole: null,
       isSuperAdmin: false,
+      isImpersonating: false,
       isOwner: false,
       isAdmin: false,
       isAgent: false,
