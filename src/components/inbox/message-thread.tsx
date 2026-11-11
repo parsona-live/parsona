@@ -303,10 +303,32 @@ export function MessageThread({
     if (!lastCustomerMsg) return { expired: true, remaining: tTimer("noCustomerMessages") };
 
     const hoursSince = differenceInHours(new Date(), new Date(lastCustomerMsg.created_at));
+    const isSocialChannel = conversation?.channel === 'instagram' || conversation?.channel === 'facebook';
+
+    if (isSocialChannel) {
+      if (hoursSince < 24) {
+        const hoursLeft = 24 - hoursSince;
+        const remaining =
+          hoursLeft >= 1
+            ? `${Math.floor(hoursLeft)}h remaining (Standard 24h)`
+            : `${Math.floor(hoursLeft * 60)}m remaining (Standard 24h)`;
+        return { expired: false, remaining, isHumanAgent: false };
+      } else if (hoursSince < 168) {
+        const daysLeft = Math.ceil((168 - hoursSince) / 24);
+        return {
+          expired: false,
+          remaining: `${daysLeft}d left (Human Agent Tag)`,
+          isHumanAgent: true,
+        };
+      } else {
+        return { expired: true, remaining: 'Window expired (>7d)', isHumanAgent: false };
+      }
+    }
+
     const expired = hoursSince >= 24;
 
     if (expired) {
-      return { expired: true, remaining: tTimer("expired") };
+      return { expired: true, remaining: tTimer("expired"), isHumanAgent: false };
     }
 
     const hoursLeft = 24 - hoursSince;
@@ -315,8 +337,8 @@ export function MessageThread({
         ? tTimer("xhRemaining", { hours: Math.floor(hoursLeft) })
         : tTimer("xmRemaining", { minutes: Math.floor(hoursLeft * 60) });
 
-    return { expired, remaining };
-  }, [messages, tTimer]);
+    return { expired, remaining, isHumanAgent: false };
+  }, [messages, tTimer, conversation?.channel]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -1031,7 +1053,24 @@ export function MessageThread({
             {displayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-foreground">{displayName}</h2>
+            <h2 className="truncate text-sm font-semibold text-foreground flex items-center gap-1.5">
+              {displayName}
+              {conversation?.channel === 'instagram' && (
+                <span className="rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  Instagram
+                </span>
+              )}
+              {conversation?.channel === 'facebook' && (
+                <span className="rounded-full bg-[#1877F2] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  Messenger
+                </span>
+              )}
+              {(conversation?.channel === 'whatsapp' || !conversation?.channel) && (
+                <span className="rounded-full bg-[#25D366] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  WhatsApp
+                </span>
+              )}
+            </h2>
             <p className="truncate text-xs text-muted-foreground">
               {contactHandle(contact)}
             </p>
@@ -1042,7 +1081,11 @@ export function MessageThread({
             variant="outline"
             className={cn(
               "ml-1 hidden gap-1 border-border text-[10px] sm:inline-flex sm:ml-2",
-              sessionInfo.expired ? "text-red-400" : "text-primary"
+              sessionInfo.expired
+                ? "text-red-400 border-red-500/20 bg-red-500/10"
+                : sessionInfo.isHumanAgent
+                  ? "text-amber-500 border-amber-500/30 bg-amber-500/10"
+                  : "text-primary"
             )}
           >
             <Clock className="h-3 w-3" />

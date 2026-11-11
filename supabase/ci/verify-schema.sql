@@ -163,6 +163,13 @@ BEGIN
     RAISE EXCEPTION 'anon can execute dashboard_overview — migration 059 grants are wrong';
   END IF;
 
+  IF to_regclass('public.meta_channel_connections') IS NULL THEN
+    RAISE EXCEPTION 'public.meta_channel_connections is missing — migration 071 did not apply';
+  END IF;
+  IF to_regclass('public.comment_to_dm_rules') IS NULL THEN
+    RAISE EXCEPTION 'public.comment_to_dm_rules is missing — migration 071 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

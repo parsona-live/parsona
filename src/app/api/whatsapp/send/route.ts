@@ -12,6 +12,7 @@ import {
   SendMessageError,
 } from '@/lib/whatsapp/send-message'
 import { isUniqueViolation } from '@/lib/contacts/dedupe'
+import { dispatchOutboundMessage } from '@/lib/channels/outbound-dispatch'
 import { getT } from '@/lib/i18n/translate'
 
 const t = getT('Api')
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     if (conversationIdInput) {
       const { data, error: convError } = await supabase
         .from('conversations')
-        .select('id')
+        .select('id, channel, contact_id')
         .eq('id', conversationIdInput)
         .eq('account_id', accountId)
         .single()
@@ -112,6 +113,29 @@ export async function POST(request: Request) {
           { status: 404 }
         )
       }
+
+      if (data.channel === 'instagram' || data.channel === 'facebook') {
+        const dispatchRes = await dispatchOutboundMessage({
+          db: supabase,
+          accountId,
+          userId,
+          conversationId: data.id,
+          contactId: data.contact_id,
+          text: content_text,
+          senderType: 'agent',
+          mediaUrl: media_url,
+        })
+        if (!dispatchRes.success) {
+          return NextResponse.json({ error: dispatchRes.error }, { status: 400 })
+        }
+        return NextResponse.json({
+          success: true,
+          messageId: dispatchRes.messageId,
+          channel: dispatchRes.channel,
+          isHumanAgentTag: dispatchRes.isHumanAgentTag,
+        })
+      }
+
       conversationId = data.id
     } else {
       // contact_id path: verify the contact is in this account first so a

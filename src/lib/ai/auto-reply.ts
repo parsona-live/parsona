@@ -11,6 +11,7 @@ import {
   engineSendText,
   loadAccountMetaCredentials,
 } from '@/lib/flows/meta-send'
+import { dispatchOutboundMessage } from '@/lib/channels/outbound-dispatch'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 
@@ -83,7 +84,7 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, channel')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
@@ -93,7 +94,12 @@ export async function dispatchInboundToAiReply(
     // below (this read can race a concurrent inbound).
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
 
-    const messages = await buildConversationContext(db, conversationId)
+    const messages = await buildConversationContext(
+      db,
+      conversationId,
+      undefined,
+      contactId,
+    )
     if (messages.length === 0) return
 
     // Account-wide throttle on the shared BYO key. The per-conversation
@@ -213,14 +219,27 @@ export async function dispatchInboundToAiReply(
     }
     if (claimed !== true) return
 
-    await engineSendText({
-      accountId,
-      userId: configOwnerUserId,
-      conversationId,
-      contactId,
-      text,
-      aiGenerated: true,
-    })
+    if (conv.channel === 'instagram' || conv.channel === 'facebook') {
+      await dispatchOutboundMessage({
+        db,
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text,
+        aiGenerated: true,
+        senderType: 'bot',
+      })
+    } else {
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId,
+        contactId,
+        text,
+        aiGenerated: true,
+      })
+    }
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
   }

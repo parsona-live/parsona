@@ -3,12 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildConversationContext } from './context'
 
 /** Minimal fake matching the query chain in buildConversationContext:
- *  from().select().eq().eq().order().limit() → { data, error }. */
+ *  from().select().in().eq().order().limit() → { data, error }. */
 function fakeDb(rows: unknown[]): SupabaseClient {
   const chain = {
     from: () => chain,
     select: () => chain,
     eq: () => chain,
+    in: () => chain,
     order: () => chain,
     limit: () => Promise.resolve({ data: rows, error: null }),
   }
@@ -49,5 +50,19 @@ describe('buildConversationContext', () => {
       'conv-1',
     )
     expect(out).toEqual([{ role: 'user', content: 'real' }])
+  })
+
+  it('prefixes messages with channel markers for cross-channel context', async () => {
+    const rows = [
+      { sender_type: 'customer', content_text: 'I am on WhatsApp now', channel: 'whatsapp' },
+      { sender_type: 'customer', content_text: 'Do you have size M in stock?', channel: 'instagram' },
+      { sender_type: 'agent', content_text: 'Yes we do!', channel: 'facebook' },
+    ]
+    const out = await buildConversationContext(fakeDb(rows), 'conv-1')
+    expect(out).toEqual([
+      { role: 'assistant', content: '[Via Facebook Messenger] Yes we do!' },
+      { role: 'user', content: '[Via Instagram DM] Do you have size M in stock?' },
+      { role: 'user', content: 'I am on WhatsApp now' },
+    ])
   })
 })

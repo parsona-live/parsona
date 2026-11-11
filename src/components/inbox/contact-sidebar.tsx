@@ -14,12 +14,15 @@ import {
   DollarSign,
   StickyNote,
   Plus,
+  GitMerge,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
+import { MergeContactDialog } from "./merge-contact-dialog";
 
 const AVATAR_COLORS = [
   "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300",
@@ -63,6 +66,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
@@ -214,7 +218,38 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 <span className="truncate">{contact.email}</span>
               </div>
             )}
+
+            {contact.ig_username && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
+                <span className="h-2 w-2 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 shrink-0" />
+                <span className="truncate">Instagram: <strong className="font-semibold text-foreground">@{contact.ig_username}</strong></span>
+              </div>
+            )}
+
+            {contact.fb_name && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
+                <span className="h-2 w-2 rounded-full bg-[#1877F2] shrink-0" />
+                <span className="truncate">Facebook: <strong className="font-semibold text-foreground">{contact.fb_name}</strong></span>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMergeOpen(true)}
+              className="w-full mt-2 gap-2 text-xs h-8 text-muted-foreground hover:text-foreground"
+            >
+              <GitMerge className="h-3.5 w-3.5" />
+              Merge Contact Profile
+            </Button>
           </div>
+
+          <MergeContactDialog
+            open={mergeOpen}
+            onOpenChange={setMergeOpen}
+            primaryContact={contact}
+            onMerged={fetchContactData}
+          />
 
           {/* Divider */}
           <div className="my-4 border-t border-border" />

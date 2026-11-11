@@ -103,6 +103,7 @@ const nextConfig: NextConfig = {
     "*.ngrok.app",
     "*.ngrok.io",
     "*.trycloudflare.com",
+    "nondoubtable-intercity-griselda.ngrok-free.dev",
     "*.loca.lt",
     ...(process.env.ALLOWED_DEV_ORIGINS
       ? process.env.ALLOWED_DEV_ORIGINS.split(",")

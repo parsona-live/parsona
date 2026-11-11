@@ -260,12 +260,12 @@ export type ConditionOperator =
   | "present"
   | "absent";
 
-export type ConditionSubject = "var" | "tag" | "contact_field";
+export type ConditionSubject = "var" | "tag" | "contact_field" | "channel";
 
 /**
  * Routes the run based on a predicate over the contact's tags,
- * profile fields, or stored vars. Always auto-advances — no Meta
- * call, no customer-side input.
+ * profile fields, stored vars, or active channel (WhatsApp, Instagram, Facebook).
+ * Always auto-advances — no Meta call, no customer-side input.
  */
 export interface ConditionNodeConfig {
   subject: ConditionSubject;
@@ -273,6 +273,7 @@ export interface ConditionNodeConfig {
    * For `var`: the key in flow_runs.vars.
    * For `tag`: the tag UUID (matched against contact_tags).
    * For `contact_field`: one of 'name' | 'email' | 'phone' | 'company'.
+   * For `channel`: matches conversation channel ('whatsapp' | 'instagram' | 'facebook').
    */
   subject_key: string;
   operator: ConditionOperator;
@@ -483,6 +484,8 @@ export interface KeywordTriggerConfig {
   keywords: string[];
   match_type?: "exact" | "contains";
   case_sensitive?: boolean;
+  /** Restrict trigger to specific channel, or allow all channels. */
+  channel?: "all" | "whatsapp" | "instagram" | "facebook";
 }
 
 // No knobs in v1 — the trigger has a single semantic. Kept as a type

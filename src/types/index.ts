@@ -10,6 +10,8 @@ export type {
   InteractiveListSection,
 } from "@/lib/whatsapp/interactive";
 
+export type ChannelType = 'whatsapp' | 'instagram' | 'facebook';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -115,6 +117,14 @@ export interface Contact {
   /** WhatsApp username without the leading @. Display only: usernames
    *  are user-changeable, so they must never key a contact. */
   wa_username?: string | null;
+  /** Instagram-Scoped User ID (IGSID) for Instagram DMs. */
+  ig_user_id?: string | null;
+  /** Instagram username without leading @. */
+  ig_username?: string | null;
+  /** Facebook Page-Scoped ID (PSID) for Facebook Messenger. */
+  fb_page_scoped_id?: string | null;
+  /** Facebook user display name. */
+  fb_name?: string | null;
   name?: string;
   email?: string;
   company?: string;
@@ -172,6 +182,8 @@ export interface Conversation {
   id: string;
   user_id: string;
   contact_id: string;
+  channel?: ChannelType;
+  channel_connection_id?: string | null;
   status: ConversationStatus;
   assigned_agent_id?: string;
   last_message_text?: string;
@@ -249,6 +261,8 @@ export interface Message {
   media_type?: string | null;
   template_name?: string;
   message_id?: string;
+  channel?: ChannelType;
+  is_human_agent_tag?: boolean;
   status: MessageStatus;
   created_at: string;
   reply_to_message_id?: string;
@@ -710,6 +724,44 @@ export interface QuickReply {
   content_text?: string | null;
   /** Set when `kind === 'interactive'`. */
   interactive_payload?: InteractiveMessagePayload | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================
+// Omnichannel & Meta Channels (migration 071)
+// ============================================================
+
+export interface MetaChannelConnection {
+  id: string;
+  account_id: string;
+  user_id: string;
+  channel: ChannelType;
+  page_id: string;
+  page_name: string;
+  instagram_business_id?: string | null;
+  instagram_username?: string | null;
+  encrypted_access_token: string;
+  status: 'connected' | 'disconnected' | 'error';
+  subscribed_fields?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommentToDmRule {
+  id: string;
+  account_id: string;
+  channel_connection_id: string;
+  name: string;
+  is_active: boolean;
+  post_filter_type: 'all_posts' | 'specific_post';
+  post_id?: string | null;
+  match_type: 'contains' | 'exact' | 'any';
+  keywords: string[];
+  dm_message_text: string;
+  flow_id?: string | null;
+  public_replies: string[];
+  execution_count: number;
   created_at: string;
   updated_at: string;
 }

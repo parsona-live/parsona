@@ -664,6 +664,13 @@ async function evaluateConditionNode(
     // against a tag UUID would still work mechanically (compare its
     // existence to the value).
     subjectValue = (count ?? 0) > 0 ? cfg.subject_key : undefined;
+  } else if (cfg.subject === "channel") {
+    const { data: conv } = await db
+      .from("conversations")
+      .select("channel")
+      .eq("id", run.conversation_id!)
+      .maybeSingle();
+    subjectValue = ((conv as Record<string, unknown> | null)?.channel as string) || "whatsapp";
   } else {
     const ALLOWED = ["name", "email", "phone", "company"] as const;
     type AllowedField = (typeof ALLOWED)[number];

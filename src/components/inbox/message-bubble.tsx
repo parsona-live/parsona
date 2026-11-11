@@ -444,6 +444,30 @@ export function MessageBubble({
                 isAgent ? "justify-end" : "justify-start",
               )}
             >
+              {message.channel === 'instagram' && (
+                <span
+                  title="Sent via Instagram Direct"
+                  className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400"
+                >
+                  IG
+                </span>
+              )}
+              {message.channel === 'facebook' && (
+                <span
+                  title="Sent via Facebook Messenger"
+                  className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                >
+                  FB
+                </span>
+              )}
+              {message.is_human_agent_tag && (
+                <span
+                  title="Delivered using Meta 7-Day Human Agent Tag"
+                  className="inline-flex items-center px-1.5 py-px rounded text-[8px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                >
+                  Human Agent
+                </span>
+              )}
               {message.ai_generated && (
                 <span
                   className={cn(
