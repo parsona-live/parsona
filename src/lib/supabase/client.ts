@@ -9,10 +9,20 @@ let browserClient: SupabaseClient | undefined
 export function createClient() {
   if (browserClient) return browserClient
 
-  browserClient = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
+  if (!url || !key) {
+    // Provide fallback client to prevent client-side startup crash before keys are set
+    browserClient = createBrowserClient(
+      'https://placeholder.supabase.co',
+      'placeholder-anon-key'
+    )
+    return browserClient
+  }
+
+  browserClient = createBrowserClient(url, key)
   return browserClient
 }

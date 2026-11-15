@@ -5,7 +5,9 @@ export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   const protectedPaths = [
     '/dashboard',
@@ -20,9 +22,15 @@ export async function middleware(request: NextRequest) {
     '/settings',
   ]
 
-  // If Supabase credentials are not set, allow public routes to render
-  // safely and redirect protected routes to /login rather than crashing.
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const isConfigured =
+    Boolean(supabaseUrl) &&
+    Boolean(supabaseAnonKey) &&
+    !supabaseUrl?.includes('your-project') &&
+    !supabaseAnonKey?.includes('your-anon-key')
+
+  // If Supabase credentials are missing or still placeholder values,
+  // allow public routes (like /, /landing, /login) to render safely without crashing.
+  if (!isConfigured) {
     if (protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
@@ -48,8 +56,8 @@ export async function middleware(request: NextRequest) {
 
   try {
     const supabase = createServerClient(
-      supabaseUrl,
-      supabaseAnonKey,
+      supabaseUrl!,
+      supabaseAnonKey!,
       {
         cookies: {
           getAll() {
@@ -75,9 +83,6 @@ export async function middleware(request: NextRequest) {
   }
 
   // Auth pages - redirect to dashboard if already logged in.
-  // Exception: when an invite token is in the query string we
-  // send the already-signed-in user to /join/<token> instead so
-  // they can accept the invitation in one click.
   if (
     user &&
     (request.nextUrl.pathname === '/login' ||
