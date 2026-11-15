@@ -124,7 +124,8 @@ export async function dispatchInboundToAiReply(
     // 25 s or when our reply lands, whichever is first, so there's
     // nothing to undo on the handoff / no-text path. Strictly
     // best-effort: a failed indicator must never cost us the reply.
-    if (inboundMessageId) {
+    // Restricted to WhatsApp threads because Cloud API typing endpoint requires WhatsApp wamid.
+    if (inboundMessageId && (conv.channel === 'whatsapp' || !conv.channel)) {
       await showTypingIndicator(db, accountId, inboundMessageId)
     }
 
@@ -136,10 +137,17 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
+    const { data: contactRow } = await db
+      .from('contacts')
+      .select('name')
+      .eq('id', contactId)
+      .maybeSingle()
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      contactName: contactRow?.name || undefined,
     })
 
     const { text, handoff, usage } = await generateReply({

@@ -22,11 +22,13 @@ import {
   Phone,
   Copy,
   type LucideIcon,
+  Sparkle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReplyQuote } from "./reply-quote";
 import { MessageReactions } from "./message-reactions";
 import { LinkifyText } from "@/lib/inbox/linkify-text";
+import { ChannelIcon } from "@/components/channels/channel-badge";
 import {
   MediaAudioBubble,
   MediaDocumentBubble,
@@ -444,22 +446,8 @@ export function MessageBubble({
                 isAgent ? "justify-end" : "justify-start",
               )}
             >
-              {message.channel === 'instagram' && (
-                <span
-                  title="Sent via Instagram Direct"
-                  className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold bg-pink-500/15 text-pink-600 dark:text-pink-400"
-                >
-                  IG
-                </span>
-              )}
-              {message.channel === 'facebook' && (
-                <span
-                  title="Sent via Facebook Messenger"
-                  className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                >
-                  FB
-                </span>
-              )}
+          
+           
               {message.is_human_agent_tag && (
                 <span
                   title="Delivered using Meta 7-Day Human Agent Tag"
@@ -478,7 +466,7 @@ export function MessageBubble({
                   )}
                   title={t("aiBadgeTitle")}
                 >
-                  <Sparkles className="h-2.5 w-2.5" />
+                  <Sparkle className="h-2.5 w-2.5" />
                   {t("aiBadge")}
                 </span>
               )}

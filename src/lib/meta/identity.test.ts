@@ -1,13 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   extractPhoneAndEmail,
+  extractNameFromText,
   findContactBySocialId,
   linkSocialIdToContact,
   createSocialContact,
   mergeContacts,
+  linkContacts,
+  unlinkContact,
+  getLinkedContacts,
 } from './identity'
 
 describe('Identity & Cross-Channel Matching', () => {
+  it('extracts customer name accurately from conversational text', () => {
+    expect(extractNameFromText('My name is Sultan Alam, email me')).toBe('Sultan Alam')
+    expect(extractNameFromText('Hi, I am Bhumika Akotkar and my phone is 9876543210')).toBe('Bhumika Akotkar')
+    expect(extractNameFromText("Hello, I'm John Doe.")).toBe('John Doe')
+    expect(extractNameFromText('Name: Jane Smith\nEmail: jane@test.com')).toBe('Jane Smith')
+    expect(extractNameFromText('This is Robert Taylor, please help')).toBe('Robert Taylor')
+    expect(extractNameFromText('Just wondering about pricing')).toBeNull()
+  })
+
   it('extracts phone numbers and emails accurately from text', () => {
     const text = `Hi, I saw your post on Instagram! My WhatsApp number is +1 (555) 234-5678 and my email is test.user@example.com. Please send catalog!`
     const { phones, emails } = extractPhoneAndEmail(text)
@@ -124,5 +137,74 @@ describe('Identity & Cross-Channel Matching', () => {
     expect(convUpdate?.payload).toEqual({ contact_id: 'p1' })
     // Secondary deleted
     expect(deletedIds).toContain('s2')
+  })
+
+  it('links two contacts non-destructively without deleting either contact', async () => {
+    const contactA = { id: 'c_wa', account_id: 'acc_1', name: 'John Doe', phone: '15551234567' }
+    const contactB = { id: 'c_fb', account_id: 'acc_1', name: 'John Doe (FB)', fb_page_scoped_id: 'psid_1' }
+
+    let updatedPayload: Record<string, unknown> | null = null
+
+    const db = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn((col: string, val: string) => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: val === 'c_wa' ? contactA : contactB,
+                error: null,
+              }),
+            })),
+          })),
+        })),
+        update: vi.fn((payload) => {
+          updatedPayload = payload
+          return {
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: { ...contactB, ...payload },
+                    error: null,
+                  }),
+                })),
+              })),
+            })),
+          }
+        }),
+      })),
+    } as unknown as Parameters<typeof linkContacts>[0]
+
+    const result = await linkContacts(db, 'acc_1', 'c_wa', 'c_fb')
+
+    expect(result.primary.id).toBe('c_wa')
+    expect(result.secondary.id).toBe('c_fb')
+    expect(updatedPayload).toMatchObject({
+      linked_contact_id: 'c_wa',
+    })
+  })
+
+  it('unlinks a contact cleanly', async () => {
+    let unlinkedPayload: Record<string, unknown> | null = null
+
+    const db = {
+      from: vi.fn(() => ({
+        update: vi.fn((payload) => {
+          unlinkedPayload = payload
+          return {
+            eq: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            })),
+          }
+        }),
+      })),
+    } as unknown as Parameters<typeof unlinkContact>[0]
+
+    const success = await unlinkContact(db, 'acc_1', 'c_fb')
+
+    expect(success).toBe(true)
+    expect(unlinkedPayload).toMatchObject({
+      linked_contact_id: null,
+    })
   })
 })

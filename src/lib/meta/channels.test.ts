@@ -6,6 +6,7 @@ import {
   getDecryptedChannelToken,
   fetchLinkedInstagramAccount,
   subscribePageToApp,
+  fetchSenderProfile,
 } from './channels'
 
 const h = vi.hoisted(() => ({
@@ -145,5 +146,44 @@ describe('Meta Channels Service', () => {
 
     const sub = await subscribePageToApp('page_123', 'tok')
     expect(sub.success).toBe(true)
+  })
+
+  it('fetches Facebook sender profile with first_name and last_name', async () => {
+    const mockRes = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: vi.fn().mockResolvedValue({
+        first_name: 'Peter',
+        last_name: 'Chang',
+        profile_pic: 'https://fbcdn.net/p.jpg',
+      }),
+    }
+    vi.mocked(global.fetch).mockResolvedValue(mockRes as unknown as Response)
+
+    const profile = await fetchSenderProfile('facebook', 'psid_123', 'tok', 'page_123')
+    expect(profile).toEqual({
+      name: 'Peter Chang',
+      firstName: 'Peter',
+      lastName: 'Chang',
+      username: null,
+      profilePic: 'https://fbcdn.net/p.jpg',
+    })
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('https://graph.facebook.com/v21.0/psid_123?fields=first_name,last_name,profile_pic')
+    )
+  })
+
+  it('handles empty object {} from Meta gracefully without throwing', async () => {
+    // When Meta returns {} for direct lookup and fallback convs returns empty data
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: vi.fn().mockResolvedValue({}),
+    } as unknown as Response)
+
+    const profile = await fetchSenderProfile('facebook', 'psid_unauthorized', 'tok', 'page_123')
+    expect(profile).toBeNull()
   })
 })

@@ -16,13 +16,19 @@ import {
   Plus,
   GitMerge,
   Share2,
+  Link2,
+  Unlink,
+  MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
-import { MergeContactDialog } from "./merge-contact-dialog";
+import { LinkContactDialog } from "./link-contact-dialog";
+import { ChannelIcon, ChannelPillBadge } from "@/components/channels/channel-badge";
+import { toast } from "sonner";
 
 const AVATAR_COLORS = [
   "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300",
@@ -51,11 +57,17 @@ function getAvatarColor(seed: string) {
   return AVATAR_COLORS[Math.abs(hash)];
 }
 
-interface ContactSidebarProps {
-  contact: Contact | null;
+interface LinkedContactItem extends Contact {
+  conversation_id?: string | null;
+  channel?: string;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+interface ContactSidebarProps {
+  contact: Contact | null;
+  onOpenConversation?: (conversationId: string) => void;
+}
+
+export function ContactSidebar({ contact, onOpenConversation }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -66,14 +78,16 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
-  const [mergeOpen, setMergeOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkedContacts, setLinkedContacts] = useState<LinkedContactItem[]>([]);
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
+    // Fetch deals, notes, tags, and linked channels in parallel
     const [dealsRes, notesRes, tagsRes] = await Promise.all([
       supabase
         .from("deals")
@@ -102,6 +116,17 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
+
+    // Fetch linked channels
+    try {
+      const res = await fetch(`/api/contacts/${contact.id}/linked`);
+      if (res.ok) {
+        const json = await res.json();
+        setLinkedContacts(json.linked || []);
+      }
+    } catch {
+      // Best-effort
+    }
   }, [contact]);
 
   // Load on contact change. setContactData/setTags run inside async
@@ -110,6 +135,20 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContactData();
   }, [fetchContactData]);
+
+  const handleUnlink = async (targetId: string) => {
+    setUnlinkingId(targetId);
+    try {
+      const res = await fetch(`/api/contacts/${targetId}/unlink`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to unlink contact');
+      toast.success('Channel unlinked successfully');
+      fetchContactData();
+    } catch {
+      toast.error('Failed to unlink channel');
+    } finally {
+      setUnlinkingId(null);
+    }
+  };
 
   const handleCopyPhone = useCallback(async () => {
     // Copies whatever the row displays — a BSUID-only contact has no
@@ -218,37 +257,110 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 <span className="truncate">{contact.email}</span>
               </div>
             )}
-
-            {contact.ig_username && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
-                <span className="h-2 w-2 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 shrink-0" />
-                <span className="truncate">Instagram: <strong className="font-semibold text-foreground">@{contact.ig_username}</strong></span>
-              </div>
-            )}
-
-            {contact.fb_name && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground bg-muted/40">
-                <span className="h-2 w-2 rounded-full bg-[#1877F2] shrink-0" />
-                <span className="truncate">Facebook: <strong className="font-semibold text-foreground">{contact.fb_name}</strong></span>
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMergeOpen(true)}
-              className="w-full mt-2 gap-2 text-xs h-8 text-muted-foreground hover:text-foreground"
-            >
-              <GitMerge className="h-3.5 w-3.5" />
-              Merge Contact Profile
-            </Button>
           </div>
 
-          <MergeContactDialog
-            open={mergeOpen}
-            onOpenChange={setMergeOpen}
+          {/* Connected Channels & Omnichannel Links */}
+          <div className="mt-4 rounded-xl border border-border/80 bg-muted/20 p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5 text-primary" />
+                Connected Channels
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLinkOpen(true)}
+                className="h-6 px-2 text-[11px] gap-1 text-primary hover:text-primary"
+              >
+                <Plus className="h-3 w-3" />
+                Connect
+              </Button>
+            </div>
+
+            {/* Current contact channel pill */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-card border border-border/60 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ChannelIcon
+                  channel={contact.ig_user_id ? 'instagram' : contact.fb_page_scoped_id ? 'facebook' : 'whatsapp'}
+                  size="sm"
+                  className={contact.ig_user_id ? 'text-pink-500' : contact.fb_page_scoped_id ? 'text-blue-500' : 'text-emerald-500'}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {contact.name || contactHandle(contact)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {contact.ig_username ? `@${contact.ig_username}` : contact.fb_name || contactHandle(contact)} (Active)
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                This Thread
+              </span>
+            </div>
+
+            {/* Linked contacts list */}
+            {linkedContacts.length > 0 ? (
+              <div className="space-y-1.5">
+                {linkedContacts.map((linked) => (
+                  <div
+                    key={linked.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-card/60 border border-border/50 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ChannelIcon
+                        channel={linked.channel}
+                        size="sm"
+                        className={linked.channel === 'instagram' ? 'text-pink-500' : linked.channel === 'facebook' ? 'text-blue-500' : 'text-emerald-500'}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {linked.name || linked.phone || 'Contact'}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {linked.ig_username ? `@${linked.ig_username}` : linked.fb_name || linked.phone || ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {linked.conversation_id && onOpenConversation && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onOpenConversation(linked.conversation_id!)}
+                          title="Open conversation thread"
+                          className="h-6 w-6 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleUnlink(linked.id)}
+                        disabled={unlinkingId === linked.id}
+                        title="Unlink channel"
+                        className="h-6 w-6 p-0 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      >
+                        <Unlink className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground px-1 py-1">
+                No other channels linked yet. Auto-links when phone or email matches in chat.
+              </p>
+            )}
+          </div>
+
+          <LinkContactDialog
+            open={linkOpen}
+            onOpenChange={setLinkOpen}
             primaryContact={contact}
-            onMerged={fetchContactData}
+            onLinked={fetchContactData}
           />
 
           {/* Divider */}

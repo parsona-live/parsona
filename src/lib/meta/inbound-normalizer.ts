@@ -1,12 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   extractPhoneAndEmail,
+  extractNameFromText,
   findContactBySocialId,
   findContactByPhone,
   findContactByEmail,
-  linkSocialIdToContact,
   createSocialContact,
+  linkContacts,
 } from './identity'
+import { getDecryptedChannelToken, fetchSenderProfile } from './channels'
 import type { ChannelType, Contact, Conversation, Message, MetaChannelConnection } from '@/types'
 
 export interface MetaMessagingEvent {
@@ -72,56 +74,134 @@ export async function processInboundMetaMessage(
   const connection = connData as MetaChannelConnection
   const accountId = connection.account_id
 
+  // 1.5. Resolve profile info from Meta Graph API
+  const channelToken = await getDecryptedChannelToken(connection.id, accountId).catch((err) => {
+    console.error(`[processInboundMetaMessage] Failed to decrypt channel token for connection ${connection.id}:`, err)
+    return null
+  })
+  console.log(`[processInboundMetaMessage] Channel token loaded: ${!!channelToken}, page_id: ${connection.page_id}`)
+
+  const profile = channelToken
+    ? await fetchSenderProfile(channel, senderId, channelToken, connection.page_id)
+    : null
+  console.log(`[processInboundMetaMessage] Resolved profile from Meta:`, JSON.stringify(profile))
+
   // 2. Identify or auto-link contact
   let contact = await findContactBySocialId(db, accountId, channel, senderId)
   let autoLinked = false
 
-  // If contact wasn't found by social ID, check if text has phone/email to match existing WhatsApp contact
+  const extractedName = extractNameFromText(text)
   const { phones, emails } = extractPhoneAndEmail(text)
 
-  if (!contact && phones.length > 0) {
+  console.log(`[processInboundMetaMessage] Extracted from message text "${text}":`, {
+    extractedName,
+    phones,
+    emails,
+  })
+
+  // Check if we can find a matching WhatsApp contact by phone or email
+  let matchingContact: Contact | null = null
+  if (phones.length > 0) {
     for (const phone of phones) {
-      const match = await findContactByPhone(db, accountId, phone)
-      if (match) {
-        contact = await linkSocialIdToContact(db, accountId, match.id, {
-          channel,
-          socialId: senderId,
-        })
-        autoLinked = true
-        break
-      }
+      matchingContact = await findContactByPhone(db, accountId, phone)
+      if (matchingContact) break
     }
   }
-
-  if (!contact && emails.length > 0) {
+  if (!matchingContact && emails.length > 0) {
     for (const email of emails) {
-      const match = await findContactByEmail(db, accountId, email)
-      if (match) {
-        contact = await linkSocialIdToContact(db, accountId, match.id, {
-          channel,
-          socialId: senderId,
-        })
-        autoLinked = true
-        break
-      }
+      matchingContact = await findContactByEmail(db, accountId, email)
+      if (matchingContact) break
     }
   }
 
-  // If still not linked, create a new social contact
+  if (matchingContact) {
+    console.log(`[processInboundMetaMessage] Found matching contact for auto-link: ID=${matchingContact.id}, Name=${matchingContact.name}`)
+  }
+
   if (!contact) {
+    // Create new contact with real profile name, customer-stated name, or avatar
+    const name =
+      profile?.name ||
+      extractedName ||
+      (profile?.username
+        ? `@${profile.username}`
+        : channel === 'instagram'
+          ? 'Instagram User'
+          : 'Facebook User')
+
+    console.log(`[processInboundMetaMessage] Creating new contact with name: "${name}"`)
     contact = await createSocialContact(db, accountId, connection.user_id, {
       channel,
       socialId: senderId,
+      name,
+      username: profile?.username || null,
+      avatarUrl: profile?.profilePic || null,
+      linkedContactId: matchingContact?.id || null,
     })
-  } else if (!autoLinked && (phones.length > 0 || emails.length > 0)) {
-    // If contact already exists but they just provided their phone or email, enrich contact record
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if ((!contact.phone || contact.phone === '') && phones.length > 0) {
-      updates.phone = phones[0]
+
+    const initialUpdates: Record<string, unknown> = {}
+    if (emails.length > 0) initialUpdates.email = emails[0]
+    if (phones.length > 0) initialUpdates.phone = phones[0]
+    if (Object.keys(initialUpdates).length > 0) {
+      await db.from('contacts').update(initialUpdates).eq('id', contact.id)
+      contact = { ...contact, ...initialUpdates } as Contact
+      console.log(`[processInboundMetaMessage] Initialized contact email/phone:`, initialUpdates)
     }
+
+    if (matchingContact) {
+      autoLinked = true
+    }
+  } else {
+    // Contact exists. Update profile name/avatar if missing or default
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    const isDefaultName =
+      !contact.name ||
+      contact.name === 'Facebook User' ||
+      contact.name === 'Instagram User'
+
+    if (isDefaultName) {
+      if (profile?.name) {
+        console.log(`[processInboundMetaMessage] Updating default name to Meta profile name: "${profile.name}"`)
+        updates.name = profile.name
+      } else if (extractedName) {
+        console.log(`[processInboundMetaMessage] Updating default name to customer-stated name: "${extractedName}"`)
+        updates.name = extractedName
+      } else if (
+        matchingContact?.name &&
+        matchingContact.name !== 'Facebook User' &&
+        matchingContact.name !== 'Instagram User'
+      ) {
+        console.log(`[processInboundMetaMessage] Updating default name to matching contact name: "${matchingContact.name}"`)
+        updates.name = matchingContact.name
+      }
+    }
+
     if (!contact.email && emails.length > 0) {
+      console.log(`[processInboundMetaMessage] Updating contact email: "${emails[0]}"`)
       updates.email = emails[0]
     }
+    if (!contact.phone && phones.length > 0) {
+      console.log(`[processInboundMetaMessage] Updating contact phone: "${phones[0]}"`)
+      updates.phone = phones[0]
+    }
+    if (!contact.avatar_url && profile?.profilePic) {
+      updates.avatar_url = profile.profilePic
+    }
+    if (channel === 'instagram' && !contact.ig_username && profile?.username) {
+      updates.ig_username = profile.username
+    }
+    if (channel === 'facebook' && !contact.fb_name && (profile?.name || extractedName)) {
+      updates.fb_name = profile?.name || extractedName
+    }
+
+    // Link to matching contact if found and not already linked
+    if (matchingContact && matchingContact.id !== contact.id && !contact.linked_contact_id) {
+      await linkContacts(db, accountId, matchingContact.id, contact.id).catch(console.warn)
+      contact.linked_contact_id = matchingContact.id
+      autoLinked = true
+      console.log(`[processInboundMetaMessage] Linked contact ${contact.id} to contact ${matchingContact.id}`)
+    }
+
     if (Object.keys(updates).length > 1) {
       const { data: updated } = await db
         .from('contacts')
@@ -130,6 +210,7 @@ export async function processInboundMetaMessage(
         .select()
         .single()
       if (updated) contact = updated as Contact
+      console.log(`[processInboundMetaMessage] Successfully applied contact updates:`, updates)
     }
   }
 

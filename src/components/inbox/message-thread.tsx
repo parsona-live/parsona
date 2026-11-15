@@ -28,6 +28,9 @@ import {
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
+  MoreVertical,
+  Trash2,
+  Eraser,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { useTranslations } from "next-intl";
@@ -62,6 +65,9 @@ import {
   templateNamesInMessages,
 } from "@/lib/whatsapp/template-message-view";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
+import { AvatarChannelBadge, ChannelPillBadge } from "@/components/channels/channel-badge";
+import { DeleteConversationDialog } from "./delete-conversation-dialog";
+import { ClearChatDialog } from "./clear-chat-dialog";
 import { resolveAssignmentResult } from "@/lib/inbox/assignment";
 import {
   businessReactionOn,
@@ -128,6 +134,8 @@ interface MessageThreadProps {
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
+  onDeleteConversation?: (conversationId: string, contactDeleted: boolean) => void;
+  onClearConversation?: (conversationId: string) => void;
 }
 
 function formatDateSeparator(dateStr: string, t: ReturnType<typeof useTranslations>): string {
@@ -187,6 +195,8 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  onDeleteConversation,
+  onClearConversation,
 }: MessageThreadProps) {
   const t = useTranslations("Inbox.messageThread");
   const tTimer = useTranslations("Inbox.sessionTimer");
@@ -195,6 +205,8 @@ export function MessageThread({
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const [olderPages, setOlderPages] = useState<{
@@ -1049,27 +1061,17 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-            {displayName.charAt(0).toUpperCase()}
+          <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+            {contact?.avatar_url ? (
+              <img src={contact.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              displayName.charAt(0).toUpperCase()
+            )}
+            <AvatarChannelBadge channel={conversation?.channel} />
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-foreground flex items-center gap-1.5">
               {displayName}
-              {conversation?.channel === 'instagram' && (
-                <span className="rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">
-                  Instagram
-                </span>
-              )}
-              {conversation?.channel === 'facebook' && (
-                <span className="rounded-full bg-[#1877F2] px-1.5 py-0.5 text-[9px] font-semibold text-white">
-                  Messenger
-                </span>
-              )}
-              {(conversation?.channel === 'whatsapp' || !conversation?.channel) && (
-                <span className="rounded-full bg-[#25D366] px-1.5 py-0.5 text-[9px] font-semibold text-white">
-                  WhatsApp
-                </span>
-              )}
             </h2>
             <p className="truncate text-xs text-muted-foreground">
               {contactHandle(contact)}
@@ -1232,6 +1234,33 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Conversation Actions Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Conversation actions"
+              className="inline-flex items-center justify-center h-7 w-7 text-xs rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 border-border bg-popover">
+              <DropdownMenuItem
+                onClick={() => setClearDialogOpen(true)}
+                className="text-sm gap-2 cursor-pointer text-amber-600 dark:text-amber-400 focus:text-amber-600"
+              >
+                <Eraser className="h-4 w-4" />
+                Clear Chat History
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-sm gap-2 cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Conversation
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -1362,6 +1391,24 @@ export function MessageThread({
         activeId={mediaMessageId}
         onActiveIdChange={handleMediaChange}
         contactLabel={contactDisplayName}
+      />
+
+      <DeleteConversationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        conversation={conversation}
+        onDeleted={(convId, contactDeleted) => {
+          onDeleteConversation?.(convId, contactDeleted);
+        }}
+      />
+
+      <ClearChatDialog
+        open={clearDialogOpen}
+        onOpenChange={setClearDialogOpen}
+        conversation={conversation}
+        onCleared={(convId) => {
+          onClearConversation?.(convId);
+        }}
       />
     </div>
   );

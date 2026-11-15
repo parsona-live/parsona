@@ -543,6 +543,16 @@ function InboxPageInner() {
     [activeConversation]
   );
 
+  const handleOpenConversationById = useCallback(
+    (convId: string) => {
+      const target = conversations.find((c) => c.id === convId);
+      if (target) {
+        handleSelectConversation(target);
+      }
+    },
+    [conversations, handleSelectConversation]
+  );
+
   const handleAssignChange = useCallback(
     (conversationId: string, assignedAgentId: string | null) => {
       setConversations((prev) =>
@@ -561,6 +571,36 @@ function InboxPageInner() {
       }
     },
     [activeConversation]
+  );
+
+  const handleDeleteConversation = useCallback(
+    (conversationId: string, _contactDeleted: boolean) => {
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (activeConversation?.id === conversationId) {
+        handleCloseConversation();
+      }
+    },
+    [activeConversation?.id, handleCloseConversation]
+  );
+
+  const handleClearConversation = useCallback(
+    (conversationId: string) => {
+      if (activeConversation?.id === conversationId) {
+        setMessages([]);
+      }
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                last_message_text: undefined,
+                unread_count: 0,
+              }
+            : c
+        )
+      );
+    },
+    [activeConversation?.id]
   );
 
   // On mobile (<lg) we show a SINGLE pane — either the list or the
@@ -600,6 +640,8 @@ function InboxPageInner() {
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
             initialFilter={parseInboxFilter(searchParams.get("filter"))}
+            onDeleteConversation={handleDeleteConversation}
+            onClearConversation={handleClearConversation}
           />
         </div>
 
@@ -634,6 +676,8 @@ function InboxPageInner() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            onDeleteConversation={handleDeleteConversation}
+            onClearConversation={handleClearConversation}
           />
         </div>
 
@@ -643,7 +687,10 @@ function InboxPageInner() {
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
           <div className="hidden lg:block">
-            <ContactSidebar contact={activeContact} />
+            <ContactSidebar
+              contact={activeContact}
+              onOpenConversation={handleOpenConversationById}
+            />
           </div>
         )}
       </div>

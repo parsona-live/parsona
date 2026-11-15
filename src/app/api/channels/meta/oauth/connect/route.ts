@@ -26,15 +26,16 @@ export async function GET(req: Request) {
     }
     const state = Buffer.from(JSON.stringify(stateObj)).toString('base64url')
 
-    const scopes = [
+    // Core Facebook Page & Instagram Messenger permissions
+    const defaultScopes = [
       'pages_show_list',
       'pages_read_engagement',
       'pages_manage_metadata',
       'pages_messaging',
-      'instagram_basic',
       'instagram_manage_messages',
-      'instagram_manage_comments',
-    ].join(',')
+    ]
+
+    const scopes = process.env.META_OAUTH_SCOPES || defaultScopes.join(',')
 
     const oauthUrl = new URL('https://www.facebook.com/v21.0/dialog/oauth')
     oauthUrl.searchParams.set('client_id', metaAppId)

@@ -40,6 +40,53 @@ export function extractPhoneAndEmail(text: string): ExtractedIdentifiers {
 }
 
 /**
+ * Extract person name from conversational text (e.g. "My name is Sultan Alam", "I am Sultan Alam", "Name: Sultan Alam").
+ */
+export function extractNameFromText(text: string): string | null {
+  if (!text) return null
+  const cleaned = text.trim()
+
+  const patterns = [
+    /(?:my\s+name\s+is|i\s+am|i'm|this\s+is|call\s+me)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'\-]{1,40}?)(?=[,\.\n\r]|\s+(?:and|my|email|phone|whatsapp|contact|pls|please)|$)/i,
+    /(?:^|\n)\s*name\s*[:\-]\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'\-]{1,40}?)(?=[,\.\n\r]|\s+(?:and|email|phone|whatsapp|contact)|$)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern)
+    if (match && match[1]) {
+      const candidate = match[1].trim()
+      const lower = candidate.toLowerCase()
+      const blacklist = [
+        'interested',
+        'looking',
+        'here',
+        'calling',
+        'inquiring',
+        'texting',
+        'writing',
+        'asking',
+        'good',
+        'fine',
+        'ok',
+        'okay',
+        'yes',
+        'no',
+        'hello',
+        'hi',
+      ]
+      if (candidate.length >= 2 && !blacklist.includes(lower)) {
+        return candidate
+          .split(/\s+/)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+          .join(' ')
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * Find contact by social ID (Instagram IGSID or Facebook PSID) within an account.
  */
 export async function findContactBySocialId(
@@ -107,6 +154,8 @@ export interface LinkSocialParams {
   socialId: string
   username?: string | null
   name?: string | null
+  avatarUrl?: string | null
+  linkedContactId?: string | null
 }
 
 /**
@@ -128,6 +177,9 @@ export async function linkSocialIdToContact(
   } else if (params.channel === 'facebook') {
     updatePayload.fb_page_scoped_id = params.socialId
     if (params.name) updatePayload.fb_name = params.name
+  }
+  if (params.avatarUrl) {
+    updatePayload.avatar_url = params.avatarUrl
   }
 
   const { data, error } = await db
@@ -151,11 +203,15 @@ export async function createSocialContact(
   userId: string,
   params: LinkSocialParams,
 ): Promise<Contact> {
+  const defaultName = params.name || (params.username ? `@${params.username.replace(/^@/, '')}` : (params.channel === 'instagram' ? 'Instagram User' : 'Facebook User'))
+
   const insertPayload: Record<string, unknown> = {
     account_id: accountId,
     user_id: userId,
     phone: '', // Tolerated by migration 022 partial index
-    name: params.name || (params.username ? `@${params.username.replace(/^@/, '')}` : `${params.channel} User`),
+    name: defaultName,
+    avatar_url: params.avatarUrl || null,
+    linked_contact_id: params.linkedContactId || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
@@ -176,6 +232,112 @@ export async function createSocialContact(
 
   if (error) throw error
   return data as Contact
+}
+
+/**
+ * Link two contacts non-destructively so they share identity and AI context,
+ * while preserving both individual contacts and conversation threads in the Inbox.
+ */
+export async function linkContacts(
+  db: SupabaseClient,
+  accountId: string,
+  primaryId: string,
+  secondaryId: string,
+): Promise<{ primary: Contact; secondary: Contact }> {
+  if (primaryId === secondaryId) {
+    throw new Error('Cannot link a contact to itself')
+  }
+
+  // 1. Fetch both contacts
+  const { data: primary, error: pErr } = await db
+    .from('contacts')
+    .select('*')
+    .eq('id', primaryId)
+    .eq('account_id', accountId)
+    .single()
+
+  const { data: secondary, error: sErr } = await db
+    .from('contacts')
+    .select('*')
+    .eq('id', secondaryId)
+    .eq('account_id', accountId)
+    .single()
+
+  if (pErr || !primary || sErr || !secondary) {
+    throw new Error('One or both contacts not found')
+  }
+
+  // If primary itself already points to a parent linked_contact_id, resolve root primary
+  const rootPrimaryId = primary.linked_contact_id || primary.id
+
+  // 2. Set secondary's linked_contact_id to rootPrimaryId
+  const { data: updatedSecondary, error: updErr } = await db
+    .from('contacts')
+    .update({
+      linked_contact_id: rootPrimaryId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', secondaryId)
+    .eq('account_id', accountId)
+    .select()
+    .single()
+
+  if (updErr) throw updErr
+
+  return {
+    primary: primary as Contact,
+    secondary: updatedSecondary as Contact,
+  }
+}
+
+/**
+ * Unlink a contact from its linked identity.
+ */
+export async function unlinkContact(
+  db: SupabaseClient,
+  accountId: string,
+  contactId: string,
+): Promise<boolean> {
+  const { error } = await db
+    .from('contacts')
+    .update({
+      linked_contact_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', contactId)
+    .eq('account_id', accountId)
+
+  if (error) throw error
+  return true
+}
+
+/**
+ * Get all linked contacts for a given contact ID.
+ */
+export async function getLinkedContacts(
+  db: SupabaseClient,
+  accountId: string,
+  contactId: string,
+): Promise<Contact[]> {
+  const { data: target } = await db
+    .from('contacts')
+    .select('*')
+    .eq('id', contactId)
+    .eq('account_id', accountId)
+    .single()
+
+  if (!target) return []
+
+  const rootId = target.linked_contact_id || target.id
+
+  const { data: linked } = await db
+    .from('contacts')
+    .select('*')
+    .eq('account_id', accountId)
+    .or(`id.eq.${rootId},linked_contact_id.eq.${rootId}`)
+    .order('created_at', { ascending: true })
+
+  return (linked || []).filter((c) => c.id !== contactId) as Contact[]
 }
 
 /**

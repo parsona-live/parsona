@@ -125,6 +125,8 @@ export interface Contact {
   fb_page_scoped_id?: string | null;
   /** Facebook user display name. */
   fb_name?: string | null;
+  /** Linked primary or parent contact ID for omnichannel unified context. */
+  linked_contact_id?: string | null;
   name?: string;
   email?: string;
   company?: string;

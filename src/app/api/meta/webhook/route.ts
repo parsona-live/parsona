@@ -7,6 +7,7 @@ import {
 import { readCappedBody } from '@/lib/whatsapp/webhook-body'
 import { processInboundMetaMessage, type MetaMessagingEvent } from '@/lib/meta/inbound-normalizer'
 import { processInboundComment, type InboundCommentEvent } from '@/lib/meta/comment-to-dm'
+import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 
 export const maxDuration = 60
 
@@ -84,6 +85,7 @@ export async function POST(req: Request) {
   }
 
   console.log('[Meta Webhook POST] Object:', payload.object, 'Entries:', payload.entry?.length)
+  console.log('[Meta Webhook POST] Full Inbound Payload:\n', JSON.stringify(payload, null, 2))
 
   if (payload.object !== 'page' && payload.object !== 'instagram') {
     return NextResponse.json({ status: 'ignored_object' })
@@ -99,9 +101,23 @@ export async function POST(req: Request) {
         // Direct messages
         if (entry.messaging && entry.messaging.length > 0) {
           for (const event of entry.messaging) {
-            await processInboundMetaMessage(db, channel, event).catch((err) => {
+            const inboundResult = await processInboundMetaMessage(db, channel, event).catch((err) => {
               console.error('[Meta Webhook] Failed to process messaging event:', err)
+              return null
             })
+
+            if (inboundResult) {
+              // Trigger AI auto-reply if enabled
+              await dispatchInboundToAiReply({
+                accountId: inboundResult.connection.account_id,
+                conversationId: inboundResult.conversation.id,
+                contactId: inboundResult.contact.id,
+                configOwnerUserId: inboundResult.connection.user_id,
+                inboundMessageId: inboundResult.message.message_id || undefined,
+              }).catch((err) => {
+                console.warn('[Meta Webhook] AI auto-reply dispatch error:', err)
+              })
+            }
           }
         }
 

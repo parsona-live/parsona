@@ -33,14 +33,32 @@ export async function buildConversationContext(
 ): Promise<ChatMessage[]> {
   let conversationIds = [conversationId]
 
-  // If contactId is provided, pull conversation IDs across all channels
+  // If contactId is provided, pull conversation IDs across all linked contacts and channels
   if (contactId) {
+    const { data: contact } = await db
+      .from('contacts')
+      .select('id, linked_contact_id')
+      .eq('id', contactId)
+      .maybeSingle()
+
+    const rootId = contact?.linked_contact_id || contactId
+
+    const { data: relatedContacts } = await db
+      .from('contacts')
+      .select('id')
+      .or(`id.eq.${rootId},linked_contact_id.eq.${rootId}`)
+
+    const allContactIds = relatedContacts && relatedContacts.length > 0
+      ? relatedContacts.map((c) => c.id)
+      : [contactId]
+
     const { data: convs } = await db
       .from('conversations')
       .select('id')
-      .eq('contact_id', contactId)
+      .in('contact_id', allContactIds)
+
     if (convs && convs.length > 0) {
-      conversationIds = convs.map((c) => c.id)
+      conversationIds = Array.from(new Set([...conversationIds, ...convs.map((c) => c.id)]))
     }
   }
 

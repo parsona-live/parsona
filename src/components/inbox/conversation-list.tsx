@@ -10,7 +10,7 @@ import {
 import { applyInboxFilter, type InboxFilter } from "@/lib/inbox/inbox-filters";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, X, MoreVertical, Trash2, Eraser } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -19,10 +19,15 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationListSkeleton } from "@/components/skeletons/page-skeletons";
+
+import { AvatarChannelBadge, ChannelIcon } from "@/components/channels/channel-badge";
+import { DeleteConversationDialog } from "./delete-conversation-dialog";
+import { ClearChatDialog } from "./clear-chat-dialog";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -37,6 +42,8 @@ interface ConversationListProps {
    */
   resyncToken?: number;
   initialFilter?: InboxFilter;
+  onDeleteConversation?: (conversationId: string, contactDeleted: boolean) => void;
+  onClearConversation?: (conversationId: string) => void;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -72,44 +79,7 @@ function getAvatarColor(seed: string) {
   return AVATAR_COLORS[Math.abs(hash)];
 }
 
-function ChannelBadge({ channel }: { channel?: string | null }) {
-  if (channel === 'instagram') {
-    return (
-      <span
-        title="Instagram DM"
-        className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-xs ring-1 ring-background"
-      >
-        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-          <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-        </svg>
-      </span>
-    );
-  }
-  if (channel === 'facebook') {
-    return (
-      <span
-        title="Facebook Messenger"
-        className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#1877F2] text-white shadow-xs ring-1 ring-background"
-      >
-        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.477 2 2 6.145 2 11.258c0 2.908 1.455 5.503 3.735 7.159V22l3.435-1.884c.915.253 1.884.391 2.83.391 5.523 0 10-4.145 10-9.249C22 6.145 17.523 2 12 2zm1.002 12.441-2.565-2.736-5.008 2.736 5.512-5.855 2.628 2.736 4.945-2.736-5.512 5.855z" />
-        </svg>
-      </span>
-    );
-  }
-  return (
-    <span
-      title="WhatsApp"
-      className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xs ring-1 ring-background"
-    >
-      <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-      </svg>
-    </span>
-  );
-}
+
 
 
 export function ConversationList({
@@ -119,6 +89,8 @@ export function ConversationList({
   onConversationsLoaded,
   resyncToken = 0,
   initialFilter = "all",
+  onDeleteConversation,
+  onClearConversation,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
   
@@ -137,6 +109,8 @@ export function ConversationList({
   const [filter, setFilter] = useState<InboxFilter>(initialFilter);
   const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook'>('all');
   const [now, setNow] = useState(() => Date.now());
+  const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
+  const [clearTarget, setClearTarget] = useState<Conversation | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -318,7 +292,7 @@ export function ConversationList({
               { key: 'all', label: 'All' },
               { key: 'whatsapp', label: 'WhatsApp' },
               { key: 'instagram', label: 'Instagram' },
-              { key: 'facebook', label: 'Facebook' },
+              { key: 'facebook', label: 'Messenger' },
             ] as const
           ).map((ch) => (
             <button
@@ -326,12 +300,27 @@ export function ConversationList({
               type="button"
               onClick={() => setChannelFilter(ch.key)}
               className={cn(
-                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors shrink-0',
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors shrink-0',
                 channelFilter === ch.key
                   ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                   : 'bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
+              {ch.key !== 'all' && (
+                <ChannelIcon
+                  channel={ch.key}
+                  size="xs"
+                  className={cn(
+                    channelFilter === ch.key
+                      ? 'text-primary-foreground'
+                      : ch.key === 'instagram'
+                      ? 'text-pink-500'
+                      : ch.key === 'facebook'
+                      ? 'text-[#0084FF]'
+                      : 'text-emerald-500'
+                  )}
+                />
+              )}
               {ch.label}
             </button>
           ))}
@@ -512,12 +501,32 @@ export function ConversationList({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
+                onDeleteClick={(c) => setDeleteTarget(c)}
+                onClearClick={(c) => setClearTarget(c)}
                 t={t}
               />
             ))}
           </div>
         )}
       </ScrollArea>
+
+      <DeleteConversationDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        conversation={deleteTarget}
+        onDeleted={(convId, contactDeleted) => {
+          onDeleteConversation?.(convId, contactDeleted);
+        }}
+      />
+
+      <ClearChatDialog
+        open={Boolean(clearTarget)}
+        onOpenChange={(open) => !open && setClearTarget(null)}
+        conversation={clearTarget}
+        onCleared={(convId) => {
+          onClearConversation?.(convId);
+        }}
+      />
     </div>
   );
 }
@@ -526,6 +535,8 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
+  onDeleteClick: (conversation: Conversation) => void;
+  onClearClick: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
 }
 
@@ -533,6 +544,8 @@ function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  onDeleteClick,
+  onClearClick,
   t,
 }: ConversationItemProps) {
   const contact = conversation.contact;
@@ -551,11 +564,18 @@ function ConversationItem({
     : "";
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
       className={cn(
-        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50",
+        "flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/50 cursor-pointer group relative",
         isActive && "border-l-2 border-primary bg-muted/70"
       )}
     >
@@ -577,7 +597,7 @@ function ConversationItem({
             initials
           )}
         </span>
-        <ChannelBadge channel={conversation.channel} />
+        <AvatarChannelBadge channel={conversation.channel} />
       </span>
 
       {/* Content */}
@@ -586,7 +606,39 @@ function ConversationItem({
           <span className="truncate text-sm font-medium text-foreground">
             {displayName}
           </span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
+          <span className="flex items-center gap-1 shrink-0">
+            <span className="text-[10px] text-muted-foreground">{timeAgo}</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Conversation actions"
+                onClick={(e) => e.stopPropagation()}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-44 border-border bg-popover"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenuItem
+                  onClick={() => onClearClick(conversation)}
+                  className="text-xs gap-2 cursor-pointer text-amber-600 dark:text-amber-400 focus:text-amber-600"
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                  Clear Chat
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem
+                  onClick={() => onDeleteClick(conversation)}
+                  className="text-xs gap-2 cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Chat
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
         </span>
         <span className="mt-0.5 flex items-center justify-between gap-2">
           <span className="truncate block text-xs text-muted-foreground">
@@ -614,6 +666,6 @@ function ConversationItem({
             </span>
         </span>
       </span>
-    </button>
+    </div>
   );
 }

@@ -137,8 +137,10 @@ export function buildSystemPrompt(args: {
   knowledge?: string[]
   /** Optional explicit persona configuration. If omitted, parsed from userPrompt. */
   persona?: AiPersona
+  /** Contact name if known, or undefined/null if default social handle. */
+  contactName?: string | null
 }): string {
-  const { userPrompt, mode, knowledge, persona: explicitPersona } = args
+  const { userPrompt, mode, knowledge, persona: explicitPersona, contactName } = args
   const { persona: parsedPersona, cleanPrompt } = parseAiPersona(userPrompt)
   const persona = explicitPersona || parsedPersona
 
@@ -204,6 +206,17 @@ export function buildSystemPrompt(args: {
         `Do NOT hand off for language requests (like asking to talk in Marathi, Hindi, or English), greetings, small talk, or polite questions — answer helpfully in the requested language. ` +
         `When handing off, output exactly ${HANDOFF_SENTINEL} and nothing else.`,
     )
+
+    if (
+      contactName === 'Facebook User' ||
+      contactName === 'Instagram User' ||
+      !contactName
+    ) {
+      parts.push(
+        'The customer is messaging via social channels and their identity is not yet verified in the CRM. ' +
+          'In your initial reply or greeting, politely ask for their name and email/phone number (e.g. "Hello! May I please have your name and email or phone number so we can assist you better?") so our system can link and personalize their record.',
+      )
+    }
   }
 
   if (cleanPrompt) {

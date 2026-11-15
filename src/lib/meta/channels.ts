@@ -66,6 +66,152 @@ export async function fetchLinkedInstagramAccount(
   return data.instagram_business_account || null
 }
 
+export interface SenderProfileResult {
+  name?: string | null
+  firstName?: string | null
+  lastName?: string | null
+  username?: string | null
+  profilePic?: string | null
+}
+
+/**
+ * Fetch sender profile information (name, avatar, username) from Meta Graph API.
+ */
+export async function fetchSenderProfile(
+  channel: ChannelType,
+  senderId: string,
+  pageAccessToken: string,
+  pageId?: string,
+): Promise<SenderProfileResult | null> {
+  console.log(`[fetchSenderProfile] Starting profile resolution for channel=${channel}, senderId=${senderId}, pageId=${pageId || 'none'}`)
+  try {
+    // 1. Direct user profile node lookup (Messenger Platform User Profile API)
+    const fields = channel === 'instagram'
+      ? 'name,username,profile_pic'
+      : 'first_name,last_name,profile_pic'
+
+    const directUrl = `${GRAPH_BASE_URL}/${senderId}?fields=${fields}&access_token=${encodeURIComponent(pageAccessToken)}`
+    console.log(`[fetchSenderProfile] Direct profile lookup URL: ${GRAPH_BASE_URL}/${senderId}?fields=${fields}`)
+    const directRes = await fetch(directUrl)
+    console.log(`[fetchSenderProfile] Direct profile lookup HTTP status: ${directRes.status} ${directRes.statusText}`)
+
+    if (directRes.ok) {
+      const data = await directRes.json()
+      console.log(`[fetchSenderProfile] Direct profile lookup response:`, JSON.stringify(data, null, 2))
+
+      const hasFields = data && Object.keys(data).length > 0
+      if (!hasFields) {
+        console.warn(
+          `[fetchSenderProfile] Meta returned an empty object {} for sender ${senderId}. ` +
+          `According to Meta docs, an empty object is returned when:\n` +
+          `  1. The app lacks Advanced Access for 'Business Asset User Profile Access' (BAUPA) via App Review,\n` +
+          `  2. Fields have not been requested under Page Settings > Advanced Messaging > 'Info About People', or\n` +
+          `  3. The user has not opted in (e.g., clicked an ad without replying).`
+        )
+      }
+
+      const resolvedName =
+        (data.first_name ? `${data.first_name} ${data.last_name || ''}`.trim() : null) ||
+        data.name ||
+        null
+
+      if (resolvedName) {
+        console.log(`[fetchSenderProfile] Successfully resolved name from direct lookup: "${resolvedName}"`)
+        return {
+          name: resolvedName,
+          firstName: data.first_name || null,
+          lastName: data.last_name || null,
+          username: data.username || null,
+          profilePic: data.profile_pic || null,
+        }
+      }
+    } else {
+      const errText = await directRes.text()
+      console.error(`[fetchSenderProfile] Direct lookup failed (${directRes.status} ${directRes.statusText}):`, errText)
+      try {
+        const errJson = JSON.parse(errText)
+        if (errJson?.error?.code === 2018218) {
+          console.warn(
+            `[fetchSenderProfile] Meta Error 2018218: 'No profile available for this user'. ` +
+            `This Messenger account was created using a phone number, which Meta User Profile API does not support.`
+          )
+        }
+      } catch {
+        // Response was not JSON
+      }
+    }
+
+    // 2. Targeted conversation lookup by sender user_id if pageId is present
+    if (pageId) {
+      const targetConvUrl = `${GRAPH_BASE_URL}/${pageId}/conversations?user_id=${senderId}&fields=participants{id,name}&access_token=${encodeURIComponent(pageAccessToken)}`
+      console.log(`[fetchSenderProfile] Querying target conversation: ${GRAPH_BASE_URL}/${pageId}/conversations?user_id=${senderId}`)
+      const targetRes = await fetch(targetConvUrl)
+      console.log(`[fetchSenderProfile] Target conversation HTTP status: ${targetRes.status}`)
+      if (targetRes.ok) {
+        const targetData = await targetRes.json()
+        console.log(`[fetchSenderProfile] Target conversation response:`, JSON.stringify(targetData))
+        for (const thread of targetData.data || []) {
+          const participants: Array<{ id: string; name: string }> = thread.participants?.data || []
+          const match = participants.find((p) => p.id === senderId)
+            || participants.find((p) => p.id !== pageId)
+
+          if (match && match.name) {
+            console.log(`[fetchSenderProfile] Successfully resolved name from target conversation: "${match.name}"`)
+            const parts = match.name.trim().split(/\s+/)
+            return {
+              name: match.name,
+              firstName: parts[0] || null,
+              lastName: parts.slice(1).join(' ') || null,
+              username: null,
+              profilePic: null,
+            }
+          }
+        }
+      } else {
+        const targetErr = await targetRes.text()
+        console.log(`[fetchSenderProfile] Target conversation query failed:`, targetErr)
+      }
+    }
+
+    // 3. Fallback: Page Conversations API (scans recent threads for participant info)
+    const convUrl = `${GRAPH_BASE_URL}/me/conversations?fields=participants{id,name}&access_token=${encodeURIComponent(pageAccessToken)}`
+    console.log(`[fetchSenderProfile] Querying /me/conversations...`)
+    const convRes = await fetch(convUrl)
+    console.log(`[fetchSenderProfile] /me/conversations HTTP status: ${convRes.status}`)
+    if (convRes.ok) {
+      const convData = await convRes.json()
+      console.log(`[fetchSenderProfile] /me/conversations returned ${convData.data?.length || 0} threads:`, JSON.stringify(convData))
+      for (const thread of convData.data || []) {
+        const participants: Array<{ id: string; name: string }> = thread.participants?.data || []
+        // Match specific senderId first, or fallback to the non-page participant
+        const match = participants.find((p) => p.id === senderId)
+          || (pageId ? participants.find((p) => p.id !== pageId) : null)
+
+        if (match && match.name) {
+          console.log(`[fetchSenderProfile] Successfully resolved name from /me/conversations: "${match.name}"`)
+          const parts = match.name.trim().split(/\s+/)
+          return {
+            name: match.name,
+            firstName: parts[0] || null,
+            lastName: parts.slice(1).join(' ') || null,
+            username: null,
+            profilePic: null,
+          }
+        }
+      }
+    } else {
+      const convErr = await convRes.text()
+      console.log(`[fetchSenderProfile] /me/conversations query failed:`, convErr)
+    }
+
+    console.warn(`[fetchSenderProfile] Could not resolve profile for ${channel} ${senderId}`)
+    return null
+  } catch (err) {
+    console.error(`[fetchSenderProfile] Exception while fetching profile for ${channel} ${senderId}:`, err)
+    return null
+  }
+}
+
 /**
  * Subscribe the Facebook Page and linked Instagram account to our App's Webhooks.
  */
