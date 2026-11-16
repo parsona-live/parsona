@@ -336,6 +336,7 @@
     "conversationList": {
       "searchPlaceholder": "Buscar conversaciones...",
       "filterAll": "Todas",
+      "filterMine": "Mías",
       "filterUnread": "Sin leer",
       "filterWaiting": "Esperan respuesta",
       "filterUnassigned": "Sin asignar",
@@ -1702,7 +1703,14 @@
       "removeDialogDesc": "¿Quitar a <bold>{name}</bold> de la cuenta? Se cerrará su sesión en esta cuenta y recibirá una cuenta personal nueva en su próximo inicio de sesión. Su acceso no se elimina.",
       "cancel": "Cancelar",
       "removing": "Quitando...",
-      "removeBtn": "Quitar miembro"
+      "removeBtn": "Quitar miembro",
+      "transferOwnership": "Transferir propiedad",
+      "transferDialogTitle": "Transferir propiedad de la cuenta",
+      "transferDialogDesc": "¿Transferir la propiedad de esta cuenta a <bold>{name}</bold>? Te convertirás en <bold>Administrador</bold>. Solo el nuevo propietario podrá transferir la propiedad nuevamente o eliminar la cuenta.",
+      "transferring": "Transfiriendo...",
+      "transferBtn": "Transferir propiedad",
+      "transferredToast": "Propiedad transferida a {name}",
+      "transferFailed": "No se pudo transferir la propiedad"
     },
     "invite": {
       "inviteCreated": "Invitación creada",
@@ -2088,6 +2096,20 @@
     "security": {
       "title": "Acceso y seguridad",
       "description": "Cambia tu contraseña y cierra sesión en tus dispositivos. Esto mantiene tu cuenta segura."
+    },
+    "dangerZone": {
+      "title": "Zona de peligro",
+      "description": "Acciones irreversibles para tu cuenta.",
+      "deleteAccountTitle": "Eliminar esta cuenta",
+      "deleteAccountDesc": "Elimina permanentemente esta cuenta y todos los contactos, conversaciones, plantillas y automatizaciones asociadas. Esta acción no se puede deshacer.",
+      "deleteBtn": "Eliminar cuenta",
+      "dialogTitle": "Eliminar cuenta",
+      "dialogDesc": "Esta acción es irreversible. Todos los datos, mensajes y configuraciones se borrarán permanentemente. Para confirmar, escribe el nombre de la cuenta <bold>{name}</bold> a continuación:",
+      "confirmPlaceholder": "Ingresa el nombre de la cuenta para confirmar",
+      "deleting": "Eliminando...",
+      "deletedToast": "Cuenta eliminada con éxito",
+      "deleteFailed": "Error al eliminar la cuenta",
+      "cancel": "Cancelar"
     },
     "browserNotifications": {
       "title": "Notificaciones del navegador",
@@ -2861,7 +2883,10 @@
       "nameTooLong": "El nombre de la cuenta debe tener {max} caracteres o menos",
       "updateFailed": "Error al actualizar la cuenta",
       "transferFailed": "Error al transferir la propiedad",
-      "newOwnerInvalid": "newOwnerUserId debe ser un UUID válido"
+      "newOwnerInvalid": "newOwnerUserId debe ser un UUID válido",
+      "confirmNameMismatch": "El nombre de confirmación no coincide con el nombre de la cuenta",
+      "deleteHasMembers": "Todos los demás miembros deben eliminarse antes de eliminar la cuenta",
+      "deleteFailed": "Error al eliminar la cuenta"
     },
     "invitations": {
       "redeemFailed": "Error al aceptar la invitación",

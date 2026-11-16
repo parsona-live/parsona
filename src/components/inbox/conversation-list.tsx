@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import {
   CONVERSATION_SELECT,
   matchesContactFilters,
@@ -9,8 +10,20 @@ import {
 } from "@/lib/inbox/conversations";
 import { applyInboxFilter, type InboxFilter } from "@/lib/inbox/inbox-filters";
 import { cn } from "@/lib/utils";
-import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X, MoreVertical, Trash2, Eraser } from "lucide-react";
+import type { Conversation, ConversationStatus, Tag, Profile } from "@/types";
+import {
+  Search,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Plus,
+  ArrowUpDown,
+  X,
+  MoreVertical,
+  Trash2,
+  Eraser,
+  Check,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -28,18 +41,13 @@ import { ConversationListSkeleton } from "@/components/skeletons/page-skeletons"
 import { AvatarChannelBadge, ChannelIcon } from "@/components/channels/channel-badge";
 import { DeleteConversationDialog } from "./delete-conversation-dialog";
 import { ClearChatDialog } from "./clear-chat-dialog";
+import { NewConversationDialog } from "./new-conversation-dialog";
 
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
-  /**
-   * Increment to force the fetch effect below to refire. The parent
-   * bumps this on realtime reconnect / tab visibility → visible so the
-   * list catches up on any events sent while the WS was disconnected
-   * or the tab was throttled. Optional so existing callers keep working.
-   */
   resyncToken?: number;
   initialFilter?: InboxFilter;
   onDeleteConversation?: (conversationId: string, contactDeleted: boolean) => void;
@@ -79,8 +87,7 @@ function getAvatarColor(seed: string) {
   return AVATAR_COLORS[Math.abs(hash)];
 }
 
-
-
+type SortOption = "newest" | "oldest" | "unread";
 
 export function ConversationList({
   activeConversationId,
@@ -93,49 +100,69 @@ export function ConversationList({
   onClearConversation,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
-  
-  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
-    { label: t("filterAll"), value: "all" },
-    { label: t("filterUnread"), value: "unread" },
-    { label: t("filterWaiting"), value: "waiting" },
-    { label: t("filterUnassigned"), value: "unassigned" },
-    { label: t("filterExpiring"), value: "expiring" },
-    { label: t("filterOpen"), value: "open" },
-    { label: t("filterPending"), value: "pending" },
-    { label: t("filterClosed"), value: "closed" },
-  ], [t]);
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>(initialFilter);
   const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram' | 'facebook'>('all');
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [now, setNow] = useState(() => Date.now());
+
   const [deleteTarget, setDeleteTarget] = useState<Conversation | null>(null);
   const [clearTarget, setClearTarget] = useState<Conversation | null>(null);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const channelScrollRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard shortcut Ctrl+K / Cmd+K to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-  const [loading, setLoading] = useState(true);
-  // Contact-based filters (issue #272). Tags use OR logic (a conversation
-  // matches if its contact carries any selected tag), consistent with
-  // Broadcast audience filtering. Company is an exact match on the field.
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
-  // Keep the latest callback in a ref so the fetch effect below can
-  // have a stable, empty-dep identity. Previously the fetch useCallback
-  // depended on `onConversationsLoaded`, which depends on the parent's
-  // `deepLinkConvId` — so every URL change (including one the parent
-  // triggered via router.replace after a click) caused a fresh
-  // conversations fetch. That extra refetch was the trigger for the
-  // deep-link auto-select running a second time and wiping the active
-  // thread's messages.
-  // Mutation lives in an effect (not render) per React 19's refs rule;
-  // the fetch runs once on mount so it's fine to read the slightly
-  // older value — the very next render updates the ref for any
-  // subsequent async completion.
+  // Fetch profiles for teammate name resolution
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, user_id, full_name, avatar_url, role")
+        .order("full_name");
+      if (!cancelled && data) setProfiles(data as Profile[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const agentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of profiles) {
+      if (p.user_id) map.set(p.user_id, p.full_name);
+    }
+    return map;
+  }, [profiles]);
+
   const onConversationsLoadedRef = useRef(onConversationsLoaded);
   useEffect(() => {
     onConversationsLoadedRef.current = onConversationsLoaded;
@@ -154,13 +181,7 @@ export function ConversationList({
       if (cancelled) return;
 
       if (error) {
-        // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error("Failed to fetch conversations:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+        console.error("Failed to fetch conversations:", error);
         setLoading(false);
         return;
       }
@@ -172,13 +193,9 @@ export function ConversationList({
     return () => {
       cancelled = true;
     };
-    // `resyncToken` is included so the parent can force a refetch when
-    // the realtime channel reconnects or the tab regains focus — catches
-    // up on any events sent while the WS was disconnected or throttled.
   }, [resyncToken]);
 
-  // Tag definitions for the filter picker — loaded once so labels/colours
-  // stay stable regardless of which conversations happen to be loaded.
+  // Load tag definitions
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
@@ -191,9 +208,6 @@ export function ConversationList({
     };
   }, []);
 
-  // Company options are derived from the loaded conversations — there's no
-  // separate companies table, and only companies with a live conversation
-  // are worth offering as an inbox filter.
   const companies = useMemo(() => {
     const set = new Set<string>();
     for (const c of conversations) {
@@ -209,10 +223,37 @@ export function ConversationList({
     return m;
   }, [tags]);
 
-  const filtered = useMemo(() => {
-    let result = applyInboxFilter(conversations, filter, now);
+  // Channel counts
+  const channelCounts = useMemo(() => {
+    let all = conversations.length;
+    let whatsapp = 0;
+    let instagram = 0;
+    let facebook = 0;
+    for (const c of conversations) {
+      const ch = c.channel || "whatsapp";
+      if (ch === "whatsapp") whatsapp++;
+      else if (ch === "instagram") instagram++;
+      else if (ch === "facebook") facebook++;
+    }
+    return { all, whatsapp, instagram, facebook };
+  }, [conversations]);
 
-    // Contact-based filters (tags via OR logic, exact company match).
+  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
+    { label: t("filterAll") || "All Conversations", value: "all" },
+    { label: t("filterMine") || "Mine (Assigned to you)", value: "mine" },
+    { label: t("filterUnread") || "Unread", value: "unread" },
+    { label: t("filterWaiting") || "Waiting for reply", value: "waiting" },
+    { label: t("filterUnassigned") || "Unassigned", value: "unassigned" },
+    { label: t("filterExpiring") || "Reply window closing", value: "expiring" },
+    { label: t("filterOpen") || "Open", value: "open" },
+    { label: t("filterPending") || "Pending", value: "pending" },
+    { label: t("filterClosed") || "Closed", value: "closed" },
+  ], [t]);
+
+  const filtered = useMemo(() => {
+    let result = applyInboxFilter(conversations, filter, now, currentUserId);
+
+    // Contact-based filters
     if (selectedTagIds.length > 0 || selectedCompany !== null) {
       result = result.filter((c) =>
         matchesContactFilters(c, {
@@ -222,10 +263,12 @@ export function ConversationList({
       );
     }
 
-    if (channelFilter !== 'all') {
-      result = result.filter((c) => (c.channel || 'whatsapp') === channelFilter);
+    // Omnichannel channel filter
+    if (channelFilter !== "all") {
+      result = result.filter((c) => (c.channel || "whatsapp") === channelFilter);
     }
 
+    // Search query
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
@@ -236,8 +279,34 @@ export function ConversationList({
       });
     }
 
+    // Sorting
+    if (sortBy === "oldest") {
+      result = [...result].sort((a, b) =>
+        (a.last_message_at ?? "").localeCompare(b.last_message_at ?? "")
+      );
+    } else if (sortBy === "unread") {
+      result = [...result].sort(
+        (a, b) => (b.unread_count || 0) - (a.unread_count || 0)
+      );
+    } else {
+      // newest
+      result = [...result].sort((a, b) =>
+        (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")
+      );
+    }
+
     return result;
-  }, [conversations, filter, channelFilter, now, search, selectedTagIds, selectedCompany]);
+  }, [
+    conversations,
+    filter,
+    channelFilter,
+    now,
+    search,
+    selectedTagIds,
+    selectedCompany,
+    currentUserId,
+    sortBy,
+  ]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -266,197 +335,208 @@ export function ConversationList({
     [onSelect]
   );
 
-  const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const activeFilterOption = FILTER_OPTIONS.find((o) => o.value === filter);
+
+  const scrollChannelsRight = () => {
+    if (channelScrollRef.current) {
+      channelScrollRef.current.scrollBy({ left: 100, behavior: "smooth" });
+    }
+  };
 
   return (
-    // w-full on mobile so the list occupies the whole viewport when it's
-    // the single pane showing; fixed 320px on desktop where it shares the
-    // row with the thread + contact sidebar.
     <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
-      {/* Search + Filter */}
-      <div className="space-y-2 border-b border-border p-3">
+      {/* Conversation List Header matching Image (compact) */}
+      <div className="space-y-2 border-b border-border p-2.5 bg-card">
+        {/* Top row: WhatsApp, Instagram, Facebook Logos + "Inbox" + Count Badge */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center -space-x-1.5 shrink-0">
+            <div
+              title="WhatsApp"
+              className="relative z-30 flex h-6 w-6 items-center justify-center rounded-full bg-[#25D366] text-white ring-2 ring-card shadow-2xs"
+            >
+              <ChannelIcon channel="whatsapp" size="xs" className="h-3.5 w-3.5 text-white" />
+            </div>
+            <div
+              title="Instagram"
+              className="relative z-20 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white ring-2 ring-card shadow-2xs"
+            >
+              <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-white" />
+            </div>
+            <div
+              title="Facebook / Messenger"
+              className="relative z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[#0084FF] text-white ring-2 ring-card shadow-2xs"
+            >
+              <ChannelIcon channel="facebook" size="xs" className="h-3.5 w-3.5 text-white" />
+            </div>
+          </div>
+          <h1 className="text-base font-bold text-foreground tracking-tight">Inbox</h1>
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white shadow-2xs">
+            {conversations.length}
+          </span>
+        </div>
+
+        {/* Second row: Search conversations input with Ctrl K */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             value={search}
             onChange={handleSearchChange}
-            placeholder={t("searchPlaceholder")}
-            className="border-border bg-muted pl-9 text-sm text-foreground placeholder-muted-foreground focus:border-primary/50"
+            placeholder={t("searchPlaceholder") || "Search conversations..."}
+            className="h-8 rounded-lg border-border/70 bg-muted/40 pl-8 pr-12 text-xs text-foreground placeholder-muted-foreground focus:border-primary/50 shadow-2xs"
           />
+          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-border/70 bg-muted/80 px-1 py-0.5 text-[9px] font-mono font-medium text-muted-foreground shadow-2xs">
+            Ctrl K
+          </kbd>
         </div>
 
-        {/* Omnichannel Channel Filter Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-          {(
-            [
-              { key: 'all', label: 'All' },
-              { key: 'whatsapp', label: 'WhatsApp' },
-              { key: 'instagram', label: 'Instagram' },
-              { key: 'facebook', label: 'Messenger' },
-            ] as const
-          ).map((ch) => (
-            <button
-              key={ch.key}
-              type="button"
-              onClick={() => setChannelFilter(ch.key)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors shrink-0',
-                channelFilter === ch.key
-                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                  : 'bg-muted/80 text-muted-foreground hover:bg-muted hover:text-foreground'
-              )}
-            >
-              {ch.key !== 'all' && (
-                <ChannelIcon
-                  channel={ch.key}
-                  size="xs"
+        {/* Third row: Channel Pills with counts & right scroll arrow */}
+        <div className="relative flex items-center">
+          <div
+            ref={channelScrollRef}
+            className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar scroll-smooth flex-1 pr-5"
+          >
+            {(
+              [
+                { key: 'all', label: 'All', count: channelCounts.all },
+                { key: 'whatsapp', label: 'WhatsApp', count: channelCounts.whatsapp },
+                { key: 'instagram', label: 'Instagram', count: channelCounts.instagram },
+                { key: 'facebook', label: 'Messenger', count: channelCounts.facebook },
+              ] as const
+            ).map((ch) => {
+              const isSelected = channelFilter === ch.key;
+              return (
+                <button
+                  key={ch.key}
+                  type="button"
+                  onClick={() => setChannelFilter(ch.key)}
                   className={cn(
-                    channelFilter === ch.key
-                      ? 'text-primary-foreground'
-                      : ch.key === 'instagram'
-                      ? 'text-pink-500'
-                      : ch.key === 'facebook'
-                      ? 'text-[#0084FF]'
-                      : 'text-emerald-500'
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] transition-colors shrink-0 font-medium",
+                    isSelected
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/40"
                   )}
-                />
-              )}
-              {ch.label}
-            </button>
-          ))}
+                >
+                  {ch.key === "whatsapp" && (
+                    <ChannelIcon channel="whatsapp" size="xs" className={isSelected ? "text-white" : "text-emerald-500"} />
+                  )}
+                  {ch.key === "instagram" && (
+                    <ChannelIcon channel="instagram" size="xs" className={isSelected ? "text-white" : "text-pink-500"} />
+                  )}
+                  {ch.key === "facebook" && (
+                    <ChannelIcon channel="facebook" size="xs" className={isSelected ? "text-white" : "text-[#0084FF]"} />
+                  )}
+                  <span>{ch.label}</span>
+                  <span
+                    className={cn(
+                      "flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-bold",
+                      isSelected
+                        ? "bg-white/25 text-white"
+                        : "bg-muted-foreground/15 text-foreground"
+                    )}
+                  >
+                    {ch.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={scrollChannelsRight}
+            aria-label="Scroll channels"
+            className="absolute right-0 flex h-5 w-4 items-center justify-center bg-gradient-to-l from-card via-card to-transparent text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1">
+        {/* Fourth row: "All Conversations ⌵" on left, "⇅ Newest" on right */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          {/* Status / Category Filter Dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted">
-                {activeFilter?.label ?? t("filterAll")}
-                <ChevronDown className="h-3 w-3" />
+            <DropdownMenuTrigger className="inline-flex items-center gap-1 h-6 font-medium text-xs text-foreground/90 hover:text-foreground transition-colors cursor-pointer px-1 rounded hover:bg-muted">
+              <span>{activeFilterOption?.label || "All Conversations"}</span>
+              <ChevronDown className="h-3 w-3 opacity-70" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="border-border bg-popover"
-            >
+            <DropdownMenuContent align="start" className="w-52 border-border bg-popover shadow-lg rounded-xl p-1">
+              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Filter Conversations
+              </div>
+              <DropdownMenuSeparator className="bg-border" />
               {FILTER_OPTIONS.map((opt) => (
                 <DropdownMenuItem
                   key={opt.value}
                   onClick={() => setFilter(opt.value)}
                   className={cn(
-                    "text-sm",
+                    "text-xs flex items-center justify-between cursor-pointer rounded-lg py-1 px-2",
                     filter === opt.value
-                      ? "text-primary"
-                      : "text-popover-foreground"
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-popover-foreground hover:bg-muted"
                   )}
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {filter === opt.value && <Check className="h-3 w-3 text-primary" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {tags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
+          {/* Sort Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center gap-1 h-6 font-medium text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-1 rounded hover:bg-muted">
+              <ArrowUpDown className="h-3 w-3" />
+              <span>{sortBy === "newest" ? "Newest" : sortBy === "oldest" ? "Oldest" : "Unread"}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36 border-border bg-popover shadow-lg rounded-xl p-1">
+              <DropdownMenuItem
+                onClick={() => setSortBy("newest")}
                 className={cn(
-                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedTagIds.length > 0
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  "text-xs cursor-pointer rounded-lg py-1 px-2",
+                  sortBy === "newest" ? "bg-primary/10 text-primary font-medium" : "text-popover-foreground"
                 )}
               >
-                {t("tags")}
-                {selectedTagIds.length > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                    {selectedTagIds.length}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
-              >
-                {tags.map((t) => (
-                  <DropdownMenuCheckboxItem
-                    key={t.id}
-                    checked={selectedTagIds.includes(t.id)}
-                    onCheckedChange={() => toggleTag(t.id)}
-                    className="text-sm text-popover-foreground"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: t.color }}
-                      />
-                      <span className="truncate">{t.name}</span>
-                    </span>
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {companies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
+                Newest first
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setSortBy("oldest")}
                 className={cn(
-                  "inline-flex max-w-40 items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                  selectedCompany
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  "text-xs cursor-pointer rounded-lg py-1 px-2",
+                  sortBy === "oldest" ? "bg-primary/10 text-primary font-medium" : "text-popover-foreground"
                 )}
               >
-                <span className="truncate">{selectedCompany ?? t("company")}</span>
-                <ChevronDown className="h-3 w-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="max-h-64 w-56 border-border bg-popover"
+                Oldest first
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setSortBy("unread")}
+                className={cn(
+                  "text-xs cursor-pointer rounded-lg py-1 px-2",
+                  sortBy === "unread" ? "bg-primary/10 text-primary font-medium" : "text-popover-foreground"
+                )}
               >
-                <DropdownMenuItem
-                  onClick={() => setSelectedCompany(null)}
-                  className={cn(
-                    "text-sm",
-                    selectedCompany === null
-                      ? "text-primary"
-                      : "text-popover-foreground"
-                  )}
-                >
-                  {t("allCompanies")}
-                </DropdownMenuItem>
-                {companies.map((co) => (
-                  <DropdownMenuItem
-                    key={co}
-                    onClick={() => setSelectedCompany(co)}
-                    className={cn(
-                      "text-sm",
-                      selectedCompany === co
-                        ? "text-primary"
-                        : "text-popover-foreground"
-                    )}
-                  >
-                    <span className="truncate">{co}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                Unread first
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
+        {/* Selected Contact Filters (Tags / Company) chips */}
         {hasContactFilters && (
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/40">
             {selectedTagIds.map((id) => {
               const tag = tagsById.get(id);
               return (
                 <button
                   key={id}
                   onClick={() => toggleTag(id)}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-foreground hover:bg-muted/70"
                 >
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: tag?.color ?? "var(--muted-foreground)" }}
                   />
-                  <span className="max-w-24 truncate">{tag?.name ?? t("tags")}</span>
+                  <span className="max-w-24 truncate">{tag?.name ?? "Tag"}</span>
                   <X className="h-3 w-3" />
                 </button>
               );
@@ -464,7 +544,7 @@ export function ConversationList({
             {selectedCompany && (
               <button
                 onClick={() => setSelectedCompany(null)}
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground hover:bg-muted/70"
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] text-foreground hover:bg-muted/70"
               >
                 <span className="max-w-24 truncate">{selectedCompany}</span>
                 <X className="h-3 w-3" />
@@ -472,26 +552,21 @@ export function ConversationList({
             )}
             <button
               onClick={clearContactFilters}
-              className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
+              className="px-1 text-[10px] text-muted-foreground hover:text-foreground"
             >
-              {t("clearAll")}
+              Clear
             </button>
           </div>
         )}
       </div>
 
-      {/* Conversation Items.
-          `min-h-0` is load-bearing: a flex child defaults to
-          min-height:auto, so without it this ScrollArea grows to fit
-          every conversation instead of shrinking to the remaining
-          space — the list then overflows and gets clipped by the
-          parent's overflow-hidden with no scrollbar (issue #229). */}
+      {/* Conversation Items */}
       <ScrollArea className="min-h-0 flex-1">
         {loading ? (
           <ConversationListSkeleton count={8} />
         ) : filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="text-sm text-muted-foreground">{t("noConversations")}</p>
+            <p className="text-sm text-muted-foreground">{t("noConversations") || "No conversations found"}</p>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -527,6 +602,16 @@ export function ConversationList({
           onClearConversation?.(convId);
         }}
       />
+
+      <NewConversationDialog
+        open={newChatOpen}
+        onOpenChange={setNewChatOpen}
+        conversations={conversations}
+        onSelect={handleSelect}
+        onConversationCreated={(newConv) => {
+          onConversationsLoaded([newConv, ...conversations]);
+        }}
+      />
     </div>
   );
 }
@@ -549,7 +634,7 @@ function ConversationItem({
   t,
 }: ConversationItemProps) {
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || t("unknown");
+  const displayName = contact?.name || contact?.phone || t("unknown") || "Unknown";
   const initials = displayName.charAt(0).toUpperCase();
   const avatarColor = getAvatarColor(contact?.id || displayName);
 
@@ -559,8 +644,8 @@ function ConversationItem({
 
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
-        addSuffix: false,
-      })
+      addSuffix: false,
+    })
     : "";
 
   return (
@@ -640,30 +725,32 @@ function ConversationItem({
             </DropdownMenu>
           </span>
         </span>
+
+        {/* Message preview row */}
         <span className="mt-0.5 flex items-center justify-between gap-2">
           <span className="truncate block text-xs text-muted-foreground">
-            {conversation.last_message_text || t("noMessagesYet")}
+            {conversation.last_message_text || t("noMessagesYet") || "No messages yet"}
           </span>
-            <span className="flex shrink-0 items-center gap-1.5">
-              {conversation.unread_count > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                  {conversation.unread_count}
-                </span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            {conversation.unread_count > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                {conversation.unread_count}
+              </span>
+            )}
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                STATUS_COLORS[conversation.status]
               )}
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  STATUS_COLORS[conversation.status]
-                )}
-                title={
-                  conversation.status === "open"
-                    ? t("filterOpen")
-                    : conversation.status === "pending"
-                      ? t("filterPending")
-                      : t("filterClosed")
-                }
-              />
-            </span>
+              title={
+                conversation.status === "open"
+                  ? t("filterOpen") || "Open"
+                  : conversation.status === "pending"
+                    ? t("filterPending") || "Pending"
+                    : t("filterClosed") || "Closed"
+              }
+            />
+          </span>
         </span>
       </span>
     </div>

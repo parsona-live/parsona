@@ -243,14 +243,14 @@ function InboxPageInner() {
             prev.map((c) =>
               c.id === newMsg.conversation_id
                 ? {
-                    ...c,
-                    last_message_text: newMsg.content_text ?? "",
-                    last_message_at: newMsg.created_at,
-                    unread_count:
-                      activeConversation?.id === newMsg.conversation_id
-                        ? 0
-                        : c.unread_count + 1,
-                  }
+                  ...c,
+                  last_message_text: newMsg.content_text ?? "",
+                  last_message_at: newMsg.created_at,
+                  unread_count:
+                    activeConversation?.id === newMsg.conversation_id
+                      ? 0
+                      : c.unread_count + 1,
+                }
                 : c,
             ),
           );
@@ -310,10 +310,10 @@ function InboxPageInner() {
             prev.map((c) =>
               c.id === conv.id
                 ? {
-                    ...c,
-                    ...conv,
-                    unread_count: isActive ? 0 : conv.unread_count,
-                  }
+                  ...c,
+                  ...conv,
+                  unread_count: isActive ? 0 : conv.unread_count,
+                }
                 : c,
             ),
           );
@@ -592,10 +592,10 @@ function InboxPageInner() {
         prev.map((c) =>
           c.id === conversationId
             ? {
-                ...c,
-                last_message_text: undefined,
-                unread_count: 0,
-              }
+              ...c,
+              last_message_text: undefined,
+              unread_count: 0,
+            }
             : c
         )
       );
@@ -689,6 +689,7 @@ function InboxPageInner() {
           <div className="hidden lg:block">
             <ContactSidebar
               contact={activeContact}
+              conversation={activeConversation}
               onOpenConversation={handleOpenConversationById}
             />
           </div>

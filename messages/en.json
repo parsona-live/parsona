@@ -336,6 +336,7 @@
     "conversationList": {
       "searchPlaceholder": "Search conversations...",
       "filterAll": "All",
+      "filterMine": "Mine",
       "filterUnread": "Unread",
       "filterWaiting": "Waiting for reply",
       "filterUnassigned": "Unassigned",
@@ -1702,7 +1703,14 @@
       "removeDialogDesc": "Remove <bold>{name}</bold> from the account? They'll be signed out of this account and given a fresh personal account on their next sign-in. Their login isn't deleted.",
       "cancel": "Cancel",
       "removing": "Removing...",
-      "removeBtn": "Remove member"
+      "removeBtn": "Remove member",
+      "transferOwnership": "Transfer ownership",
+      "transferDialogTitle": "Transfer account ownership",
+      "transferDialogDesc": "Transfer ownership of this account to <bold>{name}</bold>? You will become an <bold>Admin</bold>. Only the new owner will be able to transfer ownership back or delete the account.",
+      "transferring": "Transferring...",
+      "transferBtn": "Transfer ownership",
+      "transferredToast": "Transferred ownership to {name}",
+      "transferFailed": "Failed to transfer ownership"
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -2088,6 +2096,20 @@
     "security": {
       "title": "Login & security",
       "description": "Change your password and sign out of your devices. These keep your account safe."
+    },
+    "dangerZone": {
+      "title": "Danger zone",
+      "description": "Irreversible actions for your account.",
+      "deleteAccountTitle": "Delete this account",
+      "deleteAccountDesc": "Permanently delete this account and all associated contacts, conversations, templates, and automations. This action cannot be undone.",
+      "deleteBtn": "Delete account",
+      "dialogTitle": "Delete account",
+      "dialogDesc": "This action is irreversible. All data, messages, and settings will be permanently wiped. To confirm, please type the account name <bold>{name}</bold> below:",
+      "confirmPlaceholder": "Enter account name to confirm",
+      "deleting": "Deleting...",
+      "deletedToast": "Account deleted successfully",
+      "deleteFailed": "Failed to delete account",
+      "cancel": "Cancel"
     },
     "browserNotifications": {
       "title": "Browser notifications",
@@ -2861,7 +2883,10 @@
       "nameTooLong": "Account name must be {max} characters or fewer",
       "updateFailed": "Failed to update account",
       "transferFailed": "Failed to transfer ownership",
-      "newOwnerInvalid": "'newOwnerUserId' must be a valid UUID"
+      "newOwnerInvalid": "'newOwnerUserId' must be a valid UUID",
+      "confirmNameMismatch": "Confirmation name does not match the account name",
+      "deleteHasMembers": "All other members must be removed before deleting the account",
+      "deleteFailed": "Failed to delete account"
     },
     "invitations": {
       "redeemFailed": "Failed to redeem invitation",

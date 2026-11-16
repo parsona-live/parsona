@@ -336,6 +336,7 @@
     "conversationList": {
       "searchPlaceholder": "Buscar conversas...",
       "filterAll": "Todas",
+      "filterMine": "Minhas",
       "filterUnread": "Não lidas",
       "filterWaiting": "Aguardando resposta",
       "filterUnassigned": "Sem responsável",
@@ -1702,7 +1703,14 @@
       "removeDialogDesc": "Remover <bold>{name}</bold> da conta? A pessoa será desconectada desta conta e receberá uma nova conta pessoal no próximo login. O login dela não é excluído.",
       "cancel": "Cancelar",
       "removing": "Removendo...",
-      "removeBtn": "Remover membro"
+      "removeBtn": "Remover membro",
+      "transferOwnership": "Transferir propriedade",
+      "transferDialogTitle": "Transferir propriedade da conta",
+      "transferDialogDesc": "Transferir a propriedade desta conta para <bold>{name}</bold>? Você se tornará um <bold>Administrador</bold>. Apenas o novo proprietário poderá transferir a propriedade de volta ou excluir a conta.",
+      "transferring": "Transferindo...",
+      "transferBtn": "Transferir propriedade",
+      "transferredToast": "Propriedade transferida para {name}",
+      "transferFailed": "Falha ao transferir propriedade"
     },
     "invite": {
       "inviteCreated": "Convite criado",
@@ -2088,6 +2096,20 @@
     "security": {
       "title": "Login e segurança",
       "description": "Altere sua senha e saia dos seus dispositivos. Isso mantém sua conta segura."
+    },
+    "dangerZone": {
+      "title": "Zona de perigo",
+      "description": "Ações irreversíveis para a sua conta.",
+      "deleteAccountTitle": "Excluir esta conta",
+      "deleteAccountDesc": "Exclua permanentemente esta conta e todos os contatos, conversas, modelos e automações associados. Esta ação não pode ser desfeita.",
+      "deleteBtn": "Excluir conta",
+      "dialogTitle": "Excluir conta",
+      "dialogDesc": "Esta ação é irreversível. Todos os dados, mensagens e configurações serão excluídos permanentemente. Para confirmar, digite o nome da conta <bold>{name}</bold> abaixo:",
+      "confirmPlaceholder": "Digite o nome da conta para confirmar",
+      "deleting": "Excluindo...",
+      "deletedToast": "Conta excluída com sucesso",
+      "deleteFailed": "Falha ao excluir conta",
+      "cancel": "Cancelar"
     },
     "browserNotifications": {
       "title": "Notificações do navegador",
@@ -2861,7 +2883,10 @@
       "nameTooLong": "O nome da conta deve ter no máximo {max} caracteres",
       "updateFailed": "Falha ao atualizar a conta",
       "transferFailed": "Falha ao transferir a propriedade",
-      "newOwnerInvalid": "newOwnerUserId deve ser um UUID válido"
+      "newOwnerInvalid": "newOwnerUserId deve ser um UUID válido",
+      "confirmNameMismatch": "O nome de confirmação não corresponde ao nome da conta",
+      "deleteHasMembers": "Todos os outros membros devem ser removidos antes de excluir a conta",
+      "deleteFailed": "Falha ao excluir a conta"
     },
     "invitations": {
       "redeemFailed": "Falha ao aceitar o convite",

@@ -25,6 +25,7 @@ function conv(id: string, patch: Partial<Conversation> = {}): Conversation {
 
 describe("parseInboxFilter", () => {
   it("accepts every known filter and falls back to all", () => {
+    expect(parseInboxFilter("mine")).toBe("mine");
     expect(parseInboxFilter("waiting")).toBe("waiting");
     expect(parseInboxFilter("expiring")).toBe("expiring");
     expect(parseInboxFilter("bogus")).toBe("all");
@@ -79,6 +80,16 @@ describe("applyInboxFilter", () => {
 
   it("lists open chats nobody is assigned to", () => {
     expect(applyInboxFilter(list, "unassigned", NOW).map((c) => c.id)).toEqual(["recent", "answered"]);
+  });
+
+  it("lists chats assigned to the current user with mine filter", () => {
+    expect(applyInboxFilter(list, "mine", NOW, "agent-1").map((c) => c.id)).toEqual([
+      "old",
+      "pending",
+      "unread",
+    ]);
+    expect(applyInboxFilter(list, "mine", NOW, "unknown-agent")).toEqual([]);
+    expect(applyInboxFilter(list, "mine", NOW, null)).toEqual([]);
   });
 
   it("keeps the existing unread and status filters", () => {

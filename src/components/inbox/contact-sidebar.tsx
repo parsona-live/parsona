@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import type { Contact, Deal, ContactNote, Tag, Conversation } from "@/types";
 import {
   Phone,
   Mail,
@@ -64,10 +64,11 @@ interface LinkedContactItem extends Contact {
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  conversation?: Conversation | null;
   onOpenConversation?: (conversationId: string) => void;
 }
 
-export function ContactSidebar({ contact, onOpenConversation }: ContactSidebarProps) {
+export function ContactSidebar({ contact, conversation, onOpenConversation }: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -192,6 +193,15 @@ export function ContactSidebar({ contact, onOpenConversation }: ContactSidebarPr
     setAddingNote(false);
   }, [contact, newNote, accountId]);
 
+  const customerSince = useMemo(() => {
+    if (!contact?.created_at) return null;
+    try {
+      return `Customer since ${format(new Date(contact.created_at), "MMM yyyy")}`;
+    } catch {
+      return null;
+    }
+  }, [contact?.created_at]);
+
   if (!contact) {
     return (
       <div className="flex h-full w-80 items-center justify-center border-l border-border bg-card">
@@ -201,38 +211,63 @@ export function ContactSidebar({ contact, onOpenConversation }: ContactSidebarPr
   }
 
   const displayName = contact.name || contactHandle(contact);
-  const initials = displayName.charAt(0).toUpperCase();
-  const avatarColor = getAvatarColor(contact.id || displayName);
+  const initials = (contact.name || contactHandle(contact) || "AS")
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "AS";
 
   return (
     <div className="flex h-full w-80 flex-col border-l border-border bg-card">
       <ScrollArea className="flex-1">
         <div className="p-4">
-          {/* Contact Info */}
-          <div className="flex flex-col items-center text-center">
-            <div
-              className={cn(
-                "flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold",
-                avatarColor
-              )}
-            >
+          {/* Header row (Image 2 reference) */}
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#fed7aa] text-base font-bold text-[#9a3412] dark:bg-[#7c2d12]/50 dark:text-[#fed7aa] shadow-2xs">
               {contact.avatar_url ? (
                 <img
                   src={contact.avatar_url}
                   alt={displayName}
-                  className="h-16 w-16 rounded-full object-cover"
+                  className="h-14 w-14 rounded-full object-cover"
                 />
               ) : (
                 initials
               )}
             </div>
-            <h3 className="mt-3 text-base font-semibold text-foreground">
-              {displayName}
-            </h3>
-            {contact.company && (
-              <p className="text-sm text-muted-foreground">{contact.company}</p>
-            )}
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-lg font-bold text-foreground leading-tight">
+                {displayName}
+              </h3>
+              {customerSince && (
+                <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                  {customerSince}
+                </p>
+              )}
+              {contact.company && (
+                <p className="truncate text-xs text-muted-foreground">{contact.company}</p>
+              )}
+            </div>
           </div>
+
+          {/* Tags row: only show if contact actually has tags */}
+          {tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag.contact_tag_id}
+                  className="rounded-lg px-2.5 py-1 font-mono text-xs font-medium border"
+                  style={{
+                    backgroundColor: `${tag.color}15`,
+                    color: tag.color,
+                    borderColor: `${tag.color}35`,
+                  }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Phone */}
           <div className="mt-4 space-y-2">
@@ -362,35 +397,6 @@ export function ContactSidebar({ contact, onOpenConversation }: ContactSidebarPr
             primaryContact={contact}
             onLinked={fetchContactData}
           />
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <TagIcon className="h-3 w-3" />
-              {tSidebar("tags")}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">{tSidebar("noTags")}</p>
-              ) : (
-                tags.map((tag) => (
-                  <span
-                    key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                    }}
-                  >
-                    {tag.name}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
 
           {/* Divider */}
           <div className="my-4 border-t border-border" />
