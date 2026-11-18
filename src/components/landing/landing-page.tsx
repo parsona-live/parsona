@@ -22,7 +22,7 @@ interface LandingPageViewProps {
   user?: User | null
 }
 
-export function LandingPageView(_props: LandingPageViewProps) {
+export const LandingPageView: React.FC<LandingPageViewProps> = () => {
   return (
     <MotionConfig reducedMotion="user">
       <div className="landing-page-root w-full min-h-screen bg-[#F3F5F0] text-[#0E1512] [font-family:var(--font-body)] text-[16px] leading-[1.55] antialiased overflow-x-hidden">

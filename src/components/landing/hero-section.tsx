@@ -19,7 +19,7 @@ export function HeroSection() {
                   className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[13px] tracking-[0.04em] text-[#0B3B2E] bg-[#DCE7DF] rounded-lg px-3 py-[7px] mb-5`}
                 >
                   <span className="w-2 h-2 rounded-full bg-[#1FD27A] shadow-[0_0_0_3px_rgba(31,210,122,0.25)]" />
-                  WhatsApp · Instagram · Facebook · Voice soon
+                  WhatsApp · Instagram · Facebook · Calling
                 </div>
               </FadeUp>
               <h1
@@ -170,7 +170,7 @@ export function HeroSection() {
                 FACEBOOK
               </text>
               <text x="361" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
-                VOICE · SOON
+                CALLING <span className='text-[10.5px] tracking-[0.07em] font-semibold text-size-small'> (COMING NEXT)</span>
               </text>
 
               {/* Animated Connectors */}

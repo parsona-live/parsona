@@ -225,6 +225,24 @@ function PaneFooter({ items, accent }: { items: string[]; accent: string }) {
   )
 }
 
+function NextButton({ index, onNext }: { index: number; onNext: () => void }) {
+  const last = PLATFORM_TABS.length - 1
+  const cls =
+    'hidden max-[720px]:flex items-center justify-center w-full h-12 mt-[18px] rounded-[12px] border-[1.5px] border-[#0E1512] bg-[#0E1512] text-white font-semibold text-[15px] active:translate-y-px'
+  if (index === last) {
+    return (
+      <a href="#waitlist" className={cls}>
+        Get voice early access →
+      </a>
+    )
+  }
+  return (
+    <button type="button" onClick={onNext} className={cls}>
+      Next: {PLATFORM_TABS[index + 1].title} →
+    </button>
+  )
+}
+
 /* ------------------------------------------------------------------ */
 /* Section                                                             */
 /* ------------------------------------------------------------------ */
@@ -280,23 +298,6 @@ export function PlatformSection() {
   // Row cards: on phones the pills wrap under the text instead of squeezing it.
   const rowCard = `${card} flex items-center gap-[14px] text-[14.5px] max-[720px]:flex-wrap max-[720px]:gap-y-2`
   const rowText = 'flex-1 min-w-0 max-[720px]:basis-full'
-
-  const NextButton = ({ index }: { index: number }) => {
-    const cls =
-      'hidden max-[720px]:flex items-center justify-center w-full h-12 mt-[18px] rounded-[12px] border-[1.5px] border-[#0E1512] bg-[#0E1512] text-white font-semibold text-[15px] active:translate-y-px'
-    if (index === last) {
-      return (
-        <a href="#waitlist" className={cls}>
-          Get voice early access →
-        </a>
-      )
-    }
-    return (
-      <button type="button" onClick={goNext} className={cls}>
-        Next: {PLATFORM_TABS[index + 1].title} →
-      </button>
-    )
-  }
 
   return (
     <section id="platform" className="pt-[120px] max-[980px]:pt-[88px]">
@@ -420,7 +421,7 @@ export function PlatformSection() {
                   items={['42 s average first reply', '3 channels, 1 inbox', 'Private team notes']}
                   accent={current.accent}
                 />
-                <NextButton index={0} />
+                <NextButton index={0} onNext={goNext} />
               </div>
 
               {/* Pane 1: Broadcasts */}
@@ -476,7 +477,7 @@ export function PlatformSection() {
                   items={['98% delivered, 64% read', 'Approved templates only', 'Replies land in the inbox']}
                   accent={current.accent}
                 />
-                <NextButton index={1} />
+                <NextButton index={1} onNext={goNext} />
               </div>
 
               {/* Pane 2: CRM */}
@@ -510,7 +511,7 @@ export function PlatformSection() {
                   items={['Logged straight from chat', 'Drag a deal, start a flow', 'Custom fields and tags']}
                   accent={current.accent}
                 />
-                <NextButton index={2} />
+                <NextButton index={2} onNext={goNext} />
               </div>
 
               {/* Pane 3: Flows */}
@@ -546,7 +547,7 @@ export function PlatformSection() {
                   items={['No-code builder', 'Branches, delays, retries', 'Every run logged']}
                   accent={current.accent}
                 />
-                <NextButton index={3} />
+                <NextButton index={3} onNext={goNext} />
               </div>
 
               {/* Pane 4: AI agents */}
@@ -584,7 +585,7 @@ export function PlatformSection() {
                   items={['Cites your own policies', 'Hands off below 70% confidence', 'Replies 24 / 7']}
                   accent={current.accent}
                 />
-                <NextButton index={4} />
+                <NextButton index={4} onNext={goNext} />
               </div>
 
               {/* Pane 5: Voice agent (coming soon) */}
@@ -650,7 +651,7 @@ export function PlatformSection() {
                   items={['Books and reschedules', 'Hands off to a person', 'Same customer record']}
                   accent={current.accent}
                 />
-                <NextButton index={5} />
+                <NextButton index={5} onNext={goNext} />
               </div>
             </div>
           </div>
