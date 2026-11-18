@@ -75,6 +75,15 @@ details[open] .landing-faq-summary::after {
   content: "\2212";
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-page-root *,
   .landing-page-root *::before,
