@@ -75,8 +75,10 @@ const nextConfig: NextConfig = {
   },
   // Emit a self-contained server bundle (.next/standalone) so the
   // Docker image can run without node_modules or the Next CLI.
-  // Harmless outside Docker: `next start` keeps working as before.
-  output: "standalone",
+  // Skip under Vite/vinext (Cloudflare Workers builds output to .cloudflare/ instead of dist/).
+  ...(process.env.WORKERS_CI || process.argv.some((arg) => arg.includes("vite"))
+    ? {}
+    : { output: "standalone" as const }),
   experimental: {
     cpus: 4,
   },
