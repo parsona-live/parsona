@@ -14,7 +14,7 @@ export function HeroSection() {
                 className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[13px] tracking-[0.04em] text-[#0B3B2E] bg-[#DCE7DF] rounded-lg px-3 py-[7px] mb-5`}
               >
                 <span className="w-2 h-2 rounded-full bg-[#1FD27A] shadow-[0_0_0_3px_rgba(31,210,122,0.25)]" />
-                WhatsApp · Instagram · Facebook
+                WhatsApp · Instagram · Facebook · Voice soon
               </div>
               <h1
                 className={`${DISPLAY_FONT} text-[clamp(34px,3.7vw,54px)] font-bold tracking-[-0.045em] leading-[1.1] text-balance text-[#0E1512]`}
@@ -27,20 +27,20 @@ export function HeroSection() {
 
             <div className="mt-6">
               <p className="text-[19px] text-[#52625A] max-w-[540px]">
-                Parsona puts all three apps into one team inbox, then takes over the repetitive work
-                with broadcasts, a built-in CRM, a flow builder and AI agents that know your
-                catalogue.
+                Parsona puts WhatsApp, Instagram, Facebook and soon voice calls into one team inbox,
+                then takes over the repetitive work with broadcasts, a built-in CRM, a flow builder
+                and AI agents that know your catalogue.
               </p>
               <div className="flex gap-3 flex-wrap mt-7">
-                <a href="#pricing" className={BTN_DARK}>
-                  Start 14-day free trial
+                <a href="#waitlist" className={BTN_DARK}>
+                  Join the waitlist →
                 </a>
                 <a href="#platform" className={BTN_OUTLINE}>
                   See it working
                 </a>
               </div>
               <p className={`mt-4 ${MONO_FONT} text-[13px] text-[#52625A]`}>
-                No credit card. Official WhatsApp API connected in about 10 minutes.
+                Early access opening soon · Priority onboarding for founding teams.
               </p>
             </div>
           </div>
@@ -49,7 +49,7 @@ export function HeroSection() {
           <div
             className="w-full max-w-[460px] ml-auto max-[980px]:mx-auto bg-white [background-image:radial-gradient(#D3DCD6_1px,transparent_1.2px)] [background-size:16px_16px] border-[1.5px] border-[#0E1512] rounded-[22px] shadow-[8px_8px_0_#0B3B2E] overflow-hidden"
             role="img"
-            aria-label="Diagram: WhatsApp, Instagram and Facebook messages flow into the Parsona inbox, CRM, flows and AI agent"
+            aria-label="Diagram: WhatsApp, Instagram, Facebook and upcoming Voice calls flow into the Parsona inbox, CRM, flows and AI agent"
           >
             <svg viewBox="0 0 440 460" aria-hidden="true" className={`block w-full h-auto ${MONO_FONT}`}>
               <defs>
@@ -66,7 +66,7 @@ export function HeroSection() {
               </defs>
 
               <text x="24" y="30" className="text-[10.5px] tracking-[0.07em] fill-[#52625A]">
-                INCOMING MESSAGES
+                INCOMING MESSAGES + CALLS
               </text>
               <circle cx="366" cy="26" r="4" fill="#1FD27A" className="animate-[landing-fblink_1.6s_ease-in-out_infinite]" />
               <text x="376" y="30" className="text-[10.5px] tracking-[0.07em] fill-[#52625A]">
@@ -74,7 +74,7 @@ export function HeroSection() {
               </text>
 
               {/* Channel Badges */}
-              <g transform="translate(83 44)">
+              <g transform="translate(52 44)">
                 <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="24" fill="#25D366" />
@@ -85,7 +85,7 @@ export function HeroSection() {
                   />
                 </svg>
               </g>
-              <g transform="translate(193 44)">
+              <g transform="translate(146 44)">
                 <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <rect width="48" height="48" rx="13" fill="url(#igg)" />
@@ -94,7 +94,7 @@ export function HeroSection() {
                   <circle cx="31.5" cy="16.5" r="1.9" fill="#fff" />
                 </svg>
               </g>
-              <g transform="translate(303 44)">
+              <g transform="translate(240 44)">
                 <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="24" fill="#1877F2" />
@@ -105,22 +105,51 @@ export function HeroSection() {
                   />
                 </svg>
               </g>
+              <g transform="translate(334 44)">
+                <rect
+                  width="54"
+                  height="54"
+                  rx="12"
+                  fill="#F7F4FF"
+                  stroke="#B9A6FF"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 3"
+                />
+                <circle cx="27" cy="27" r="17" fill="#F4A7C8" />
+                <svg
+                  x="18"
+                  y="18"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#0E1512"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z" />
+                </svg>
+              </g>
 
-              <text x="110" y="116" textAnchor="middle" className="text-[10px] tracking-[0.06em] fill-[#52625A]">
+              <text x="79" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
                 WHATSAPP
               </text>
-              <text x="220" y="116" textAnchor="middle" className="text-[10px] tracking-[0.06em] fill-[#52625A]">
+              <text x="173" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
                 INSTAGRAM
               </text>
-              <text x="330" y="116" textAnchor="middle" className="text-[10px] tracking-[0.06em] fill-[#52625A]">
+              <text x="267" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
                 FACEBOOK
+              </text>
+              <text x="361" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
+                VOICE · SOON
               </text>
 
               {/* Animated Connectors */}
-              <path d="M110 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M79 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
-                d="M110 126V150H140"
+                d="M79 126V150H140"
                 fill="none"
                 stroke="#25D366"
                 strokeWidth="3.2"
@@ -129,10 +158,10 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '0s' }}
               />
-              <path d="M220 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M173 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
-                d="M220 126V150H140"
+                d="M173 126V150H140"
                 fill="none"
                 stroke="#D62976"
                 strokeWidth="3.2"
@@ -141,10 +170,10 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-0.5s' }}
               />
-              <path d="M330 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M267 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
-                d="M330 126V150H140"
+                d="M267 126V150H140"
                 fill="none"
                 stroke="#1877F2"
                 strokeWidth="3.2"
@@ -152,6 +181,18 @@ export function HeroSection() {
                 strokeDasharray="14 86"
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-1s' }}
+              />
+              <path d="M361 126V150H140" fill="none" stroke="#B9A6FF" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path
+                pathLength={100}
+                d="M361 126V150H140"
+                fill="none"
+                stroke="#F4A7C8"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeDasharray="14 86"
+                className="animate-[landing-fdash_2.6s_linear_infinite]"
+                style={{ animationDelay: '-1.5s' }}
               />
               <path d="M140 150V202" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
