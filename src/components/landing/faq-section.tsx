@@ -1,5 +1,8 @@
+'use client'
+
 import React from 'react'
 import { DISPLAY_FONT, HighlightBubble, SectionPill } from './shared'
+import { StaggerGroup, StaggerItem, TextReveal } from './motion'
 
 const FAQ_ITEMS = [
   {
@@ -31,24 +34,28 @@ export function FaqSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              Before you
+              <TextReveal text="Before you" />
               <br />
-              <HighlightBubble bgClass="bg-[#FFD97A]">send the first message.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#FFD97A]" delay={0.18}>
+                send the first message.
+              </HighlightBubble>
             </h2>
           </div>
 
-          <div className="border-t-[1.5px] border-[#0E1512]">
+          <StaggerGroup className="border-t-[1.5px] border-[#0E1512]" stagger={0.07}>
             {FAQ_ITEMS.map((item) => (
-              <details key={item.q} className="border-b border-[#D9E1DB] py-6">
-                <summary
-                  className={`landing-faq-summary cursor-pointer list-none flex justify-between gap-5 items-center ${DISPLAY_FONT} text-[24px] max-[720px]:text-[20px] tracking-[-0.025em] font-semibold leading-[1.15] focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px] focus-visible:rounded-lg`}
-                >
-                  {item.q}
-                </summary>
-                <p className="mt-[14px] text-[#52625A] text-[17px] max-w-[680px]">{item.a}</p>
-              </details>
+              <StaggerItem key={item.q}>
+                <details className="border-b border-[#D9E1DB] py-6">
+                  <summary
+                    className={`landing-faq-summary cursor-pointer list-none flex justify-between gap-5 items-center ${DISPLAY_FONT} text-[24px] max-[720px]:text-[20px] tracking-[-0.025em] font-semibold leading-[1.15] focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px] focus-visible:rounded-lg`}
+                  >
+                    {item.q}
+                  </summary>
+                  <p className="mt-[14px] text-[#52625A] text-[17px] max-w-[680px]">{item.a}</p>
+                </details>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerGroup>
         </div>
       </div>
     </section>

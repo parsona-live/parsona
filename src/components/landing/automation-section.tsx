@@ -1,5 +1,8 @@
+'use client'
+
 import React from 'react'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { FadeUp, TextReveal } from './motion'
 
 const RUN_LOG = [
   { time: '19:41:02', text: 'Comment matched “PRICE”', ok: true },
@@ -33,18 +36,23 @@ export function AutomationSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              Describe it like a sentence.
+              <TextReveal text="Describe it like a sentence." />
               <br />
-              <HighlightBubble bgClass="bg-[#FFD97A]">It runs like a machine.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#FFD97A]" delay={0.24}>
+                It runs like a machine.
+              </HighlightBubble>
             </h2>
-            <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
-              Build a flow by stacking plain-language steps. Every run is logged, so you can see
-              exactly what happened and when.
-            </p>
+            <FadeUp delay={0.18} distance={14}>
+              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+                Build a flow by stacking plain-language steps. Every run is logged, so you can see
+                exactly what happened and when.
+              </p>
+            </FadeUp>
           </div>
 
           {/* Visual Flow Canvas */}
-          <div className="mt-14 bg-white [background-image:radial-gradient(#D3DCD6_1px,transparent_1.2px)] [background-size:16px_16px] border-[1.5px] border-[#0E1512] rounded-[24px] shadow-[8px_8px_0_#FFE9A8] overflow-hidden">
+          <FadeUp delay={0.12} distance={26}>
+            <div className="mt-14 bg-white [background-image:radial-gradient(#D3DCD6_1px,transparent_1.2px)] [background-size:16px_16px] border-[1.5px] border-[#0E1512] rounded-[24px] shadow-[8px_8px_0_#FFE9A8] overflow-hidden">
             <div className="flex justify-between items-center gap-4 flex-wrap px-6 py-[18px] max-[720px]:px-[18px] max-[720px]:py-4 bg-white border-b-[1.5px] border-[#0E1512]">
               <div>
                 <b className={`block ${DISPLAY_FONT} text-[22px] tracking-[-0.025em]`}>
@@ -251,6 +259,7 @@ export function AutomationSection() {
               </div>
             </div>
           </div>
+          </FadeUp>
         </div>
       </div>
     </section>

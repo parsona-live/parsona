@@ -1,6 +1,9 @@
+'use client'
+
 import React from 'react'
 import Image from 'next/image'
 import { BTN_GREEN, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
 
 const USE_CASES = [
   {
@@ -37,51 +40,55 @@ export function UseCasesSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              Whatever you sell,
+              <TextReveal text="Whatever you sell," />
               <br />
-              <HighlightBubble bgClass="bg-[#FFB99A]">chat is the shop.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#FFB99A]" delay={0.2}>
+                chat is the shop.
+              </HighlightBubble>
             </h2>
-            <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
-              Parsona fits how real businesses already talk to customers.
-            </p>
+            <FadeUp delay={0.16} distance={14}>
+              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+                Parsona fits how real businesses already talk to customers.
+              </p>
+            </FadeUp>
           </div>
 
-          <div className="grid grid-cols-3 max-[1100px]:grid-cols-1 gap-5 mt-14">
+          <StaggerGroup className="grid grid-cols-3 max-[1100px]:grid-cols-1 gap-5 mt-14">
             {USE_CASES.map((item) => (
-              <article
-                key={item.title}
-                className="group bg-white border-[1.5px] border-[#0E1512] rounded-[22px] pt-[14px] px-[14px] pb-6 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0_#DCE7DF]"
-              >
-                <div className="relative aspect-[4/3] rounded-[16px] overflow-hidden border border-[#D9E1DB] bg-[#F3F5F0]">
-                  <Image
-                    src={item.image}
-                    alt={item.alt}
-                    fill
-                    unoptimized
-                    sizes="(max-width: 1100px) 100vw, 33vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                </div>
-                <h3 className={`${DISPLAY_FONT} text-[26px] font-bold tracking-[-0.035em] leading-[1.02] mt-5 mx-[10px] mb-2`}>
-                  {item.title}
-                </h3>
-                <p className="mx-[10px] text-[#52625A] text-[15.5px]">{item.description}</p>
-                <div className="flex gap-[6px] flex-wrap mt-4 mx-[10px]">
-                  {item.chips.map((chip) => (
-                    <span
-                      key={chip}
-                      className={`${MONO_FONT} font-medium text-[12px] px-[9px] py-1 rounded-[7px] bg-[#DCE7DF] text-[#0B3B2E]`}
-                    >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              </article>
+              <StaggerItem key={item.title} className="h-full">
+                <article className="h-full group bg-white border-[1.5px] border-[#0E1512] rounded-[22px] pt-[14px] px-[14px] pb-6 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0_#DCE7DF]">
+                  <div className="relative aspect-[4/3] rounded-[16px] overflow-hidden border border-[#D9E1DB] bg-[#F3F5F0]">
+                    <Image
+                      src={item.image}
+                      alt={item.alt}
+                      fill
+                      unoptimized
+                      sizes="(max-width: 1100px) 100vw, 33vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                  </div>
+                  <h3 className={`${DISPLAY_FONT} text-[26px] font-bold tracking-[-0.035em] leading-[1.02] mt-5 mx-[10px] mb-2`}>
+                    {item.title}
+                  </h3>
+                  <p className="mx-[10px] text-[#52625A] text-[15.5px]">{item.description}</p>
+                  <div className="flex gap-[6px] flex-wrap mt-4 mx-[10px]">
+                    {item.chips.map((chip) => (
+                      <span
+                        key={chip}
+                        className={`${MONO_FONT} font-medium text-[12px] px-[9px] py-1 rounded-[7px] bg-[#DCE7DF] text-[#0B3B2E]`}
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              </StaggerItem>
             ))}
-          </div>
+          </StaggerGroup>
 
           {/* 90-second Video Card */}
-          <div className="mt-5 grid grid-cols-[1.4fr_1fr] max-[1100px]:grid-cols-1 rounded-[24px] overflow-hidden bg-[#0B3B2E] text-white">
+          <FadeUp delay={0.12} distance={24}>
+            <div className="mt-5 grid grid-cols-[1.4fr_1fr] max-[1100px]:grid-cols-1 rounded-[24px] overflow-hidden bg-[#0B3B2E] text-white">
             <div
               className={`relative aspect-video border-r-[1.5px] max-[1100px]:border-r-0 border-dashed border-[#5E8F7E] grid place-items-center text-center p-4 text-[#B6D6C8] ${MONO_FONT} font-medium text-[12px] leading-[1.5]`}
               style={{
@@ -106,11 +113,12 @@ export function UseCasesSection() {
               <p className="text-[#B6D6C8] mt-3 mb-[22px]">
                 From first Instagram comment to a paid WhatsApp order, no tab switching.
               </p>
-              <a href="#pricing" className={BTN_GREEN}>
-                Start free trial
+              <a href="#waitlist" className={BTN_GREEN}>
+                Join the waitlist →
               </a>
             </div>
           </div>
+          </FadeUp>
         </div>
       </div>
     </section>

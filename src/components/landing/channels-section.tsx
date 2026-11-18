@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { FadeUp, TextReveal } from './motion'
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -200,14 +201,18 @@ export function ChannelsSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              One customer. Three apps and a phone line.
+              <TextReveal text="One customer. Three apps and a phone line." />
               <br />
-              <HighlightBubble bgClass="bg-[#1FD27A]">One timeline.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#1FD27A]" delay={0.28}>
+                One timeline.
+              </HighlightBubble>
             </h2>
-            <p className="mt-5 text-[19px] max-[720px]:text-[17px] text-[#52625A] max-w-[560px] mx-auto">
-              People do not stay on one channel, so your records should not either. Parsona merges
-              every message, comment, order and, soon, every call into a single history per customer.
-            </p>
+            <FadeUp delay={0.18} distance={14}>
+              <p className="mt-5 text-[19px] max-[720px]:text-[17px] text-[#52625A] max-w-[560px] mx-auto">
+                People do not stay on one channel, so your records should not either. Parsona merges
+                every message, comment, order and, soon, every call into a single history per customer.
+              </p>
+            </FadeUp>
           </div>
 
           <div className="grid grid-cols-[1fr_1.05fr] gap-14 max-[980px]:gap-8 mt-14 max-[720px]:mt-8 items-start max-[980px]:grid-cols-1">

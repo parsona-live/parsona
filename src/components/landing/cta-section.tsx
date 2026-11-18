@@ -1,5 +1,8 @@
+'use client'
+
 import React from 'react'
 import { BTN_DARK, BTN_OUTLINE, DISPLAY_FONT, HighlightBubble, MONO_FONT } from './shared'
+import { FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
 
 const ONBOARDING_STEPS = [
   {
@@ -29,12 +32,13 @@ export function CtaSection() {
   return (
     <section className="pt-[120px] max-[980px]:pt-[88px]">
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
-        <div
-          className="grid grid-cols-[1.15fr_1fr] max-[1100px]:grid-cols-1 gap-12 items-center p-14 max-[1100px]:px-8 max-[1100px]:py-10 max-[720px]:px-[22px] max-[720px]:py-[30px] border-[1.5px] border-[#0E1512] rounded-[28px] shadow-[10px_10px_0_#0B3B2E] max-[720px]:shadow-[6px_6px_0_#0B3B2E] overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #D4F5E3 0%, #EAF2FF 55%, #F0EAFF 100%)',
-          }}
-        >
+        <FadeUp distance={26}>
+          <div
+            className="grid grid-cols-[1.15fr_1fr] max-[1100px]:grid-cols-1 gap-12 items-center p-14 max-[1100px]:px-8 max-[1100px]:py-10 max-[720px]:px-[22px] max-[720px]:py-[30px] border-[1.5px] border-[#0E1512] rounded-[28px] shadow-[10px_10px_0_#0B3B2E] max-[720px]:shadow-[6px_6px_0_#0B3B2E] overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #D4F5E3 0%, #EAF2FF 55%, #F0EAFF 100%)',
+            }}
+          >
           <div>
             <div className="flex items-center mb-[26px]">
               <span className="inline-flex w-[42px] h-[42px] rounded-full bg-white border-2 border-white -mr-2 shadow-[0_0_0_1.5px_#0E1512] items-center justify-center overflow-hidden">
@@ -75,24 +79,26 @@ export function CtaSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.3vw,44px)] font-bold tracking-[-0.04em] leading-[1.12] text-balance`}
             >
-              Start with one number.
+              <TextReveal text="Start with one number." />
               <br />
-              <HighlightBubble>Grow to every channel.</HighlightBubble>
+              <HighlightBubble delay={0.22}>Grow to every channel.</HighlightBubble>
             </h2>
-            <p className="mt-5 max-w-[520px] text-[#3B4A43] text-[18px]">
-              Connect WhatsApp in about 10 minutes, then add Instagram and Facebook when you are
-              ready. Your first automation can be live today.
-            </p>
+            <FadeUp delay={0.18} distance={14}>
+              <p className="mt-5 max-w-[520px] text-[#3B4A43] text-[18px]">
+                Connect WhatsApp in about 10 minutes, then add Instagram, Facebook and soon voice
+                calls when you are ready.
+              </p>
+            </FadeUp>
             <div className="flex gap-3 flex-wrap mt-[30px]">
-              <a href="#pricing" className={BTN_DARK}>
-                Start 14-day free trial
+              <a href="#waitlist" className={BTN_DARK}>
+                Join the waitlist →
               </a>
-              <a href="#waitlist" className={`${BTN_OUTLINE} !bg-white hover:!bg-[#0E1512]`}>
-                Join waitlist
+              <a href="#pricing" className={`${BTN_OUTLINE} !bg-white hover:!bg-[#0E1512]`}>
+                View plans
               </a>
             </div>
             <div className="flex gap-[10px] flex-wrap mt-6">
-              {['No credit card', 'Cancel any time', 'Official WhatsApp API'].map((item) => (
+              {['Early access soon', 'Priority onboarding', 'Official WhatsApp API'].map((item) => (
                 <span
                   key={item}
                   className={`inline-flex items-center gap-2 ${MONO_FONT} font-medium text-[12.5px] bg-white border border-[#0E1512] rounded-full px-3 py-[6px]`}
@@ -108,9 +114,9 @@ export function CtaSection() {
             <h4 className={`${MONO_FONT} font-medium text-[12px] tracking-[0.07em] uppercase text-[#52625A] mb-[6px]`}>
               What happens next
             </h4>
-            <ul>
+            <StaggerGroup stagger={0.09} delay={0.1}>
               {ONBOARDING_STEPS.map((step, idx) => (
-                <li
+                <StaggerItem
                   key={step.num}
                   className={`grid grid-cols-[40px_1fr_auto] max-[720px]:grid-cols-[40px_1fr] gap-[14px] items-center py-4 ${
                     idx > 0 ? 'border-t border-dashed border-[#C9D4CD]' : ''
@@ -131,11 +137,12 @@ export function CtaSection() {
                   <em className={`max-[720px]:hidden ${MONO_FONT} font-medium text-[11.5px] not-italic bg-[#F1F4F0] rounded-full px-[10px] py-1 text-[#0B3B2E]`}>
                     {step.time}
                   </em>
-                </li>
+                </StaggerItem>
               ))}
-            </ul>
+            </StaggerGroup>
           </div>
         </div>
+        </FadeUp>
       </div>
     </section>
   )

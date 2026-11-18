@@ -1,4 +1,8 @@
+'use client'
+
 import React from 'react'
+import { motion } from 'framer-motion'
+import { EASE, VIEWPORT } from './motion'
 
 export const DISPLAY_FONT = '[font-family:var(--font-display)]'
 export const MONO_FONT = '[font-family:var(--font-lmono)]'
@@ -44,7 +48,11 @@ interface SectionPillProps {
 
 export function SectionPill({ label, count, bgClass, dotClass }: SectionPillProps) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.96 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={VIEWPORT}
+      transition={{ duration: 0.45, ease: EASE }}
       className={`justify-self-center inline-flex items-center gap-[10px] py-2 pr-4 pl-3 mb-7 max-[720px]:mb-5 rounded-full border-[1.5px] border-[#0E1512] text-[#0E1512] ${MONO_FONT} font-medium text-[12.5px] tracking-[0.08em] uppercase ${bgClass}`}
     >
       <i className={`w-[10px] h-[10px] rounded-full shrink-0 ${dotClass}`} />
@@ -54,22 +62,38 @@ export function SectionPill({ label, count, bgClass, dotClass }: SectionPillProp
           {count}
         </span>
       )}
-    </div>
+    </motion.div>
   )
 }
 
 interface HighlightBubbleProps {
   children: React.ReactNode
   bgClass?: string
+  trigger?: 'mount' | 'inView'
+  delay?: number
 }
 
-export function HighlightBubble({ children, bgClass = 'bg-[#1FD27A]' }: HighlightBubbleProps) {
+export function HighlightBubble({
+  children,
+  bgClass = 'bg-[#1FD27A]',
+  trigger = 'inView',
+  delay = 0.16,
+}: HighlightBubbleProps) {
   return (
-    <span
-      className={`${bgClass} text-[#0E1512] px-[0.2em] pb-[0.04em] rounded-[0.3em_0.3em_0.3em_0.05em] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]`}
+    <motion.span
+      initial={{ opacity: 0, y: 12, scale: 0.94 }}
+      {...(trigger === 'mount'
+        ? { animate: { opacity: 1, y: 0, scale: 1 } }
+        : { whileInView: { opacity: 1, y: 0, scale: 1 }, viewport: VIEWPORT })}
+      transition={{
+        duration: 0.48,
+        delay,
+        ease: EASE,
+      }}
+      className={`inline-block ${bgClass} text-[#0E1512] px-[0.2em] pb-[0.04em] rounded-[0.3em_0.3em_0.3em_0.05em] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]`}
     >
       {children}
-    </span>
+    </motion.span>
   )
 }
 

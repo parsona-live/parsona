@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { FadeUp, TextReveal } from './motion'
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -308,14 +309,18 @@ export function PlatformSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              Everything a conversation touches, in
+              <TextReveal text="Everything a conversation touches, in" />
               <br />
-              <HighlightBubble bgClass="bg-[#CFC3FF]">one workbench.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#CFC3FF]" delay={0.26}>
+                one workbench.
+              </HighlightBubble>
             </h2>
-            <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
-              Inbox, campaigns, CRM, automation, AI and soon voice read from the same customer
-              record, so nothing is copied between tools.
-            </p>
+            <FadeUp delay={0.18} distance={14}>
+              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+                Inbox, campaigns, CRM, automation, AI and soon voice read from the same customer
+                record, so nothing is copied between tools.
+              </p>
+            </FadeUp>
           </div>
 
           <div

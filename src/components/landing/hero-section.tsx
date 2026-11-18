@@ -1,5 +1,9 @@
+'use client'
+
 import React from 'react'
+import { motion } from 'framer-motion'
 import { BTN_DARK, BTN_OUTLINE, DISPLAY_FONT, HighlightBubble, MONO_FONT } from './shared'
+import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
 import { InboxConsoleDemo } from './inbox-console-demo'
 
 export function HeroSection() {
@@ -10,43 +14,67 @@ export function HeroSection() {
           {/* Left Copy */}
           <div>
             <div className="relative">
-              <div
-                className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[13px] tracking-[0.04em] text-[#0B3B2E] bg-[#DCE7DF] rounded-lg px-3 py-[7px] mb-5`}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#1FD27A] shadow-[0_0_0_3px_rgba(31,210,122,0.25)]" />
-                WhatsApp · Instagram · Facebook · Voice soon
-              </div>
+              <FadeUp trigger="mount" delay={0.04} distance={14}>
+                <div
+                  className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[13px] tracking-[0.04em] text-[#0B3B2E] bg-[#DCE7DF] rounded-lg px-3 py-[7px] mb-5`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#1FD27A] shadow-[0_0_0_3px_rgba(31,210,122,0.25)]" />
+                  WhatsApp · Instagram · Facebook · Voice soon
+                </div>
+              </FadeUp>
               <h1
                 className={`${DISPLAY_FONT} text-[clamp(34px,3.7vw,54px)] font-bold tracking-[-0.045em] leading-[1.1] text-balance text-[#0E1512]`}
               >
-                Every message answered.
+                <TextReveal text="Every message answered." trigger="mount" delay={0.08} />
                 <br />
-                Every lead <HighlightBubble>followed up.</HighlightBubble>
+                <TextReveal text="Every lead" trigger="mount" delay={0.22} />{' '}
+                <HighlightBubble trigger="mount" delay={0.34}>
+                  followed up.
+                </HighlightBubble>
               </h1>
             </div>
 
             <div className="mt-6">
-              <p className="text-[19px] text-[#52625A] max-w-[540px]">
-                Parsona puts WhatsApp, Instagram, Facebook and soon voice calls into one team inbox,
-                then takes over the repetitive work with broadcasts, a built-in CRM, a flow builder
-                and AI agents that know your catalogue.
-              </p>
-              <div className="flex gap-3 flex-wrap mt-7">
-                <a href="#waitlist" className={BTN_DARK}>
-                  Join the waitlist →
-                </a>
-                <a href="#platform" className={BTN_OUTLINE}>
-                  See it working
-                </a>
-              </div>
-              <p className={`mt-4 ${MONO_FONT} text-[13px] text-[#52625A]`}>
-                Early access opening soon · Priority onboarding for founding teams.
-              </p>
+              <FadeUp trigger="mount" delay={0.36} distance={16}>
+                <p className="text-[19px] text-[#52625A] max-w-[540px]">
+                  Parsona puts WhatsApp, Instagram, Facebook and soon voice calls into one team inbox,
+                  then takes over the repetitive work with broadcasts, a built-in CRM, a flow builder
+                  and AI agents that know your catalogue.
+                </p>
+              </FadeUp>
+              <FadeUp trigger="mount" delay={0.46} distance={16}>
+                <div className="flex gap-3 flex-wrap mt-7">
+                  <motion.a
+                    href="#waitlist"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={BTN_DARK}
+                  >
+                    Join the waitlist →
+                  </motion.a>
+                  <motion.a
+                    href="#platform"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={BTN_OUTLINE}
+                  >
+                    See it working
+                  </motion.a>
+                </div>
+              </FadeUp>
+              <FadeUp trigger="mount" delay={0.54} distance={12}>
+                <p className={`mt-4 ${MONO_FONT} text-[13px] text-[#52625A]`}>
+                  Early access opening soon · Priority onboarding for founding teams.
+                </p>
+              </FadeUp>
             </div>
           </div>
 
           {/* Right Animated Message Flow Diagram */}
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.65, delay: 0.18, ease: EASE }}
             className="w-full max-w-[460px] ml-auto max-[980px]:mx-auto bg-white [background-image:radial-gradient(#D3DCD6_1px,transparent_1.2px)] [background-size:16px_16px] border-[1.5px] border-[#0E1512] rounded-[22px] shadow-[8px_8px_0_#0B3B2E] overflow-hidden"
             role="img"
             aria-label="Diagram: WhatsApp, Instagram, Facebook and upcoming Voice calls flow into the Parsona inbox, CRM, flows and AI agent"
@@ -381,14 +409,22 @@ export function HeroSection() {
                 SHARED CONTEXT
               </text>
             </svg>
-          </div>
+          </motion.div>
         </div>
 
         {/* Interactive Product Console Preview (Desktop & Mobile) */}
-        <InboxConsoleDemo />
+        <FadeUp delay={0.12} distance={28}>
+          <InboxConsoleDemo />
+        </FadeUp>
 
         {/* Trust / Waitlist Social Proof Bar */}
-        <div className="mt-[72px] max-[720px]:mt-12 flex items-center justify-between gap-5 flex-wrap py-[22px] max-[720px]:py-6 border-y border-[#D9E1DB] max-[720px]:flex-col max-[720px]:items-center max-[720px]:text-center max-[720px]:gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={VIEWPORT}
+          transition={{ duration: 0.52, ease: EASE }}
+          className="mt-[72px] max-[720px]:mt-12 flex items-center justify-between gap-5 flex-wrap py-[22px] max-[720px]:py-6 border-y border-[#D9E1DB] max-[720px]:flex-col max-[720px]:items-center max-[720px]:text-center max-[720px]:gap-4"
+        >
           <div className="flex items-center gap-4 flex-wrap max-[720px]:flex-col max-[720px]:items-center max-[720px]:gap-3">
             <div className="flex items-center -space-x-[10px]" aria-hidden="true">
               {[
@@ -397,14 +433,18 @@ export function HeroSection() {
                 { initials: 'RK', bg: '#FFE9A8' },
                 { initials: 'IV', bg: '#E3DCFA' },
                 { initials: 'DP', bg: '#D4F5E3' },
-              ].map((avatar) => (
-                <span
+              ].map((avatar, i) => (
+                <motion.span
                   key={avatar.initials}
+                  initial={{ opacity: 0, scale: 0.75, x: -8 }}
+                  whileInView={{ opacity: 1, scale: 1, x: 0 }}
+                  viewport={VIEWPORT}
+                  transition={{ duration: 0.38, delay: 0.06 * i, ease: EASE }}
                   className={`w-10 h-10 max-[720px]:w-9 max-[720px]:h-9 rounded-full border-[1.5px] border-[#0E1512] grid place-items-center ${MONO_FONT} font-semibold text-[11.5px] text-[#0E1512]`}
                   style={{ backgroundColor: avatar.bg }}
                 >
                   {avatar.initials}
-                </span>
+                </motion.span>
               ))}
             </div>
             <p className="text-[15.5px] max-[720px]:text-[15px] text-[#52625A]">
@@ -413,14 +453,16 @@ export function HeroSection() {
             </p>
           </div>
 
-          <a
+          <motion.a
             href="#waitlist"
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
             className={`inline-flex items-center justify-center gap-1.5 h-10 px-[18px] max-[720px]:w-full max-[720px]:h-11 rounded-[12px] bg-white border-[1.5px] border-[#0E1512] ${MONO_FONT} font-medium text-[13px] text-[#0E1512] hover:bg-[#0E1512] hover:text-white transition-colors whitespace-nowrap focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px]`}
           >
             <span>Join them</span>
             <span aria-hidden="true">→</span>
-          </a>
-        </div>
+          </motion.a>
+        </motion.div>
       </div>
     </section>
   )

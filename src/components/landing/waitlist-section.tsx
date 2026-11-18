@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { BTN_DARK, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { FadeUp, TextReveal } from './motion'
 
 export function WaitlistSection() {
   const [wlName, setWlName] = useState('')
@@ -55,16 +56,21 @@ export function WaitlistSection() {
             <h2
               className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
             >
-              Get early access.
+              <TextReveal text="Get early access." />
               <br />
-              <HighlightBubble bgClass="bg-[#FFB99A]">Join the waitlist.</HighlightBubble>
+              <HighlightBubble bgClass="bg-[#FFB99A]" delay={0.18}>
+                Join the waitlist.
+              </HighlightBubble>
             </h2>
-            <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
-              Leave your details and we will email you as soon as your invite is ready.
-            </p>
+            <FadeUp delay={0.16} distance={14}>
+              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+                Leave your details and we will email you as soon as your invite is ready.
+              </p>
+            </FadeUp>
           </div>
 
-          <div className="mt-12 mx-auto max-w-[640px] bg-white border-[1.5px] border-[#0E1512] rounded-[24px] p-8 max-[720px]:px-5 max-[720px]:py-6 shadow-[8px_8px_0_#1FD27A] max-[720px]:shadow-[5px_5px_0_#1FD27A]">
+          <FadeUp delay={0.14} distance={24}>
+            <div className="mt-12 mx-auto max-w-[640px] bg-white border-[1.5px] border-[#0E1512] rounded-[24px] p-8 max-[720px]:px-5 max-[720px]:py-6 shadow-[8px_8px_0_#1FD27A] max-[720px]:shadow-[5px_5px_0_#1FD27A]">
             {!wlSubmitted ? (
               <form id="wl-form" noValidate onSubmit={handleWaitlistSubmit}>
                 <div className="mb-[18px]">
@@ -195,6 +201,7 @@ export function WaitlistSection() {
               </div>
             )}
           </div>
+          </FadeUp>
         </div>
       </div>
     </section>

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { MotionConfig } from 'framer-motion'
 import type { User } from '@supabase/supabase-js'
 import './landing-theme.css'
 import { Navbar } from './navbar'
@@ -23,22 +24,24 @@ interface LandingPageViewProps {
 
 export function LandingPageView(_props: LandingPageViewProps) {
   return (
-    <div className="landing-page-root w-full min-h-screen bg-[#F3F5F0] text-[#0E1512] [font-family:var(--font-body)] text-[16px] leading-[1.55] antialiased overflow-x-hidden">
-      <Navbar />
+    <MotionConfig reducedMotion="user">
+      <div className="landing-page-root w-full min-h-screen bg-[#F3F5F0] text-[#0E1512] [font-family:var(--font-body)] text-[16px] leading-[1.55] antialiased overflow-x-hidden">
+        <Navbar />
 
-      <main id="top">
-        <HeroSection />
-        <ChannelsSection />
-        <PlatformSection />
-        <AutomationSection />
-        <UseCasesSection />
-        <PricingSection />
-        <FaqSection />
-        <WaitlistSection />
-        <CtaSection />
-      </main>
+        <main id="top">
+          <HeroSection />
+          <ChannelsSection />
+          <PlatformSection />
+          <AutomationSection />
+          <UseCasesSection />
+          <PricingSection />
+          <FaqSection />
+          <WaitlistSection />
+          <CtaSection />
+        </main>
 
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </MotionConfig>
   )
 }
