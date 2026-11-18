@@ -151,8 +151,8 @@ const KEYFRAMES = `
 @keyframes channels-ping{0%{transform:scale(.85);opacity:.5}100%{transform:scale(2);opacity:0}}
 `
 
-// Plays once, when the section scrolls into view.
-function useInView<T extends Element>(threshold = 0.15) {
+// Replays whenever the section scrolls into view.
+function useInView<T extends Element>(threshold = 0.12) {
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(
     () => typeof window !== 'undefined' && typeof IntersectionObserver === 'undefined',
@@ -162,10 +162,7 @@ function useInView<T extends Element>(threshold = 0.15) {
     if (!el || typeof IntersectionObserver === 'undefined') return
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          io.disconnect()
-        }
+        setInView(entry.isIntersecting)
       },
       { threshold },
     )

@@ -4,7 +4,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 
 export const EASE = [0.22, 1, 0.36, 1] as const
-export const VIEWPORT = { once: true, amount: 0.2 } as const
+export const VIEWPORT = { once: false, amount: 0.15 } as const
 
 interface TextRevealProps {
   text: string
