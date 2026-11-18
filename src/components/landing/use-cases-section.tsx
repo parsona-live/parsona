@@ -1,26 +1,27 @@
 import React from 'react'
+import Image from 'next/image'
 import { BTN_GREEN, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
 
 const USE_CASES = [
   {
     title: 'D2C and retail',
     description: 'Catalogue on WhatsApp, cart recovery, COD confirmations and shipping updates.',
-    placeholder: 'Boutique owner packing orders',
-    stripeBg: 'repeating-linear-gradient(135deg, #E8EFE9 0 14px, #D4F5E3 14px 28px)',
+    image: '/images/use-cases/d2c-retail.jpg',
+    alt: 'Boutique owner packing cotton kurta orders in a sunlit retail studio',
     chips: ['Cart recovery', 'Order updates'],
   },
   {
     title: 'Clinics and services',
     description: 'Bookings, reschedules and reminders on autopilot, with a human one tap away.',
-    placeholder: 'Clinic reception with tablet',
-    stripeBg: 'repeating-linear-gradient(135deg, #F3EFFF 0 14px, #E5DEFF 14px 28px)',
+    image: '/images/use-cases/clinics-services.jpg',
+    alt: 'Smiling receptionist holding a tablet at a modern wellness clinic front desk',
     chips: ['Appointments', 'Reminders'],
   },
   {
     title: 'Agencies',
     description: 'Run many brands from one login with separate numbers, roles and reports.',
-    placeholder: 'Agency team at a shared screen',
-    stripeBg: 'repeating-linear-gradient(135deg, #FFF1E9 0 14px, #FFE1D6 14px 28px)',
+    image: '/images/use-cases/agencies.jpg',
+    alt: 'Two agency teammates collaborating together at a shared screen in a bright studio',
     chips: ['Multi-brand', 'Roles'],
   },
 ]
@@ -49,33 +50,17 @@ export function UseCasesSection() {
             {USE_CASES.map((item) => (
               <article
                 key={item.title}
-                className="bg-white border-[1.5px] border-[#0E1512] rounded-[22px] pt-[14px] px-[14px] pb-6 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0_#DCE7DF]"
+                className="group bg-white border-[1.5px] border-[#0E1512] rounded-[22px] pt-[14px] px-[14px] pb-6 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-[8px_8px_0_#DCE7DF]"
               >
-                <div
-                  className={`relative aspect-[4/3] rounded-[16px] border-[1.5px] border-dashed border-[#8FA89B] grid place-items-center text-center p-4 text-[#0B3B2E] ${MONO_FONT} font-medium text-[12px] leading-[1.5]`}
-                  style={{ background: item.stripeBg }}
-                >
-                  <div>
-                    <svg
-                      width="30"
-                      height="30"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                      className="block mx-auto mb-2"
-                    >
-                      <rect x="3" y="4" width="18" height="16" rx="3" />
-                      <circle cx="9" cy="10" r="2" />
-                      <path d="M21 16l-5-5-8 9" />
-                    </svg>
-                    IMAGE 4:3
-                    <br />
-                    {item.placeholder}
-                  </div>
+                <div className="relative aspect-[4/3] rounded-[16px] overflow-hidden border border-[#D9E1DB] bg-[#F3F5F0]">
+                  <Image
+                    src={item.image}
+                    alt={item.alt}
+                    fill
+                    unoptimized
+                    sizes="(max-width: 1100px) 100vw, 33vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
                 </div>
                 <h3 className={`${DISPLAY_FONT} text-[26px] font-bold tracking-[-0.035em] leading-[1.02] mt-5 mx-[10px] mb-2`}>
                   {item.title}

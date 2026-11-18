@@ -9,8 +9,8 @@ import { ChannelsSection } from './channels-section'
 import { PlatformSection } from './platform-section'
 import { AutomationSection } from './automation-section'
 import { UseCasesSection } from './use-cases-section'
-import { ReliabilitySection } from './reliability-section'
-import { CustomersSection } from './customers-section'
+//import { ReliabilitySection } from './reliability-section'
+//import { CustomersSection } from './customers-section'
 import { PricingSection } from './pricing-section'
 import { FaqSection } from './faq-section'
 import { WaitlistSection } from './waitlist-section'
@@ -32,8 +32,6 @@ export function LandingPageView(_props: LandingPageViewProps) {
         <PlatformSection />
         <AutomationSection />
         <UseCasesSection />
-        <ReliabilitySection />
-        <CustomersSection />
         <PricingSection />
         <FaqSection />
         <WaitlistSection />

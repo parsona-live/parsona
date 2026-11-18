@@ -30,7 +30,6 @@ type ContactThread = {
   stage: string
   returns: number
   summary: string
-  suggestion?: string
   initialMessages: ThreadMessage[]
 }
 
@@ -59,8 +58,6 @@ const INITIAL_CONTACTS: ContactThread[] = [
     returns: 0,
     summary:
       'Repeat buyer asking about cash on delivery for kurta set (M). Low return risk. Best next step: confirm order and share the tracking link.',
-    suggestion:
-      'Cash on delivery is available. I have added the kurta set to your cart. Want a tracking link once it ships?',
     initialMessages: [
       {
         id: 'e1',
@@ -82,6 +79,12 @@ const INITIAL_CONTACTS: ContactThread[] = [
         id: 'm3',
         sender: 'in',
         text: 'Yes please. Can I pay on delivery?',
+      },
+      {
+        id: 'm4',
+        sender: 'out',
+        who: 'Parsona AI · Payments',
+        text: 'Yes! Cash on delivery is available at ₹0 extra fee. I have reserved the kurta set in size M for you.',
       },
     ],
   },
@@ -105,8 +108,6 @@ const INITIAL_CONTACTS: ContactThread[] = [
     returns: 0,
     summary:
       'Commented "PRICE" on festive reel. Budget parsed around ₹15,000. High intent for festive combo pack.',
-    suggestion:
-      'The festive combo is ₹3,990 (save ₹800) with free express delivery. Want me to send the checkout link?',
     initialMessages: [
       {
         id: 're1',
@@ -117,6 +118,12 @@ const INITIAL_CONTACTS: ContactThread[] = [
         id: 'rm1',
         sender: 'in',
         text: 'What is the combo price? Looking for around 15k for family gifts.',
+      },
+      {
+        id: 'rm2',
+        sender: 'out',
+        who: 'Parsona AI · Catalogue',
+        text: 'The festive combo is ₹3,990 (save ₹800) with free express delivery. Want me to send the checkout link?',
       },
     ],
   },
@@ -139,8 +146,6 @@ const INITIAL_CONTACTS: ContactThread[] = [
     returns: 0,
     summary:
       'Requesting to reschedule consultation from Saturday to Monday morning. 11:00 AM slot is open.',
-    suggestion:
-      'Of course! Monday 11:00 AM is available. Shall I move your booking and send a WhatsApp reminder?',
     initialMessages: [
       {
         id: 'me1',
@@ -151,6 +156,12 @@ const INITIAL_CONTACTS: ContactThread[] = [
         id: 'mm1',
         sender: 'in',
         text: 'Can I move my slot to Monday?',
+      },
+      {
+        id: 'mm2',
+        sender: 'out',
+        who: 'Parsona AI · Bookings',
+        text: 'Of course! Monday 11:00 AM is available. Shall I move your booking and send a WhatsApp reminder?',
       },
     ],
   },
@@ -228,6 +239,24 @@ const QUICK_QUESTIONS = [
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
+function IconReset({ className = 'w-3.5 h-3.5' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  )
+}
+
 function getSmartAiReply(question: string): { who: string; text: string } {
   const q = question.toLowerCase()
   if (q.includes('pune') || q.includes('ship') || q.includes('deliver')) {
@@ -271,23 +300,17 @@ export function InboxConsoleDemo() {
   const [threads, setThreads] = useState<Record<string, ThreadMessage[]>>(() =>
     Object.fromEntries(INITIAL_CONTACTS.map((c) => [c.id, c.initialMessages]))
   )
-  const [suggestions, setSuggestions] = useState<Record<string, string | null>>(() =>
-    Object.fromEntries(INITIAL_CONTACTS.map((c) => [c.id, c.suggestion ?? null]))
-  )
-  const [aanyaOrderStep, setAanyaOrderStep] = useState<'idle' | 'ready' | 'confirmed'>('idle')
+  const [aanyaOrderStep, setAanyaOrderStep] = useState<'ready' | 'confirmed'>('ready')
   const [isTyping, setIsTyping] = useState(false)
   const [inputValue, setInputValue] = useState('')
-  const [composerMode, setComposerMode] = useState<'customer' | 'agent'>('customer')
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const sessionRef = useRef(0)
 
   const contact = INITIAL_CONTACTS.find((c) => c.id === activeId) ?? INITIAL_CONTACTS[0]
   const currentMessages = threads[contact.id] ?? []
   const currentMessagesCount = currentMessages.length
-  const currentSuggestion = suggestions[contact.id]
 
   useEffect(() => {
     const el = scrollRef.current
@@ -316,39 +339,6 @@ export function InboxConsoleDemo() {
     }))
   }, [])
 
-  const handleSendSuggestion = () => {
-    if (!currentSuggestion || isTyping) return
-    const text = currentSuggestion
-    const targetId = contact.id
-    setSuggestions((prev) => ({ ...prev, [targetId]: null }))
-    appendMessage(targetId, {
-      id: uid(),
-      sender: 'out',
-      who: 'Parsona AI · Sent by Rohan',
-      text,
-    })
-
-    if (targetId === 'aanya' && aanyaOrderStep === 'idle') {
-      setIsTyping(true)
-      schedule(() => {
-        appendMessage('aanya', {
-          id: uid(),
-          sender: 'in',
-          text: 'Yes please! Confirm COD for size M.',
-        })
-        setAanyaOrderStep('ready')
-        setIsTyping(false)
-      }, 650)
-    }
-  }
-
-  const handleEditSuggestion = () => {
-    if (!currentSuggestion) return
-    setComposerMode('agent')
-    setInputValue(currentSuggestion)
-    inputRef.current?.focus()
-  }
-
   const handleConfirmOrder = () => {
     if (aanyaOrderStep !== 'ready' || isTyping) return
     setIsTyping(true)
@@ -372,18 +362,6 @@ export function InboxConsoleDemo() {
     const targetId = contact.id
     if (questionText === undefined) setInputValue('')
 
-    if (composerMode === 'agent' && questionText === undefined) {
-      setSuggestions((prev) => ({ ...prev, [targetId]: null }))
-      appendMessage(targetId, {
-        id: uid(),
-        sender: 'out',
-        who: 'Rohan · Team reply',
-        text,
-      })
-      setComposerMode('customer')
-      return
-    }
-
     appendMessage(targetId, {
       id: uid(),
       sender: 'in',
@@ -403,17 +381,29 @@ export function InboxConsoleDemo() {
     }, 650)
   }
 
+  const handleResetConversation = () => {
+    sessionRef.current += 1
+    timersRef.current.forEach(clearTimeout)
+    timersRef.current = []
+    setThreads((prev) => ({ ...prev, [contact.id]: contact.initialMessages }))
+    if (contact.id === 'aanya') setAanyaOrderStep('ready')
+    setIsTyping(false)
+    setInputValue('')
+  }
+
   const handleReset = () => {
     sessionRef.current += 1
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
     setThreads(Object.fromEntries(INITIAL_CONTACTS.map((c) => [c.id, c.initialMessages])))
-    setSuggestions(Object.fromEntries(INITIAL_CONTACTS.map((c) => [c.id, c.suggestion ?? null])))
-    setAanyaOrderStep('idle')
+    setAanyaOrderStep('ready')
     setIsTyping(false)
     setInputValue('')
-    setComposerMode('customer')
   }
+
+  const hasConversationChanged =
+    currentMessages.length !== contact.initialMessages.length ||
+    (contact.id === 'aanya' && aanyaOrderStep !== 'ready')
 
   const displayLtv =
     contact.id === 'aanya' && aanyaOrderStep === 'confirmed' ? '₹20,730' : contact.ltv
@@ -439,9 +429,11 @@ export function InboxConsoleDemo() {
           <button
             type="button"
             onClick={handleReset}
-            className={`${MONO_FONT} text-[11px] text-[#52625A] hover:text-[#0E1512] px-2 py-0.5 rounded-md border border-[#D9E1DB] bg-white hover:bg-[#EDF3EE] transition-colors cursor-pointer`}
+            title="Reset entire inbox demo"
+            className={`inline-flex items-center gap-1.5 ${MONO_FONT} text-[11px] font-medium text-[#0B3B2E] hover:text-[#0E1512] px-2.5 py-1 rounded-md border border-[#D9E1DB] bg-white hover:bg-[#E6F7EE] transition-colors cursor-pointer shrink-0`}
           >
-            Reset
+            <IconReset className="w-3 h-3" />
+            <span>Reset</span>
           </button>
         </div>
 
@@ -472,10 +464,7 @@ export function InboxConsoleDemo() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => {
-                    setActiveId(c.id)
-                    setComposerMode('customer')
-                  }}
+                  onClick={() => setActiveId(c.id)}
                   className={`w-full text-left flex gap-3 px-[18px] py-[13px] border-t border-[#EDF1EC] items-center transition-colors cursor-pointer ${
                     isSelected ? 'bg-[#E6F7EE]' : 'bg-white hover:bg-[#F6F8F5]'
                   }`}
@@ -551,7 +540,7 @@ export function InboxConsoleDemo() {
             {/* Scrollable Messages Area */}
             <div
               ref={scrollRef}
-              className="flex-1 h-[330px] max-[720px]:h-[320px] overflow-y-auto no-scrollbar px-5 max-[720px]:px-4 py-5 flex flex-col gap-[11px]"
+              className="flex-1 h-[390px] max-[720px]:h-[360px] overflow-y-auto no-scrollbar px-5 max-[720px]:px-4 py-5 flex flex-col gap-[11px]"
             >
               {currentMessages.map((msg) => {
                 if (msg.sender === 'event') {
@@ -655,44 +644,27 @@ export function InboxConsoleDemo() {
               )}
             </div>
 
-            {/* Interactive AI Suggestion Bar */}
-            {currentSuggestion && (
-              <div className="mx-5 max-[720px]:mx-4 mb-3 bg-[#0B3B2E] text-white rounded-[14px] px-4 py-[14px] flex gap-3 items-center flex-wrap">
-                <div className="flex-1 min-w-[200px] text-[13.5px] leading-[1.45]">
-                  <small
-                    className={`block ${MONO_FONT} font-medium text-[10.5px] tracking-[0.06em] uppercase text-[#7FE5B2] mb-[3px]`}
-                  >
-                    AI suggestion
-                  </small>
-                  {currentSuggestion}
-                </div>
-                <div className="flex items-center gap-2 max-[720px]:w-full">
-                  <button
-                    type="button"
-                    onClick={handleSendSuggestion}
-                    disabled={isTyping}
-                    className={`${BTN_GREEN} !h-9 !text-[13px] !px-[14px] !rounded-[9px] max-[720px]:flex-1 cursor-pointer disabled:opacity-60`}
-                  >
-                    Send
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleEditSuggestion}
-                    disabled={isTyping}
-                    className="inline-flex items-center justify-center h-9 px-[14px] rounded-[9px] font-semibold text-[13px] border-[1.5px] border-[#5E8F7E] text-white hover:bg-white hover:text-[#0E1512] transition-colors max-[720px]:flex-1 cursor-pointer disabled:opacity-60"
-                  >
-                    Edit
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Quick Q&A Chips + Interactive Input Bar */}
             <div className="bg-white border-t border-[#D9E1DB] px-5 max-[720px]:px-4 pt-2.5 pb-3.5 space-y-2.5">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                <span className={`${MONO_FONT} text-[10.5px] uppercase tracking-[0.05em] text-[#52625A] shrink-0 mr-1`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`${MONO_FONT} text-[10.5px] uppercase tracking-[0.05em] text-[#52625A]`}>
                   Try asking:
                 </span>
+                <button
+                  type="button"
+                  onClick={handleResetConversation}
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full border ${MONO_FONT} text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
+                    hasConversationChanged
+                      ? 'bg-[#E6F7EE] border-[#1FD27A] text-[#0B3B2E] hover:bg-[#D4F5E3]'
+                      : 'bg-[#F3F5F0] border-[#D9E1DB] text-[#52625A] hover:bg-[#DCE7DF] hover:text-[#0B3B2E]'
+                  }`}
+                >
+                  <IconReset className="w-3 h-3" />
+                  <span>Reset conversation</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                 {QUICK_QUESTIONS.map((q) => (
                   <button
                     key={q}
@@ -714,16 +686,11 @@ export function InboxConsoleDemo() {
                 className="flex items-center gap-2"
               >
                 <input
-                  ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   maxLength={260}
-                  placeholder={
-                    composerMode === 'agent'
-                      ? 'Edit reply and press Send…'
-                      : 'Ask a customer question to test Parsona AI…'
-                  }
+                  placeholder="Ask a customer question to test Parsona AI…"
                   aria-label="Ask Parsona AI a question"
                   className="flex-1 min-w-0 h-10 rounded-[10px] border-[1.5px] border-[#D9E1DB] focus:border-[#0B3B2E] bg-[#FAFBF9] focus:bg-white px-3.5 text-[14px] text-[#0E1512] placeholder:text-[#7B8A82] focus:outline-none transition-colors"
                 />
@@ -732,7 +699,7 @@ export function InboxConsoleDemo() {
                   disabled={isTyping || !inputValue.trim()}
                   className="inline-flex items-center justify-center h-10 px-4 rounded-[10px] bg-[#0E1512] hover:bg-[#11503F] text-white font-semibold text-[13.5px] transition-colors cursor-pointer disabled:opacity-45 shrink-0"
                 >
-                  {composerMode === 'agent' ? 'Send reply' : 'Ask AI'}
+                  Ask AI
                 </button>
               </form>
             </div>
