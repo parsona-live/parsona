@@ -84,6 +84,15 @@ details[open] .landing-faq-summary::after {
   display: none;
 }
 
+.landing-page-root input:-webkit-autofill,
+.landing-page-root input:-webkit-autofill:hover,
+.landing-page-root input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #F8FAF7 inset !important;
+  -webkit-text-fill-color: #0E1512 !important;
+  caret-color: #0E1512;
+  transition: background-color 9999s ease-out 0s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-page-root *,
   .landing-page-root *::before,
