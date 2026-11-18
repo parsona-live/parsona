@@ -6,29 +6,30 @@ const FOOTER_COLUMNS = [
   {
     title: 'Product',
     links: [
-      { label: 'Team inbox', href: '#platform' },
-      { label: 'Broadcasts', href: '#platform' },
-      { label: 'CRM', href: '#platform' },
-      { label: 'Flow builder', href: '#automation' },
-      { label: 'AI agents', href: '#platform' },
+      { label: 'Team inbox', href: '/#platform' },
+      { label: 'Broadcasts', href: '/#platform' },
+      { label: 'CRM', href: '/#platform' },
+      { label: 'Flow builder', href: '/#automation' },
+      { label: 'AI agents', href: '/#platform' },
     ],
   },
   {
     title: 'Channels',
     links: [
-      { label: 'WhatsApp', href: '#channels' },
-      { label: 'Instagram', href: '#channels' },
-      { label: 'Facebook', href: '#channels' },
-      { label: 'Voice (soon)', href: '#channels' },
+      { label: 'WhatsApp', href: '/#channels' },
+      { label: 'Instagram', href: '/#channels' },
+      { label: 'Facebook', href: '/#channels' },
+      { label: 'Voice (soon)', href: '/#channels' },
     ],
   },
   {
-    title: 'Company',
+    title: 'Legal & Company',
     links: [
-      { label: 'About', href: '#top' },
-      { label: 'Contact', href: 'mailto:hello@parsona.live' },
-      { label: 'Privacy', href: '#' },
-      { label: 'Terms', href: '#' },
+      { label: 'About', href: '/#top' },
+      { label: 'Contact', href: 'mailto:hello@parsona.live', external: true },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms & Conditions', href: '/terms' },
+      
     ],
   },
 ]
@@ -105,12 +106,21 @@ export function Footer() {
               <ul className="space-y-0.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="block text-[#DCEBE4] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[#1FD27A] transition-colors"
-                    >
-                      {link.label}
-                    </a>
+                    {'external' in link && link.external ? (
+                      <a
+                        href={link.href}
+                        className="block text-[#DCEBE4] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[#1FD27A] transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="block text-[#DCEBE4] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[#1FD27A] transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

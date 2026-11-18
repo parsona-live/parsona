@@ -169,8 +169,11 @@ export function HeroSection() {
               <text x="267" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
                 FACEBOOK
               </text>
-              <text x="361" y="116" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
-                CALLING <span className='text-[10.5px] tracking-[0.07em] font-semibold text-size-small'> (COMING NEXT)</span>
+              <text x="361" y="114" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
+                <tspan x="361" dy="0">CALLING</tspan>
+                <tspan x="361" dy="11" className="text-[8px] tracking-[0.05em] font-semibold fill-[#7C5CFF]">
+                  (COMING NEXT)
+                </tspan>
               </text>
 
               {/* Animated Connectors */}
@@ -210,10 +213,10 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-1s' }}
               />
-              <path d="M361 126V150H140" fill="none" stroke="#B9A6FF" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M361 131V150H140" fill="none" stroke="#B9A6FF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
-                d="M361 126V150H140"
+                d="M361 131V150H140"
                 fill="none"
                 stroke="#F4A7C8"
                 strokeWidth="3.2"

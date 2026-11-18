@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { BTN_DARK, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
 import { FadeUp, TextReveal } from './motion'
 
@@ -171,8 +172,20 @@ export function WaitlistSection() {
                 <button type="submit" className={`${BTN_DARK} w-full !h-[54px] !text-[16px] cursor-pointer`}>
                   Join waitlist
                 </button>
-                <p className={`${MONO_FONT} text-[12.5px] text-[#52625A] text-center mt-[14px]`}>
-                  No spam. Only your invite and product news.
+                <p className={`${MONO_FONT} text-[12px] text-[#52625A] text-center mt-[14px] leading-[1.6]`}>
+                  No spam. Only your invite and product updates. By joining, you agree to our{' '}
+                  <Link href="/terms" className="underline text-[#0B3B2E] hover:text-[#11503F]">
+                    Terms
+                  </Link>
+                  ,{' '}
+                  <Link href="/privacy" className="underline text-[#0B3B2E] hover:text-[#11503F]">
+                    Privacy Policy
+                  </Link>{' '}
+                  &amp;{' '}
+                  <Link href="/data-policy" className="underline text-[#0B3B2E] hover:text-[#11503F]">
+                    Data Policy
+                  </Link>
+                  .
                 </p>
               </form>
             ) : (
