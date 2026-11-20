@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateWaitlistInput } from '@/lib/waitlist-validation'
 
 interface WaitlistPayload {
   name?: unknown
@@ -7,7 +8,12 @@ interface WaitlistPayload {
   website?: unknown // honeypot
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+interface AppsScriptResponse {
+  ok?: boolean
+  duplicate?: boolean
+  field?: 'email' | 'phone' | 'both'
+  error?: string
+}
 
 /**
  * Neutralize spreadsheet formula injection (=, +, -, @) for text fields
@@ -50,31 +56,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  const rawName = typeof body.name === 'string' ? body.name.trim() : ''
-  const rawEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-  const rawPhone = typeof body.phone === 'string' ? body.phone.trim() : ''
+  const rawName = typeof body.name === 'string' ? body.name : ''
+  const rawEmail = typeof body.email === 'string' ? body.email : ''
+  const rawPhone = typeof body.phone === 'string' ? body.phone : ''
 
-  if (rawName.length < 2 || rawName.length > 120) {
+  const { valid, errors, normalized } = validateWaitlistInput({
+    name: rawName,
+    email: rawEmail,
+    phone: rawPhone,
+  })
+
+  if (!valid) {
+    const firstField = (Object.keys(errors)[0] as 'name' | 'email' | 'phone' | undefined) ?? 'name'
     return NextResponse.json(
-      { ok: false, field: 'name', error: 'Please enter your full name.' },
-      { status: 400 }
-    )
-  }
-
-  if (!EMAIL_REGEX.test(rawEmail) || rawEmail.length > 180) {
-    return NextResponse.json(
-      { ok: false, field: 'email', error: 'Enter a valid email address.' },
-      { status: 400 }
-    )
-  }
-
-  const phoneDigits = rawPhone.replace(/\D/g, '')
-  const phoneValid =
-    /^[+\d][\d\s().-]*$/.test(rawPhone) && phoneDigits.length >= 7 && phoneDigits.length <= 15
-
-  if (!phoneValid) {
-    return NextResponse.json(
-      { ok: false, field: 'phone', error: 'Enter a valid number, e.g. +91 98765 43210.' },
+      {
+        ok: false,
+        field: firstField,
+        errors,
+        error: errors[firstField] || 'Please check your details and try again.',
+      },
       { status: 400 }
     )
   }
@@ -96,10 +96,11 @@ export async function POST(request: Request) {
     secret: process.env.GOOGLE_SHEETS_WEBHOOK_SECRET?.trim() || undefined,
     timestamp: now.toISOString(),
     istTime: `${formatIstTimestamp(now)} IST`,
-    name: sanitizeSheetText(rawName),
-    email: sanitizeSheetText(rawEmail),
+    name: sanitizeSheetText(normalized.name),
+    email: sanitizeSheetText(normalized.email),
     // Prefix with apostrophe so Google Sheets preserves "+91 ..." as plain text instead of a formula
-    phone: `'${rawPhone}`,
+    phone: `'${normalized.phone}`,
+    phoneKey: normalized.phoneKey,
     source: request.headers.get('origin') || 'parsona.live',
   }
 
@@ -114,11 +115,31 @@ export async function POST(request: Request) {
     })
 
     const text = await res.text()
-    let parsed: { ok?: boolean; error?: string } | null = null
+    let parsed: AppsScriptResponse | null = null
     try {
-      parsed = JSON.parse(text) as { ok?: boolean; error?: string }
+      parsed = JSON.parse(text) as AppsScriptResponse
     } catch {
       parsed = null
+    }
+
+    if (parsed?.duplicate) {
+      const dupField = parsed.field ?? 'email'
+      const defaultMsg =
+        dupField === 'both'
+          ? 'This email and WhatsApp number are already on the waitlist.'
+          : dupField === 'phone'
+            ? 'This WhatsApp number is already on the waitlist.'
+            : 'This email address is already on the waitlist.'
+
+      return NextResponse.json(
+        {
+          ok: false,
+          duplicate: true,
+          field: dupField,
+          error: parsed.error || defaultMsg,
+        },
+        { status: 409 }
+      )
     }
 
     if (!res.ok || (parsed && parsed.ok === false)) {
@@ -139,4 +160,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

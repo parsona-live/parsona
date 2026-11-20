@@ -3,8 +3,39 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { validateWaitlistInput } from '@/lib/waitlist-validation'
 import { BTN_DARK, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
 import { EASE, FadeUp, TextReveal } from './motion'
+
+const LOCAL_STORAGE_KEY = 'parsona_waitlist_entries_v1'
+
+interface StoredWaitlistEntry {
+  email: string
+  phoneKey: string
+}
+
+function readLocalEntries(): StoredWaitlistEntry[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as StoredWaitlistEntry[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveLocalEntry(entry: StoredWaitlistEntry) {
+  if (typeof window === 'undefined') return
+  try {
+    const existing = readLocalEntries()
+    const next = [...existing.slice(-19), entry]
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // Ignore storage quota or private-mode restrictions
+  }
+}
 
 export function WaitlistSection() {
   const [wlName, setWlName] = useState('')
@@ -16,6 +47,7 @@ export function WaitlistSection() {
     email?: string
     phone?: string
     form?: string
+    duplicate?: boolean
   }>({})
   const [wlSubmitting, setWlSubmitting] = useState(false)
   const [wlSubmitted, setWlSubmitted] = useState(false)
@@ -25,51 +57,79 @@ export function WaitlistSection() {
     e.preventDefault()
     if (wlSubmitting) return
 
-    const errors: { name?: string; email?: string; phone?: string; form?: string } = {}
+    const { valid, errors, normalized } = validateWaitlistInput({
+      name: wlName,
+      email: wlEmail,
+      phone: wlPhone,
+    })
 
-    const nameTrimmed = wlName.trim()
-    if (nameTrimmed.length < 2) {
-      errors.name = 'Please enter your name.'
+    if (!valid) {
+      setWlErrors(errors)
+      return
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-    if (!emailRegex.test(wlEmail.trim())) {
-      errors.email = 'Enter a valid email address.'
+    // Quick client-side duplicate check for repeat submissions from the same browser
+    const localEntries = readLocalEntries()
+    const emailDupLocal = localEntries.some((item) => item.email === normalized.email)
+    const phoneDupLocal = localEntries.some((item) => item.phoneKey === normalized.phoneKey)
+    if (emailDupLocal || phoneDupLocal) {
+      setWlErrors({
+        email: emailDupLocal ? 'This email is already on the waitlist.' : undefined,
+        phone: phoneDupLocal ? 'This WhatsApp number is already on the waitlist.' : undefined,
+        duplicate: true,
+        form:
+          emailDupLocal && phoneDupLocal
+            ? 'You are already on the waitlist with this email and WhatsApp number.'
+            : emailDupLocal
+              ? 'This email address is already registered on the waitlist.'
+              : 'This WhatsApp number is already registered on the waitlist.',
+      })
+      return
     }
 
-    const phoneDigits = wlPhone.replace(/\D/g, '')
-    const phoneValid =
-      /^[+\d][\d\s().-]*$/.test(wlPhone.trim()) &&
-      phoneDigits.length >= 7 &&
-      phoneDigits.length <= 15
-    if (!phoneValid) {
-      errors.phone = 'Enter a valid number, e.g. +91 98765 43210.'
-    }
-
-    setWlErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
+    setWlErrors({})
     setWlSubmitting(true)
     try {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: nameTrimmed,
-          email: wlEmail.trim(),
-          phone: wlPhone.trim(),
+          name: normalized.name,
+          email: normalized.email,
+          phone: normalized.phone,
           website: wlWebsite,
         }),
       })
 
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
-        field?: 'name' | 'email' | 'phone'
+        duplicate?: boolean
+        field?: 'name' | 'email' | 'phone' | 'both'
+        errors?: { name?: string; email?: string; phone?: string }
         error?: string
       }
 
       if (!res.ok || !data.ok) {
-        if (data.field) {
+        if (res.status === 409 || data.duplicate) {
+          const dupMsg = data.error || 'You are already registered on the waitlist.'
+          setWlErrors({
+            email:
+              data.field === 'email' || data.field === 'both'
+                ? 'This email is already on the waitlist.'
+                : undefined,
+            phone:
+              data.field === 'phone' || data.field === 'both'
+                ? 'This WhatsApp number is already on the waitlist.'
+                : undefined,
+            duplicate: true,
+            form: dupMsg,
+          })
+          return
+        }
+
+        if (data.errors && Object.keys(data.errors).length > 0) {
+          setWlErrors(data.errors)
+        } else if (data.field && data.field !== 'both') {
           setWlErrors({ [data.field]: data.error || 'Please check this field.' })
         } else {
           setWlErrors({
@@ -79,7 +139,8 @@ export function WaitlistSection() {
         return
       }
 
-      setWlFirstName(nameTrimmed.split(/\s+/)[0])
+      saveLocalEntry({ email: normalized.email, phoneKey: normalized.phoneKey })
+      setWlFirstName(normalized.name.split(/\s+/)[0])
       setWlSubmitted(true)
     } catch {
       setWlErrors({
@@ -151,7 +212,12 @@ export function WaitlistSection() {
                       onChange={(e) => {
                         setWlName(e.target.value)
                         if (wlErrors.name || wlErrors.form) {
-                          setWlErrors((prev) => ({ ...prev, name: undefined, form: undefined }))
+                          setWlErrors((prev) => ({
+                            ...prev,
+                            name: undefined,
+                            form: undefined,
+                            duplicate: false,
+                          }))
                         }
                       }}
                       aria-invalid={!!wlErrors.name}
@@ -186,16 +252,27 @@ export function WaitlistSection() {
                         onChange={(e) => {
                           setWlEmail(e.target.value)
                           if (wlErrors.email || wlErrors.form) {
-                            setWlErrors((prev) => ({ ...prev, email: undefined, form: undefined }))
+                            setWlErrors((prev) => ({
+                              ...prev,
+                              email: undefined,
+                              form: undefined,
+                              duplicate: false,
+                            }))
                           }
                         }}
                         aria-invalid={!!wlErrors.email}
-                        className={`${inputBase} ${wlErrors.email ? 'border-[#D92D20]' : 'border-[#0E1512]'}`}
+                        className={`${inputBase} ${
+                          wlErrors.email
+                            ? wlErrors.duplicate
+                              ? 'border-[#D97706]'
+                              : 'border-[#D92D20]'
+                            : 'border-[#0E1512]'
+                        }`}
                       />
                       <div
                         id="wl-email-e"
                         aria-live="polite"
-                        className={`text-[#D92D20] ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
+                        className={`${wlErrors.duplicate ? 'text-[#B45309]' : 'text-[#D92D20]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
                       >
                         {wlErrors.email}
                       </div>
@@ -220,16 +297,27 @@ export function WaitlistSection() {
                         onChange={(e) => {
                           setWlPhone(e.target.value)
                           if (wlErrors.phone || wlErrors.form) {
-                            setWlErrors((prev) => ({ ...prev, phone: undefined, form: undefined }))
+                            setWlErrors((prev) => ({
+                              ...prev,
+                              phone: undefined,
+                              form: undefined,
+                              duplicate: false,
+                            }))
                           }
                         }}
                         aria-invalid={!!wlErrors.phone}
-                        className={`${inputBase} ${wlErrors.phone ? 'border-[#D92D20]' : 'border-[#0E1512]'}`}
+                        className={`${inputBase} ${
+                          wlErrors.phone
+                            ? wlErrors.duplicate
+                              ? 'border-[#D97706]'
+                              : 'border-[#D92D20]'
+                            : 'border-[#0E1512]'
+                        }`}
                       />
                       <div
                         id="wl-phone-e"
                         aria-live="polite"
-                        className={`text-[#D92D20] ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
+                        className={`${wlErrors.duplicate ? 'text-[#B45309]' : 'text-[#D92D20]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
                       >
                         {wlErrors.phone}
                       </div>
@@ -239,7 +327,11 @@ export function WaitlistSection() {
                   {wlErrors.form && (
                     <div
                       role="alert"
-                      className={`mb-4 rounded-[12px] border border-[#D92D20]/40 bg-[#FEF3F2] px-4 py-3 text-[13.5px] text-[#B42318]`}
+                      className={`mb-4 rounded-[12px] border px-4 py-3 text-[13.5px] leading-[1.45] ${
+                        wlErrors.duplicate
+                          ? 'border-[#F59E0B]/50 bg-[#FFFBEB] text-[#92400E]'
+                          : 'border-[#D92D20]/40 bg-[#FEF3F2] text-[#B42318]'
+                      }`}
                     >
                       {wlErrors.form}
                     </div>
