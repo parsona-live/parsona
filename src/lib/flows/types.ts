@@ -515,6 +515,7 @@ export interface FlowRow {
   status: "draft" | "active" | "archived";
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | Record<string, unknown>;
+  channels?: ("whatsapp" | "instagram" | "facebook")[];
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   execution_count: number;
@@ -621,6 +622,7 @@ export interface DispatchInboundInput {
   userId: string;
   contactId: string;
   conversationId: string;
+  channel?: "whatsapp" | "instagram" | "facebook";
   message: ParsedInbound;
 }
 

@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { ChannelIcon } from '@/components/channels/channel-badge'
 
 import { buttonVariants } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -72,22 +73,43 @@ export function ReplyQueueCard({ data, now }: { data: DashboardOverview | null; 
                     href={`/inbox?c=${q.conversationId}`}
                     className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
-                    <Avatar>
-                      {q.avatarUrl ? <AvatarImage src={q.avatarUrl} alt="" /> : null}
-                      <AvatarFallback className="text-xs">{initialsOf(name)}</AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar>
+                        {q.avatarUrl ? <AvatarImage src={q.avatarUrl} alt="" /> : null}
+                        <AvatarFallback className="text-xs">{initialsOf(name)}</AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-card p-0.5 shadow-xs">
+                        <ChannelIcon channel={q.channel || 'whatsapp'} className="size-3" />
+                      </span>
+                    </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                      </div>
                       <p className="truncate text-xs text-muted-foreground">{q.preview || t('noPreview')}</p>
-                      {windowLeft > 0 && windowLeft <= WINDOW_WARNING_MINUTES ? (
-                        <Badge variant="outline" className="mt-1 border-status-serious/40 text-status-serious">
-                          {t('windowLeft', { time: formatDuration(windowLeft) })}
-                        </Badge>
-                      ) : q.handedOff ? (
-                        <Badge variant="secondary" className="mt-1">
-                          {t('handedOff')}
-                        </Badge>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {windowLeft > 0 ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-[10px] px-1.5 py-0 h-4 gap-1',
+                              windowLeft <= 120
+                                ? 'border-status-critical/60 text-status-critical animate-pulse bg-status-critical/10'
+                                : windowLeft <= 360
+                                  ? 'border-status-warning/60 text-status-warning bg-status-warning/10'
+                                  : 'border-status-good/40 text-status-good bg-status-good/5',
+                            )}
+                          >
+                            <Clock className="size-2.5" />
+                            <span>{formatDuration(windowLeft)} left</span>
+                          </Badge>
+                        ) : null}
+                        {q.handedOff ? (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {t('handedOff')}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p

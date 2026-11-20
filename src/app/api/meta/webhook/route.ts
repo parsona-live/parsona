@@ -8,6 +8,8 @@ import { readCappedBody } from '@/lib/whatsapp/webhook-body'
 import { processInboundMetaMessage, type MetaMessagingEvent } from '@/lib/meta/inbound-normalizer'
 import { processInboundComment, type InboundCommentEvent } from '@/lib/meta/comment-to-dm'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { dispatchInboundToFlows } from '@/lib/flows/engine'
+import type { ParsedInbound } from '@/lib/flows/types'
 
 export const maxDuration = 60
 
@@ -107,16 +109,74 @@ export async function POST(req: Request) {
             })
 
             if (inboundResult) {
-              // Trigger AI auto-reply if enabled
-              await dispatchInboundToAiReply({
-                accountId: inboundResult.connection.account_id,
-                conversationId: inboundResult.conversation.id,
-                contactId: inboundResult.contact.id,
-                configOwnerUserId: inboundResult.connection.user_id,
-                inboundMessageId: inboundResult.message.message_id || undefined,
-              }).catch((err) => {
-                console.warn('[Meta Webhook] AI auto-reply dispatch error:', err)
-              })
+              // Parse inbound into Flow-compatible ParsedInbound format
+              let parsedFlowMessage: ParsedInbound | null = null
+              const metaMsg = event.message
+              const postback = (event as unknown as { postback?: { payload: string; title?: string } }).postback
+
+              if (metaMsg?.quick_reply) {
+                parsedFlowMessage = {
+                  kind: 'interactive_reply',
+                  reply_id: metaMsg.quick_reply.payload,
+                  reply_title: metaMsg.text || metaMsg.quick_reply.payload,
+                  meta_message_id: metaMsg.mid,
+                }
+              } else if (postback) {
+                parsedFlowMessage = {
+                  kind: 'interactive_reply',
+                  reply_id: postback.payload,
+                  reply_title: postback.title || postback.payload,
+                  meta_message_id: metaMsg?.mid || `pb_${Date.now()}`,
+                }
+              } else if (metaMsg?.text) {
+                parsedFlowMessage = {
+                  kind: 'text',
+                  text: metaMsg.text,
+                  meta_message_id: metaMsg.mid,
+                }
+              }
+
+              let flowConsumed = false
+              if (parsedFlowMessage) {
+                const isFirst = inboundResult.autoLinked ? false : (inboundResult.conversation.unread_count <= 1)
+                const flowRes = await dispatchInboundToFlows({
+                  accountId: inboundResult.connection.account_id,
+                  userId: inboundResult.connection.user_id,
+                  contactId: inboundResult.contact.id,
+                  conversationId: inboundResult.conversation.id,
+                  message: parsedFlowMessage,
+                  isFirstInboundMessage: isFirst,
+                  channel,
+                }).catch((err) => {
+                  console.error('[Meta Webhook] Flow dispatch error:', err)
+                  return null
+                })
+                flowConsumed = Boolean(flowRes?.consumed)
+              }
+
+              // Trigger AI auto-reply only if flow did not consume the message AND message has non-empty text
+              if (!flowConsumed && metaMsg?.text?.trim()) {
+                // If there's an active flow run for this contact, the flow owns the conversation
+                const { data: activeFlow } = await db
+                  .from('flow_runs')
+                  .select('id')
+                  .eq('account_id', inboundResult.connection.account_id)
+                  .eq('contact_id', inboundResult.contact.id)
+                  .eq('status', 'active')
+                  .limit(1)
+
+                if (!activeFlow || activeFlow.length === 0) {
+                  await dispatchInboundToAiReply({
+                    accountId: inboundResult.connection.account_id,
+                    conversationId: inboundResult.conversation.id,
+                    contactId: inboundResult.contact.id,
+                    configOwnerUserId: inboundResult.connection.user_id,
+                    inboundMessageId: inboundResult.message.message_id || undefined,
+                  }).catch((err) => {
+                    console.warn('[Meta Webhook] AI auto-reply dispatch error:', err)
+                  })
+                }
+              }
             }
           }
         }

@@ -65,4 +65,18 @@ describe('buildConversationContext', () => {
       { role: 'user', content: 'I am on WhatsApp now' },
     ])
   })
+
+  it('does not prefix Instagram messages when activeChannel is instagram', async () => {
+    const rows = [
+      { sender_type: 'customer', content_text: 'Earlier question on WA', channel: 'whatsapp' },
+      { sender_type: 'customer', content_text: 'DM on Instagram', channel: 'instagram' },
+      { sender_type: 'agent', content_text: 'Reply on Instagram', channel: 'instagram' },
+    ]
+    const out = await buildConversationContext(fakeDb(rows), 'conv-ig', undefined, undefined, 'instagram')
+    expect(out).toEqual([
+      { role: 'assistant', content: 'Reply on Instagram' },
+      { role: 'user', content: 'DM on Instagram' },
+      { role: 'user', content: '[Via WhatsApp] Earlier question on WA' },
+    ])
+  })
 })

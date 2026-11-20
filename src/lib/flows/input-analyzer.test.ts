@@ -181,6 +181,18 @@ describe("input-analyzer: flow commands and fast path", () => {
     expect(fast?.intent).toBe("valid_input");
     expect(fast?.extracted_value).toBe("+919876543210");
   });
+
+  it("fast-paths unconstrained free text answers for validation 'any'", () => {
+    const fast = fastPathDeterministicCheck("Bharat mata chowk sausar", "any");
+    expect(fast).not.toBeNull();
+    expect(fast?.intent).toBe("valid_input");
+    expect(fast?.extracted_value).toBe("Bharat mata chowk sausar");
+  });
+
+  it("does not fast-path questions for validation 'any'", () => {
+    const fast = fastPathDeterministicCheck("Where is your shop located?", "any");
+    expect(fast).toBeNull();
+  });
 });
 
 describe("input-analyzer: AI conversational analysis", () => {

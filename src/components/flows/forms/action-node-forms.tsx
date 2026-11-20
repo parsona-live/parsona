@@ -14,6 +14,9 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Mail, Server, ExternalLink, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useFlowEditor } from '../flow-editor-state';
+import { ChannelIcon } from '@/components/channels/channel-badge';
 
 // ============================================================
 // AI Response Action Form (From User Mockup)
@@ -797,11 +800,54 @@ export function TriggerNodeForm({
   config: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
 }) {
+  const { state, setState } = useFlowEditor();
+  const currentChannels = state.channels || ['whatsapp', 'instagram', 'facebook'];
   const startingStep = (config.starting_step as string) || 'new_contact';
   const keywords = Array.isArray(config.keywords) ? (config.keywords as string[]) : [];
 
   return (
     <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      {/* Active Channels */}
+      <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-foreground">Active Channels</Label>
+          <span className="text-[10px] text-muted-foreground">Where this flow triggers</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { id: 'whatsapp', label: 'WhatsApp', color: 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+            { id: 'instagram', label: 'Instagram', color: 'text-pink-600 dark:text-pink-400 border-pink-500/30 bg-pink-500/10' },
+            { id: 'facebook', label: 'Messenger', color: 'text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/10' },
+          ].map(({ id, label, color }) => {
+            const isChecked = currentChannels.includes(id as any);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  const updated = isChecked
+                    ? currentChannels.filter((c) => c !== id)
+                    : [...currentChannels, id];
+                  if (updated.length > 0) {
+                    setState((s) => ({ ...s, channels: updated as any }));
+                  }
+                }}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border text-xs transition-all shadow-2xs',
+                  isChecked
+                    ? cn(color, 'font-semibold ring-1 ring-current/20')
+                    : 'border-border bg-background text-muted-foreground hover:text-foreground hover:border-muted-foreground/40'
+                )}
+                title={`Toggle ${label}`}
+              >
+                <ChannelIcon channel={id as any} className="size-3.5 shrink-0" />
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Starting Step</Label>
         <Select

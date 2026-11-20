@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
+    activeFlowRuns: [] as { id: string }[],
     claim: true as boolean,
     updatePayload: null as Record<string, unknown> | null,
     updates: [] as { payload: Record<string, unknown>; isNull: string[] }[],
@@ -43,6 +44,15 @@ vi.mock('./admin-client', () => ({
           in: () => chain,
           limit: () =>
             Promise.resolve({ data: h.state.autoResponders, error: null }),
+        }
+        return chain
+      }
+      if (table === 'flow_runs') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          limit: () =>
+            Promise.resolve({ data: h.state.activeFlowRuns, error: null }),
         }
         return chain
       }
@@ -119,6 +129,7 @@ beforeEach(() => {
     ai_reply_count: 0,
   }
   h.state.autoResponders = []
+  h.state.activeFlowRuns = []
   h.state.claim = true
   h.state.updatePayload = null
   h.state.updates = []
@@ -217,6 +228,25 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     await dispatchInboundToAiReply(ARGS)
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.sendTypingIndicator).not.toHaveBeenCalled()
+  })
+
+  it('skips when contact has an active flow run', async () => {
+    h.state.activeFlowRuns = [{ id: 'run-active-1' }]
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('strips accidental [Via Instagram DM] prefix from generated reply before sending', async () => {
+    h.generateReply.mockResolvedValue({
+      text: '[Via Instagram DM] Thank you, Yash! Appointment confirmed.',
+      handoff: false,
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Thank you, Yash! Appointment confirmed.',
+      }),
+    )
   })
 
   it('skips when auto-reply was disabled on this conversation', async () => {

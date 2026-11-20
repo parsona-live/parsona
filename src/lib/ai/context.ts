@@ -9,9 +9,14 @@ interface DbMessage {
   channel?: ChannelType | null
 }
 
-function formatMessageWithChannel(text: string, channel?: ChannelType | null): string {
+export function formatMessageWithChannel(
+  text: string,
+  channel?: ChannelType | null,
+  activeChannel: ChannelType = 'whatsapp',
+): string {
   const trimmed = text.trim()
-  if (!channel || channel === 'whatsapp') return trimmed
+  if (!channel || channel === activeChannel) return trimmed
+  if (channel === 'whatsapp') return `[Via WhatsApp] ${trimmed}`
   if (channel === 'instagram') return `[Via Instagram DM] ${trimmed}`
   if (channel === 'facebook') return `[Via Facebook Messenger] ${trimmed}`
   return `[Via ${channel}] ${trimmed}`
@@ -30,7 +35,25 @@ export async function buildConversationContext(
   conversationId: string,
   limit: number = aiContextMessageLimit(),
   contactId?: string,
+  activeChannel?: ChannelType,
 ): Promise<ChatMessage[]> {
+  let resolvedChannel = activeChannel
+  if (!resolvedChannel) {
+    try {
+      const { data: conv } = await db
+        .from('conversations')
+        .select('channel')
+        .eq('id', conversationId)
+        .maybeSingle()
+      if (conv?.channel) {
+        resolvedChannel = conv.channel as ChannelType
+      }
+    } catch {
+      // Safe fallback if conversation query fails or mock doesn't implement maybeSingle
+    }
+  }
+  const currentChannel: ChannelType = resolvedChannel || 'whatsapp'
+
   let conversationIds = [conversationId]
 
   // If contactId is provided, pull conversation IDs across all linked contacts and channels
@@ -77,6 +100,6 @@ export async function buildConversationContext(
     .filter((m) => m.content_text && m.content_text.trim())
     .map((m) => ({
       role: m.sender_type === 'customer' ? 'user' : 'assistant',
-      content: formatMessageWithChannel(m.content_text!, m.channel),
+      content: formatMessageWithChannel(m.content_text!, m.channel, currentChannel),
     }))
 }

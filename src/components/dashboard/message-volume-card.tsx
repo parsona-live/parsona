@@ -67,6 +67,10 @@ export function MessageVolumeCard({ data }: { data: DashboardOverview | null }) 
       : format.dateTime(bucketDate(busiest.t), { weekday: 'short', day: 'numeric', month: 'short' })
     : t('none')
 
+  const waMsgs = data?.channels?.whatsapp?.messages ?? 0
+  const igMsgs = data?.channels?.instagram?.messages ?? 0
+  const fbMsgs = data?.channels?.facebook?.messages ?? 0
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -102,6 +106,19 @@ export function MessageVolumeCard({ data }: { data: DashboardOverview | null }) 
                     value={format.number(totalIn / Math.max(1, series.length), { maximumFractionDigits: 0 })}
                   />
                   <Stat label={byHour ? t('busiestHour') : t('busiestDay')} value={busiestLabel} />
+                  {data?.channels ? (
+                    <div className="flex items-center gap-2 sm:ml-auto">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600">
+                        WA: {format.number(waMsgs)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-pink-500/10 px-2 py-0.5 text-xs font-medium text-pink-600">
+                        IG: {format.number(igMsgs)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600">
+                        FB: {format.number(fbMsgs)}
+                      </span>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <>

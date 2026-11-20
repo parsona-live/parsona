@@ -92,6 +92,7 @@ vi.mock("./meta-send", () => ({
 import {
   dispatchInboundToFlows,
   matchReplyId,
+  matchReplyByText,
   matchesKeywordTrigger,
   isAutoAdvancing,
   isSuspending,
@@ -217,6 +218,74 @@ describe("matchReplyId", () => {
     expect(matchReplyId(node, "deal_1")).toBe("node_deal_1");
     expect(matchReplyId(node, "deal_2")).toBe("node_deal_2");
     expect(matchReplyId(node, "unknown")).toBeNull();
+  });
+});
+
+describe("matchReplyByText", () => {
+  const btnNode = {
+    node_type: "send_buttons",
+    config: {
+      text: "Please confirm your appointment details:",
+      buttons: [
+        { reply_id: "btn_confirm", title: "Confirm", next_node_key: "confirmed_node" },
+        { reply_id: "btn_cancel", title: "Cancel", next_node_key: "cancelled_node" },
+      ],
+    },
+  };
+
+  it("matches 1-based index numbers", () => {
+    expect(matchReplyByText(btnNode, "1")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "2")).toBe("cancelled_node");
+    expect(matchReplyByText(btnNode, "3")).toBeNull();
+    expect(matchReplyByText(btnNode, "#1")).toBe("confirmed_node");
+  });
+
+  it("matches exact or trimmed titles", () => {
+    expect(matchReplyByText(btnNode, "Confirm")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "confirm")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "  cancel  ")).toBe("cancelled_node");
+  });
+
+  it("matches substring titles", () => {
+    expect(matchReplyByText(btnNode, "yes confirm please")).toBe("confirmed_node");
+  });
+
+  it("matches affirmative and negative synonyms", () => {
+    expect(matchReplyByText(btnNode, "yes")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "haan")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "ok")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "sahi hai")).toBe("confirmed_node");
+    expect(matchReplyByText(btnNode, "no")).toBe("cancelled_node");
+    expect(matchReplyByText(btnNode, "nahi")).toBe("cancelled_node");
+  });
+
+  it("matches reply_id directly", () => {
+    expect(matchReplyByText(btnNode, "btn_confirm")).toBe("confirmed_node");
+  });
+
+  it("matches send_list options by number and text", () => {
+    const listNode = {
+      node_type: "send_list",
+      config: {
+        text: "Select a service",
+        sections: [
+          {
+            title: "Services",
+            rows: [
+              { reply_id: "srv_consult", title: "Doctor Consultation", next_node_key: "consult_node" },
+              { reply_id: "srv_checkup", title: "Full Body Checkup", next_node_key: "checkup_node" },
+            ],
+          },
+        ],
+      },
+    };
+
+    expect(matchReplyByText(listNode, "1")).toBe("consult_node");
+    expect(matchReplyByText(listNode, "2")).toBe("checkup_node");
+    expect(matchReplyByText(listNode, "Doctor Consultation")).toBe("consult_node");
+    expect(matchReplyByText(listNode, "consultation")).toBe("consult_node");
+    expect(matchReplyByText(listNode, "srv_checkup")).toBe("checkup_node");
+    expect(matchReplyByText(listNode, "unrelated text")).toBeNull();
   });
 });
 

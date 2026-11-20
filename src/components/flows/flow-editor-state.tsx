@@ -68,6 +68,7 @@ export interface BuilderState {
   description: string;
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: Record<string, unknown>;
+  channels?: ("whatsapp" | "instagram" | "facebook")[];
   entry_node_id: string | null;
   status: FlowRow["status"];
   nodes: BuilderNode[];
@@ -427,6 +428,7 @@ export function FlowEditorProvider({
       description: initialFlow.description ?? "",
       trigger_type: initialFlow.trigger_type,
       trigger_config: initialFlow.trigger_config as Record<string, unknown>,
+      channels: initialFlow.channels || ["whatsapp", "instagram", "facebook"],
       entry_node_id: entryId,
       status: initialFlow.status,
       nodes: mappedNodes,
@@ -521,6 +523,7 @@ export function FlowEditorProvider({
           description: state.description || null,
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
+          channels: state.channels || ["whatsapp", "instagram", "facebook"],
           entry_node_id: state.entry_node_id,
           nodes: state.nodes,
         }),

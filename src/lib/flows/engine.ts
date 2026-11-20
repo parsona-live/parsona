@@ -44,7 +44,6 @@ import {
   engineSendText,
   loadAccountMetaCredentials,
 } from "./meta-send";
-import { sendTypingIndicator } from "@/lib/whatsapp/meta-api";
 import { resolveFallbackPolicy, decideFallback } from "./fallback";
 import {
   analyzeFlowInput,
@@ -119,6 +118,128 @@ export function matchReplyId(
     }
     return null;
   }
+  return null;
+}
+
+/**
+ * Given a node + the customer's typed text, matches against interactive options
+ * (buttons, list rows, carousel cards) to advance the flow.
+ * Supports:
+ * - 1-based index (e.g. "1", "2", "3", "#1")
+ * - Direct reply_id match
+ * - Exact or normalized title match (case-insensitive, trimmed)
+ * - Substring title match
+ * - Affirmative/negative synonyms for yes/no/confirm/cancel buttons
+ */
+export function matchReplyByText(
+  node: { node_type: string; config: Record<string, unknown> },
+  text: string,
+): string | null {
+  const norm = text.trim().toLowerCase();
+  if (!norm) return null;
+
+  if (node.node_type === "send_buttons") {
+    const cfg = node.config as unknown as SendButtonsNodeConfig;
+    const buttons = cfg.buttons ?? [];
+    if (buttons.length === 0) return null;
+
+    // 1. 1-based index (e.g. "1", "2", "3", "#1", "opt 1")
+    const numMatch = norm.match(/^(?:#|\bopt(?:ion)?\s*)?([1-9]\d*)$/i);
+    if (numMatch) {
+      const idx = parseInt(numMatch[1], 10) - 1;
+      if (idx >= 0 && idx < buttons.length) {
+        return buttons[idx].next_node_key ?? null;
+      }
+    }
+
+    // 2. Direct reply_id match
+    const idHit = buttons.find((b) => b.reply_id && b.reply_id.toLowerCase() === norm);
+    if (idHit) return idHit.next_node_key ?? null;
+
+    // 3. Exact title match
+    const titleHit = buttons.find((b) => b.title && b.title.trim().toLowerCase() === norm);
+    if (titleHit) return titleHit.next_node_key ?? null;
+
+    // 4. Substring title match (e.g. user typed "confirm booking" for button "Confirm", or vice-versa)
+    const subHit = buttons.find((b) => {
+      const bTitle = b.title ? b.title.trim().toLowerCase() : "";
+      return bTitle.length >= 2 && (norm.includes(bTitle) || bTitle.includes(norm));
+    });
+    if (subHit) return subHit.next_node_key ?? null;
+
+    // 5. Affirmative / negative synonyms
+    const isAffirmative = /^(yes|yeah|yup|haan|ha|confirm|agree|proceed|ok|okay|theek|sahi\s*hai|sure|done|accept)\b/i.test(norm);
+    const isNegative = /^(no|nah|nope|nahi|na|cancel|reject|decline|stop|abort|galat)\b/i.test(norm);
+
+    if (isAffirmative) {
+      const yesBtn = buttons.find((b) =>
+        /^(confirm|yes|haan|ha|agree|proceed|accept|ok|sure|sahi)/i.test((b.title || "").trim())
+      );
+      if (yesBtn) return yesBtn.next_node_key ?? null;
+    }
+
+    if (isNegative) {
+      const noBtn = buttons.find((b) =>
+        /^(cancel|no|nahi|na|reject|decline|abort)/i.test((b.title || "").trim())
+      );
+      if (noBtn) return noBtn.next_node_key ?? null;
+    }
+
+    return null;
+  }
+
+  if (node.node_type === "send_list") {
+    const cfg = node.config as unknown as SendListNodeConfig;
+    const allRows: Array<{ reply_id: string; title: string; next_node_key?: string }> = [];
+    for (const section of cfg.sections ?? []) {
+      for (const row of section.rows ?? []) {
+        allRows.push(row);
+      }
+    }
+    if (allRows.length === 0) return null;
+
+    const numMatch = norm.match(/^(?:#|\bopt(?:ion)?\s*)?([1-9]\d*)$/i);
+    if (numMatch) {
+      const idx = parseInt(numMatch[1], 10) - 1;
+      if (idx >= 0 && idx < allRows.length) {
+        return allRows[idx].next_node_key ?? null;
+      }
+    }
+
+    const idHit = allRows.find((r) => r.reply_id && r.reply_id.toLowerCase() === norm);
+    if (idHit) return idHit.next_node_key ?? null;
+
+    const titleHit = allRows.find((r) => r.title && r.title.trim().toLowerCase() === norm);
+    if (titleHit) return titleHit.next_node_key ?? null;
+
+    const subHit = allRows.find((r) => {
+      const rTitle = r.title ? r.title.trim().toLowerCase() : "";
+      return rTitle.length >= 2 && (norm.includes(rTitle) || rTitle.includes(norm));
+    });
+    if (subHit) return subHit.next_node_key ?? null;
+
+    return null;
+  }
+
+  if (node.node_type === "send_carousel") {
+    const cfg = node.config as unknown as SendCarouselNodeConfig;
+    const allButtons: Array<{ reply_id: string; title: string; next_node_key?: string }> = [];
+    for (const card of cfg.cards ?? []) {
+      for (const b of card.buttons ?? []) {
+        allButtons.push(b);
+      }
+    }
+    if (allButtons.length === 0) return null;
+
+    const idHit = allButtons.find((b) => b.reply_id && b.reply_id.toLowerCase() === norm);
+    if (idHit) return idHit.next_node_key ?? null;
+
+    const titleHit = allButtons.find((b) => b.title && b.title.trim().toLowerCase() === norm);
+    if (titleHit) return titleHit.next_node_key ?? null;
+
+    return null;
+  }
+
   return null;
 }
 
@@ -278,13 +399,20 @@ async function loadActiveRunForContact(
   db: AdminClient,
   accountId: string,
   contactId: string,
+  conversationId?: string,
 ): Promise<FlowRunRow | null> {
-  const { data, error } = await db
+  let query = db
     .from("flow_runs")
     .select("*")
     .eq("account_id", accountId)
     .eq("contact_id", contactId)
     .in("status", ["active", "paused_by_agent"])
+
+  if (conversationId) {
+    query = query.eq("conversation_id", conversationId)
+  }
+
+  const { data, error } = await query
     .order("started_at", { ascending: false })
     .limit(1);
   if (error) {
@@ -398,6 +526,7 @@ async function findEntryFlow(
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
+  channel?: string,
 ): Promise<FlowRow | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -422,6 +551,12 @@ async function findEntryFlow(
 
   const typed = flows as FlowRow[];
   for (const flow of typed) {
+    // Channel filter check
+    const flowChannels = (flow as unknown as { channels?: string[] }).channels;
+    if (channel && flowChannels && flowChannels.length > 0 && !flowChannels.includes(channel)) {
+      continue;
+    }
+
     if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
       if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
@@ -858,9 +993,24 @@ async function advanceFromNodeKey(
           whatsapp_message_id,
         });
       } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.includes("WINDOW_EXPIRED")) {
+          await logEvent(db, run.id, "handoff", node.node_key, {
+            reason: "window_expired_yield",
+            detail: errMsg,
+          });
+          if (run.conversation_id) {
+            await db
+              .from("conversations")
+              .update({ status: "pending", updated_at: new Date().toISOString() })
+              .eq("id", run.conversation_id);
+          }
+          await endRun(db, run.id, "handed_off", "window_expired_yield");
+          return { outcome: "completed" };
+        }
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_text_failed",
-          detail: err instanceof Error ? err.message : String(err),
+          detail: errMsg,
         });
         await endRun(db, run.id, "failed", "send_text_failed");
         return { outcome: "completed" };
@@ -1480,30 +1630,14 @@ async function advanceCurrentNodeKey(
 }
 
 /**
- * Best-effort typing indicator for an inbound message handled by Flows.
- * Marks the inbound message as read and shows "typing..." to the customer
- * immediately while the workflow processes.
+ * Typing indicator disabled per configuration to avoid network latency/timeout overhead.
  */
 async function showFlowTypingIndicator(
-  db: AdminClient,
-  accountId: string,
-  messageId?: string,
+  _db: AdminClient,
+  _accountId: string,
+  _messageId?: string,
 ): Promise<void> {
-  if (!messageId || process.env.NODE_ENV === "test" || process.env.VITEST) return;
-  try {
-    const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
-      db as any,
-      accountId,
-    );
-    await sendTypingIndicator({
-      phoneNumberId,
-      accessToken,
-      messageId,
-    });
-  } catch (err) {
-    // Best effort - never block the flow if typing indicator fails
-    console.warn("[flows] typing indicator failed (continuing):", err);
-  }
+  return;
 }
 
 async function claimReplyTransition(
@@ -1596,6 +1730,7 @@ export async function dispatchInboundToFlows(
       db,
       input.accountId,
       input.contactId,
+      input.conversationId,
     );
 
     // Idempotency — only matters if there's already a run for this
@@ -1636,6 +1771,7 @@ export async function dispatchInboundToFlows(
           input.accountId,
           input.message,
           false,
+          input.channel,
         );
         if (matchingEntryFlow) {
           if (matchingEntryFlow.id !== activeRun.flow_id) {
@@ -1685,6 +1821,7 @@ export async function dispatchInboundToFlows(
       input.accountId,
       input.message,
       input.isFirstInboundMessage,
+      input.channel,
     );
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
@@ -1735,7 +1872,47 @@ async function handleReplyForActiveRun(
   // Everything else falls through to the fallback policy below.
   // 1. If run was paused, evaluate resume vs answer vs off-topic
   if (run.status === "paused_by_agent") {
+    if (
+      message.kind === "interactive_reply" &&
+      (currentNode.node_type === "send_buttons" ||
+        currentNode.node_type === "send_list" ||
+        currentNode.node_type === "send_carousel")
+    ) {
+      const btnMatch = matchReplyId(currentNode, message.reply_id);
+      if (btnMatch) {
+        await db.from("flow_runs").update({ status: "active", end_reason: null, reprompt_count: 0 }).eq("id", run.id);
+        run.status = "active";
+        run.reprompt_count = 0;
+        if (!(await claimReplyTransition(db, run, btnMatch))) {
+          return lostReplyRace(db, run, currentNode.node_key);
+        }
+        await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_resumed_with_answer" });
+        const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes);
+        return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+      }
+    }
+
     if (message.kind === "text") {
+      // Check if user answered a button/list/carousel while paused!
+      if (
+        currentNode.node_type === "send_buttons" ||
+        currentNode.node_type === "send_list" ||
+        currentNode.node_type === "send_carousel"
+      ) {
+        const btnMatch = matchReplyByText(currentNode, message.text);
+        if (btnMatch) {
+          await db.from("flow_runs").update({ status: "active", end_reason: null, reprompt_count: 0 }).eq("id", run.id);
+          run.status = "active";
+          run.reprompt_count = 0;
+          if (!(await claimReplyTransition(db, run, btnMatch))) {
+            return lostReplyRace(db, run, currentNode.node_key);
+          }
+          await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_resumed_with_answer" });
+          const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes);
+          return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+        }
+      }
+
       const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
       const collectCfg =
         currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow"
@@ -1851,6 +2028,13 @@ async function handleReplyForActiveRun(
       currentNode.node_type === "send_carousel")
   ) {
     matched = matchReplyId(currentNode, message.reply_id);
+  } else if (
+    message.kind === "text" &&
+    (currentNode.node_type === "send_buttons" ||
+      currentNode.node_type === "send_list" ||
+      currentNode.node_type === "send_carousel")
+  ) {
+    matched = matchReplyByText(currentNode, message.text);
   } else if (
     message.kind === "text" &&
     (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow")

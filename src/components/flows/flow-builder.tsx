@@ -27,6 +27,7 @@ import {
   ChevronUp,
   CornerDownRight,
 } from 'lucide-react';
+import { ChannelIcon } from '@/components/channels/channel-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -328,6 +329,39 @@ function TriggerPanel({
             />
           </div>
         )}
+
+        <div className="col-span-full mt-2 pt-3 border-t border-border">
+          <label className="text-muted-foreground mb-2 block text-xs font-medium">
+            Active Channels (where this flow triggers)
+          </label>
+          <div className="flex flex-wrap items-center gap-5">
+            {[
+              { id: 'whatsapp', label: 'WhatsApp', color: 'text-emerald-500' },
+              { id: 'instagram', label: 'Instagram', color: 'text-pink-500' },
+              { id: 'facebook', label: 'Messenger', color: 'text-blue-500' },
+            ].map(({ id, label, color }) => {
+              const currentChannels = state.channels || ['whatsapp', 'instagram', 'facebook']
+              const isChecked = currentChannels.includes(id as any)
+              return (
+                <label key={id} className="flex items-center gap-2 cursor-pointer text-xs font-medium text-foreground">
+                  <input
+                    type="checkbox"
+                    className="rounded border-border text-primary focus:ring-ring"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      const updated = e.target.checked
+                        ? [...currentChannels, id]
+                        : currentChannels.filter((c) => c !== id)
+                      setState((s) => ({ ...s, channels: updated as any }))
+                    }}
+                  />
+                  <ChannelIcon channel={id} className={cn('size-3.5', color)} />
+                  <span>{label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
       </div>
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ChannelType } from '@/types'
 
 export const OVERVIEW_RANGES = [1, 7, 30, 90] as const
 export type OverviewRange = (typeof OVERVIEW_RANGES)[number]
@@ -13,6 +14,7 @@ export interface FailedMessage {
   errorCode: number | null
   errorTitle: string | null
   at: string
+  channel?: ChannelType
 }
 
 export interface QueueItem {
@@ -25,6 +27,7 @@ export interface QueueItem {
   windowClosesAt: string
   assignedAgentId: string | null
   handedOff: boolean
+  channel?: ChannelType
 }
 
 export interface OverviewAttention {
@@ -64,6 +67,9 @@ export interface SeriesPoint {
   newConversations: number
   resolved: number
   dealsWon: number
+  whatsapp?: number
+  instagram?: number
+  facebook?: number
 }
 
 export interface OverviewVolume {
@@ -132,6 +138,8 @@ export interface OverviewCampaigns {
 
 export interface OverviewSetup {
   whatsappConnected: boolean
+  instagramConnected?: boolean
+  facebookConnected?: boolean
   hasContacts: boolean
   hasApprovedTemplate: boolean
   memberCount: number
@@ -142,6 +150,7 @@ export interface DashboardOverview {
   generatedAt: string
   timeZone: string
   days: OverviewRange
+  channel?: ChannelType | null
   unit: 'hour' | 'day'
   periodStart: string
   previousStart: string
@@ -150,6 +159,7 @@ export interface DashboardOverview {
   attention: OverviewAttention
   replies: OverviewReplies
   volume: OverviewVolume
+  channels?: Record<string, { conversations: number; messages: number }>
   kpis: OverviewKpis
   pipeline: OverviewPipeline
   campaigns: OverviewCampaigns
@@ -177,8 +187,14 @@ export async function loadOverview(
   db: SupabaseClient,
   days: OverviewRange,
   timeZone: string,
+  channel?: ChannelType | 'all' | null,
 ): Promise<DashboardOverview> {
-  const { data, error } = await db.rpc('dashboard_overview', { p_days: days, p_tz: timeZone })
+  const pChannel = channel && channel !== 'all' ? channel : null
+  const { data, error } = await db.rpc('dashboard_overview', {
+    p_days: days,
+    p_tz: timeZone,
+    p_channel: pChannel,
+  })
   if (error) throw error
   return data as DashboardOverview
 }
@@ -246,7 +262,7 @@ export function seriesValues(
   series: SeriesPoint[],
   key: keyof Omit<SeriesPoint, 't'>,
 ): number[] {
-  return series.map((p) => p[key])
+  return series.map((p) => p[key] ?? 0)
 }
 
 export function busiestBucket(series: SeriesPoint[]): SeriesPoint | null {

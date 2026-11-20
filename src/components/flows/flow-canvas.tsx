@@ -76,6 +76,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useFlowEditor } from './flow-editor-state';
 import { NodeConfigForm } from './forms/node-config-form';
+import { ChannelIcon } from '@/components/channels/channel-badge';
 
 // React-Flow node `data` payload — the bits our custom renderer needs.
 interface NodeData extends Record<string, unknown> {
@@ -312,6 +313,9 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
           <IconLine icon={GalleryHorizontalEnd}>
             {cards.length} {cards.length === 1 ? 'card' : 'cards'}
           </IconLine>
+          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
+            <span className="text-emerald-600 font-semibold">WA</span> Cards · <span className="text-pink-600 font-semibold">IG/FB</span> Generic
+          </div>
         </>
       );
     }
@@ -323,6 +327,9 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
         <>
           {renderHeader()}
           <BodyText>{text || <Placeholder>Select an option below</Placeholder>}</BodyText>
+          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
+            <span className="text-emerald-600 font-semibold">WA</span> Buttons · <span className="text-pink-600 font-semibold">IG/FB</span> Quick Replies
+          </div>
         </>
       );
     }
@@ -335,6 +342,9 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
           {renderHeader()}
           <BodyText>{body || <Placeholder>Select from list</Placeholder>}</BodyText>
           <IconLine icon={ListChecks}>{label}</IconLine>
+          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
+            <span className="text-emerald-600 font-semibold">WA</span> List · <span className="text-pink-600 font-semibold">IG/FB</span> Carousel
+          </div>
         </>
       );
     }
@@ -543,6 +553,8 @@ function TriggerNodeCard({
   ) => void;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { state, setState } = useFlowEditor();
+  const currentChannels = state.channels || ['whatsapp', 'instagram', 'facebook'];
   const cfg = (node.config ?? {}) as Record<string, any>;
   const startingStep = cfg.starting_step || 'new_contact';
   const keywordsList: string[] = Array.isArray(cfg.keywords) ? cfg.keywords : [];
@@ -721,6 +733,47 @@ function TriggerNodeCard({
             />
           </div>
         )}
+        {/* Active Channels */}
+        <div className="space-y-1.5 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-700">Active Channels</span>
+            <span className="text-[10px] text-slate-400">Trigger where</span>
+          </div>
+          <div className="flex items-center gap-1.5 pt-0.5">
+            {[
+              { id: 'whatsapp', label: 'WhatsApp', badge: 'WA', color: 'text-emerald-700 bg-emerald-50 border-emerald-300' },
+              { id: 'instagram', label: 'Instagram', badge: 'IG', color: 'text-pink-700 bg-pink-50 border-pink-300' },
+              { id: 'facebook', label: 'Messenger', badge: 'FB', color: 'text-blue-700 bg-blue-50 border-blue-300' },
+            ].map(({ id, label, badge, color }) => {
+              const isChecked = currentChannels.includes(id as any);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const updated = isChecked
+                      ? currentChannels.filter((c) => c !== id)
+                      : [...currentChannels, id];
+                    if (updated.length > 0) {
+                      setState((s) => ({ ...s, channels: updated as any }));
+                    }
+                  }}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-1 px-1 rounded-md border text-[11px] font-medium transition-all shadow-2xs',
+                    isChecked
+                      ? cn(color, 'font-semibold ring-1 ring-current/20')
+                      : 'border-slate-200 bg-slate-50/50 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                  )}
+                  title={`Toggle ${label} trigger`}
+                >
+                  <ChannelIcon channel={id as any} className="size-3 shrink-0" />
+                  <span>{badge}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Outgoing Handle */}

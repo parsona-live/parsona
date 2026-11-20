@@ -49,9 +49,12 @@ function DashboardPageInner() {
   const [range, setRange] = useState<OverviewRange>(() =>
     parseOverviewRange(searchParams.get('range')),
   )
+  const [channel, setChannel] = useState<string>(() => searchParams.get('channel') || 'all')
 
   useEffect(() => {
     setRange(parseOverviewRange(searchParams.get('range')))
+    const ch = searchParams.get('channel')
+    if (ch) setChannel(ch)
   }, [searchParams])
   const { defaultCurrency, profile } = useAuth()
 
@@ -63,9 +66,9 @@ function DashboardPageInner() {
   const requestRef = useRef(0)
   const debounceRef = useRef<number | null>(null)
 
-  const refresh = useCallback((days: OverviewRange) => {
+  const refresh = useCallback((days: OverviewRange, currentChannel = channel) => {
     const request = ++requestRef.current
-    loadOverview(createClient(), days, browserTimeZone())
+    loadOverview(createClient(), days, browserTimeZone(), (currentChannel as any))
       .then((data) => {
         if (request !== requestRef.current) return
         setOverview(data)
@@ -77,11 +80,11 @@ function DashboardPageInner() {
         console.error('[dashboard] overview failed:', err)
         setFailed(true)
       })
-  }, [])
+  }, [channel])
 
   useEffect(() => {
-    refresh(range)
-  }, [range, refresh])
+    refresh(range, channel)
+  }, [range, channel, refresh])
 
   useEffect(() => {
     loadActivity(createClient(), 50)
@@ -129,6 +132,19 @@ function DashboardPageInner() {
     [],
   )
 
+  const handleChannelChange = useCallback(
+    (nextChannel: string) => {
+      setChannel(nextChannel)
+      setFailed(false)
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        params.set('channel', nextChannel)
+        window.history.replaceState(null, '', `/dashboard?${params.toString()}`)
+      }
+    },
+    [],
+  )
+
   const data = overview?.days === range ? overview : null
 
   const onlineCount = useMemo(
@@ -143,7 +159,7 @@ function DashboardPageInner() {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
         <p className="text-sm text-muted-foreground">{t('loadFailed')}</p>
-        <Button variant="outline" size="sm" onClick={() => refresh(range)}>
+        <Button variant="outline" size="sm" onClick={() => refresh(range, channel)}>
           {t('retry')}
         </Button>
       </div>
@@ -158,6 +174,8 @@ function DashboardPageInner() {
         name={profile?.full_name ?? null}
         range={range}
         onRangeChange={handleRangeChange}
+        channel={channel}
+        onChannelChange={handleChannelChange}
       />
 
       {data && needsSetup(data.setup) ? (

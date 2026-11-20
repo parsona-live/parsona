@@ -250,6 +250,20 @@ export function fastPathDeterministicCheck(
     }
   }
 
+  // 6. Direct answer for validation === "any":
+  // When no specific format constraint is set, any non-question statement is valid input.
+  if (validation === "any" && !trimmed.includes("?")) {
+    const isQuestionStarter = /^(what|how|why|when|where|who|can|could|is|are|do|does|kya|kaise|kab|kahan|kyun)\b/i.test(trimmed);
+    if (!isQuestionStarter) {
+      return {
+        intent: "valid_input",
+        extracted_value: trimmed,
+        confidence: 0.95,
+        reason: "Direct response for unconstrained ('any') input",
+      };
+    }
+  }
+
   return null;
 }
 

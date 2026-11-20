@@ -82,6 +82,17 @@ export async function dispatchInboundToAiReply(
       .limit(1)
     if (autoResponders && autoResponders.length > 0) return
 
+    // Active Flow Run check: if this contact is currently in an active flow run,
+    // the Flow engine owns the conversation. AI Auto-Reply must not double-text or compete with the flow.
+    const { data: activeFlowRuns } = await db
+      .from('flow_runs')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .eq('status', 'active')
+      .limit(1)
+    if (activeFlowRuns && activeFlowRuns.length > 0) return
+
     const { data: conv, error: convErr } = await db
       .from('conversations')
       .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, channel')
@@ -99,6 +110,7 @@ export async function dispatchInboundToAiReply(
       conversationId,
       undefined,
       contactId,
+      conv.channel || 'whatsapp',
     )
     if (messages.length === 0) return
 
@@ -170,7 +182,9 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
-    if (handoff || !text) {
+    const cleanText = text ? text.replace(/^\[Via [^\]]+\]\s*/i, '').trim() : ''
+
+    if (handoff || !cleanText) {
       // The model can't (or shouldn't) answer — stop auto-replying on
       // this thread and hand it to a human. We (a) pause the bot here
       // (sticky until re-enabled), (b) route the conversation to the
@@ -234,7 +248,7 @@ export async function dispatchInboundToAiReply(
         userId: configOwnerUserId,
         conversationId,
         contactId,
-        text,
+        text: cleanText,
         aiGenerated: true,
         senderType: 'bot',
       })
@@ -244,7 +258,7 @@ export async function dispatchInboundToAiReply(
         userId: configOwnerUserId,
         conversationId,
         contactId,
-        text,
+        text: cleanText,
         aiGenerated: true,
       })
     }

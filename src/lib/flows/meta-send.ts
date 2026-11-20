@@ -22,6 +22,14 @@ import {
 } from '@/lib/whatsapp/phone-utils'
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity'
 import { assertConversationInAccount } from '@/lib/whatsapp/conversation-scope'
+import {
+  sendAdaptiveText,
+  sendAdaptiveButtons,
+  sendAdaptiveList,
+  sendAdaptiveCarousel,
+  sendAdaptiveMedia,
+  type AdaptiveResult,
+} from '@/lib/channels/adaptive-send'
 import { supabaseAdmin } from './admin-client'
 import { getT } from '@/lib/i18n/translate'
 
@@ -133,9 +141,35 @@ export async function engineSendText(
     throw new Error(t('send.contactNotFound'))
   }
 
-  // Same for the conversation the message lands in — see
-  // conversation-scope.ts (GHSA-m4fx-g6pr-hrw8).
+  // Tenancy check on the conversation
   await assertConversationInAccount(db, args.conversationId, args.accountId)
+
+  // Check omnichannel routing
+  const { data: conv } = await db
+    .from('conversations')
+    .select('id, channel')
+    .eq('id', args.conversationId)
+    .maybeSingle()
+
+  if (conv?.channel === 'instagram' || conv?.channel === 'facebook') {
+    const res = await sendAdaptiveText({
+      db,
+      accountId: args.accountId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      text: args.text,
+      aiGenerated: args.aiGenerated,
+      senderType: 'bot',
+    })
+    if (res.windowExpired) {
+      throw new Error('WINDOW_EXPIRED: Outside allowed 24-hour messaging window for automated messages')
+    }
+    if (!res.success) {
+      throw new Error(res.error || 'Omnichannel send failed')
+    }
+    return { whatsapp_message_id: res.messageId! }
+  }
 
   // Phone number, or the business-scoped user ID when Meta has never
   // given us a number for this customer (issue #519).
@@ -249,9 +283,37 @@ export async function engineSendMedia(
     throw new Error(t('send.contactNotFound'))
   }
 
-  // Same for the conversation the message lands in — see
-  // conversation-scope.ts (GHSA-m4fx-g6pr-hrw8).
+  // Tenancy check on the conversation
   await assertConversationInAccount(db, args.conversationId, args.accountId)
+
+  // Check omnichannel routing
+  const { data: conv } = await db
+    .from('conversations')
+    .select('id, channel')
+    .eq('id', args.conversationId)
+    .maybeSingle()
+
+  if (conv?.channel === 'instagram' || conv?.channel === 'facebook') {
+    const res = await sendAdaptiveMedia({
+      db,
+      accountId: args.accountId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      mediaType: args.kind,
+      mediaUrl: args.link,
+      caption: args.caption,
+      fileName: args.filename,
+      senderType: 'bot',
+    })
+    if (res.windowExpired) {
+      throw new Error('WINDOW_EXPIRED: Outside allowed 24-hour messaging window for automated messages')
+    }
+    if (!res.success) {
+      throw new Error(res.error || 'Omnichannel send failed')
+    }
+    return { whatsapp_message_id: res.messageId! }
+  }
 
   // Phone number, or the business-scoped user ID when Meta has never
   // given us a number for this customer (issue #519).
@@ -733,6 +795,68 @@ async function sendInteractiveViaMeta(
   // Same for the conversation the message lands in — see
   // conversation-scope.ts (GHSA-m4fx-g6pr-hrw8).
   await assertConversationInAccount(db, input.conversationId, input.accountId)
+
+  // Check omnichannel routing
+  const { data: conv } = await db
+    .from('conversations')
+    .select('id, channel')
+    .eq('id', input.conversationId)
+    .maybeSingle()
+
+  if (conv?.channel === 'instagram' || conv?.channel === 'facebook') {
+    let res: AdaptiveResult
+    if (input.kind === 'buttons') {
+      res = await sendAdaptiveButtons({
+        db,
+        accountId: input.accountId,
+        userId: input.userId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+        headerText: input.headerText,
+        bodyText: input.bodyText,
+        footerText: input.footerText,
+        buttons: input.buttons,
+        senderType: 'bot',
+      })
+    } else if (input.kind === 'list') {
+      res = await sendAdaptiveList({
+        db,
+        accountId: input.accountId,
+        userId: input.userId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+        headerText: input.headerText,
+        bodyText: input.bodyText,
+        footerText: input.footerText,
+        buttonText: input.buttonLabel,
+        sections: input.sections,
+        senderType: 'bot',
+      })
+    } else {
+      res = await sendAdaptiveCarousel({
+        db,
+        accountId: input.accountId,
+        userId: input.userId,
+        conversationId: input.conversationId,
+        contactId: input.contactId,
+        cards: input.cards.map((c, i) => ({
+          cardIndex: c.cardIndex ?? i,
+          headerImageUrl: c.headerImageUrl,
+          bodyText: c.bodyText || '',
+          buttons: c.buttons,
+        })),
+        senderType: 'bot',
+      })
+    }
+
+    if (res.windowExpired) {
+      throw new Error('WINDOW_EXPIRED: Outside allowed 24-hour messaging window for automated messages')
+    }
+    if (!res.success) {
+      throw new Error(res.error || 'Omnichannel send failed')
+    }
+    return { whatsapp_message_id: res.messageId! }
+  }
 
   // Phone number, or the business-scoped user ID when Meta has never
   // given us a number for this customer (issue #519).
