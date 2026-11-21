@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { Message } from "@/types";
+import type { ChannelType, Message } from "@/types";
 import { useTranslations } from "next-intl";
 
 // WhatsApp's own quick-reaction bar starts with these six. Picking the same
@@ -19,6 +19,7 @@ const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 interface MessageActionsProps {
   message: Message;
+  channel?: ChannelType;
   onReply: () => void;
   onReact: (emoji: string) => void;
   children: ReactNode;
@@ -31,11 +32,16 @@ interface MessageActionsProps {
  */
 export function MessageActions({
   message,
+  channel,
   onReply,
   onReact,
   children,
 }: MessageActionsProps) {
   const t = useTranslations("Inbox.actions");
+
+  // Reactions are only supported on WhatsApp for now.
+  const effectiveChannel = (message.channel || channel || "whatsapp") as ChannelType;
+  const canReact = effectiveChannel === "whatsapp";
 
   // Touch devices have no hover. Long-press fires `contextmenu`; we capture
   // it, suppress the native menu, and pin the toolbar open until the user
@@ -116,30 +122,32 @@ export function MessageActions({
           isAgent ? "right-3" : "left-3",
         )}
       >
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger
-            className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
-            aria-label={t("react")}
-          >
-            <SmilePlus className="h-3.5 w-3.5" />
-          </PopoverTrigger>
-          <PopoverContent
-            className="flex w-auto flex-row gap-1 p-1.5"
-            sideOffset={6}
-          >
-            {QUICK_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => handlePickEmoji(e)}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125 hover:bg-muted"
-                aria-label={t("reactWith", { emoji: e })}
-              >
-                {e}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
+        {canReact && (
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger
+              className="flex h-5 w-5 items-center justify-center rounded-full text-popover-foreground hover:bg-muted hover:text-foreground"
+              aria-label={t("react")}
+            >
+              <SmilePlus className="h-3.5 w-3.5" />
+            </PopoverTrigger>
+            <PopoverContent
+              className="flex w-auto flex-row gap-1 p-1.5"
+              sideOffset={6}
+            >
+              {QUICK_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => handlePickEmoji(e)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none transition-transform hover:scale-125 hover:bg-muted"
+                  aria-label={t("reactWith", { emoji: e })}
+                >
+                  {e}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
         <button
           type="button"
           onClick={handleReply}

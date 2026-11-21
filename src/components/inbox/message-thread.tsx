@@ -9,6 +9,7 @@ import { MessageThreadSkeleton } from "@/components/skeletons/page-skeletons";
 import { presenceLabel } from "@/lib/presence";
 import { cn } from "@/lib/utils";
 import type {
+  ChannelType,
   Conversation,
   Message,
   MessageReaction,
@@ -179,6 +180,18 @@ const STATUS_OPTIONS: { label: string; value: ConversationStatus; color: string 
  */
 const DOODLE_BG_CLASSES =
   "bg-background bg-[url('/inbox-doodle.svg')] bg-repeat";
+
+function getThreadBackgroundClasses(channel?: ChannelType): string {
+  switch (channel) {
+    case "instagram":
+      return "bg-[#fafafa] dark:bg-[#000000]";
+    case "facebook":
+      return "bg-[#f0f2f5] dark:bg-[#18191a]";
+    case "whatsapp":
+    default:
+      return DOODLE_BG_CLASSES;
+  }
+}
 
 export function MessageThread({
   conversation,
@@ -1049,7 +1062,7 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn("flex min-w-0 flex-1 flex-col", DOODLE_BG_CLASSES)}>
+    <div className={cn("flex min-w-0 flex-1 flex-col", getThreadBackgroundClasses(conversation.channel))}>
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible. */}
       <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 sm:px-4">
@@ -1334,7 +1347,16 @@ export function MessageThread({
               <div key={group.date}>
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
-                  <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-medium text-muted-foreground">
+                  <span
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[10px] font-medium shadow-2xs",
+                      conversation.channel === "instagram"
+                        ? "bg-muted/80 text-foreground dark:bg-zinc-800 dark:text-zinc-200 backdrop-blur-xs"
+                        : conversation.channel === "facebook"
+                          ? "bg-white text-[#050505] dark:bg-[#242526] dark:text-[#e4e6eb] border border-border/40"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                  >
                     {formatDateSeparator(group.date, t)}
                   </span>
                 </div>
@@ -1353,6 +1375,8 @@ export function MessageThread({
                         preview: buildReplyPreview(parent, tQuote),
                       }
                       : null;
+                    const threadChannel = conversation.channel || "whatsapp";
+                    const canReact = threadChannel === "whatsapp";
                     const msgReactions = reactionsByMessageId.get(msg.id);
                     // Toggle is computed at the call site — no extra hook.
                     const handlePillToggle = (emoji: string) => {
@@ -1364,21 +1388,23 @@ export function MessageThread({
                       <MessageActions
                         key={msg.id}
                         message={msg}
+                        channel={threadChannel}
                         onReply={() => handleStartReply(msg)}
                         onReact={(emoji) => {
-                          if (emoji) void postReaction(msg.id, emoji);
+                          if (canReact && emoji) void postReaction(msg.id, emoji);
                         }}
                       >
                         <MessageBubble
                           message={msg}
+                          channel={threadChannel}
                           template={
                             msg.content_type === "template"
                               ? matchMessageTemplate(msg, sentTemplates)
                               : null
                           }
                           reply={reply}
-                          reactions={msgReactions}
-                          onToggleReaction={handlePillToggle}
+                          reactions={canReact ? msgReactions : undefined}
+                          onToggleReaction={canReact ? handlePillToggle : undefined}
                           onOpenMedia={handleMediaChange}
                         />
                       </MessageActions>

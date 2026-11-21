@@ -4,10 +4,11 @@ interface LinkifyTextProps {
   text: string;
   isAgent: boolean;
   className?: string;
+  linkClassName?: string;
 }
 
 /** Render message text with safe, clickable HTTP(S) and www links. */
-export function LinkifyText({ text, isAgent, className }: LinkifyTextProps) {
+export function LinkifyText({ text, isAgent, className, linkClassName }: LinkifyTextProps) {
   return (
     <Linkify
       as="span"
@@ -16,9 +17,9 @@ export function LinkifyText({ text, isAgent, className }: LinkifyTextProps) {
         defaultProtocol: 'https',
         target: '_blank',
         rel: 'noopener noreferrer nofollow',
-        className: isAgent
+        className: linkClassName || (isAgent
           ? 'text-primary-foreground underline underline-offset-2 hover:opacity-80'
-          : 'text-blue-600 underline underline-offset-2 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300',
+          : 'text-blue-600 underline underline-offset-2 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'),
         validate: {
           url: (url) => /^https?:\/\//i.test(url) || /^www\./i.test(url),
         },

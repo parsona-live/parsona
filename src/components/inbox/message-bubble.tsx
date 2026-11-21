@@ -2,11 +2,13 @@
 
 import { cn } from "@/lib/utils";
 import type {
+  ChannelType,
   Message,
   MessageReaction,
   MessageTemplate,
   TemplateButton,
 } from "@/types";
+import type { InteractiveMessagePayload } from "@/lib/whatsapp/interactive";
 import {
   Clock,
   Check,
@@ -45,6 +47,7 @@ import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
   message: Message;
+  channel?: ChannelType;
   template?: MessageTemplate | null;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
@@ -58,21 +61,111 @@ interface MessageBubbleProps {
   onOpenMedia?: (messageId: string) => void;
 }
 
-/**
- * "[title] — [details]" for a failed message, or null when the row
- * predates migration 042 / Meta sent no reason. Shared by the status
- * icon's tooltip and the line under the bubble.
- */
-/** InteractivePreview with the empty-state labels in the UI language. */
+/** Safely extracts and parses an interactive payload from message data */
+function parseInteractivePayload(
+  raw: unknown,
+  contentText?: string | null
+): InteractiveMessagePayload | null {
+  if (raw) {
+    if (typeof raw === "object") return raw as InteractiveMessagePayload;
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          ("kind" in parsed || "buttons" in parsed || "cards" in parsed || "sections" in parsed)
+        ) {
+          return parsed as InteractiveMessagePayload;
+        }
+      } catch {}
+    }
+  }
+  if (contentText && contentText.trim().startsWith("{") && contentText.trim().endsWith("}")) {
+    try {
+      const parsed = JSON.parse(contentText);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        ("kind" in parsed || "buttons" in parsed || "cards" in parsed || "sections" in parsed)
+      ) {
+        return parsed as InteractiveMessagePayload;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+/** Channel-specific bubble styling and badges */
+function getBubbleClasses({
+  channel,
+  isAgent,
+}: {
+  channel: ChannelType;
+  isAgent: boolean;
+}) {
+  switch (channel) {
+    case "instagram":
+      return {
+        bubble: isAgent
+          ? "rounded-[22px] rounded-br-[4px] bg-[#7000ff] dark:bg-[#6228d7] text-white shadow-xs font-normal"
+          : "rounded-[22px] rounded-bl-[4px] bg-[#efefef] text-[#111827] dark:bg-[#262626] dark:text-[#f9fafb] shadow-xs",
+        metaText: isAgent ? "text-white/85" : "text-[#111827]/60 dark:text-[#f9fafb]/60",
+        badgeAi: isAgent
+          ? "bg-white/20 text-white border border-white/25"
+          : "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20",
+        badgeHuman: isAgent
+          ? "bg-white/20 text-white border-white/30"
+          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        linkClass: isAgent ? "text-white underline underline-offset-2 hover:opacity-85 font-medium" : undefined,
+      };
+    case "facebook":
+      return {
+        bubble: isAgent
+          ? "rounded-[20px] rounded-br-[4px] bg-[#0084ff] text-white shadow-xs font-normal"
+          : "rounded-[20px] rounded-bl-[4px] bg-[#e4e6eb] text-[#050505] dark:bg-[#3a3b3c] dark:text-[#e4e6eb] shadow-xs",
+        metaText: isAgent ? "text-white/85" : "text-[#050505]/60 dark:text-[#e4e6eb]/60",
+        badgeAi: isAgent
+          ? "bg-white/20 text-white border border-white/25"
+          : "bg-[#0084ff]/10 text-[#0084ff] dark:text-[#3897f0]",
+        badgeHuman: isAgent
+          ? "bg-white/20 text-white border-white/30"
+          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        linkClass: isAgent ? "text-white underline underline-offset-2 hover:opacity-85 font-medium" : undefined,
+      };
+    case "whatsapp":
+    default:
+      return {
+        bubble: isAgent
+          ? "rounded-2xl rounded-br-xs bg-[#dcf8c6] text-[#111b21] dark:bg-[#005c4b] dark:text-[#e9edef] shadow-xs"
+          : "rounded-2xl rounded-bl-xs bg-white text-[#111b21] dark:bg-[#202c33] dark:text-[#e9edef] shadow-xs",
+        metaText: isAgent ? "text-black/60 dark:text-white/70" : "text-muted-foreground",
+        badgeAi: isAgent
+          ? "bg-black/10 text-black/70 dark:bg-white/20 dark:text-white/80"
+          : "bg-primary/10 text-primary",
+        badgeHuman: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20",
+        linkClass: undefined,
+      };
+  }
+}
+
+/** InteractivePreview with the empty-state labels in the UI language and platform theme. */
 function LocalizedInteractivePreview({
   payload,
+  channel = "whatsapp",
+  isAgent = false,
 }: {
-  payload: NonNullable<Message["interactive_payload"]>;
+  payload: InteractiveMessagePayload;
+  channel?: ChannelType;
+  isAgent?: boolean;
 }) {
   const t = useTranslations("Interactive");
   return (
     <InteractivePreview
       payload={payload}
+      channel={channel}
+      isAgent={isAgent}
+      inBubble={true}
       labels={{
         body: t("previewBody"),
         button: t("previewButton"),
@@ -141,15 +234,17 @@ function StatusIcon({
   status,
   title,
   isAgent = true,
-  channel,
+  channel = "whatsapp",
 }: {
   status?: Message["status"];
   /** Tooltip for the failed state — Meta's reason, when we have one. */
   title?: string | null;
   isAgent?: boolean;
-  channel?: string | null;
+  channel?: ChannelType | string | null;
 }) {
   if (!status) return null;
+
+  const isSocialOutbound = isAgent && (channel === "instagram" || channel === "facebook");
 
   switch (status) {
     case "sending":
@@ -158,7 +253,11 @@ function StatusIcon({
           <Clock
             className={cn(
               "h-3 w-3 animate-pulse",
-              isAgent ? "text-primary-foreground/60" : "text-muted-foreground"
+              isSocialOutbound
+                ? "text-white/70"
+                : isAgent
+                  ? "text-black/60 dark:text-white/70"
+                  : "text-muted-foreground"
             )}
           />
         </span>
@@ -169,7 +268,11 @@ function StatusIcon({
           <Check
             className={cn(
               "h-3 w-3",
-              isAgent ? "text-primary-foreground/75" : "text-muted-foreground"
+              isSocialOutbound
+                ? "text-white/85"
+                : isAgent
+                  ? "text-black/60 dark:text-white/75"
+                  : "text-muted-foreground"
             )}
           />
         </span>
@@ -180,7 +283,11 @@ function StatusIcon({
           <CheckCheck
             className={cn(
               "h-3 w-3",
-              isAgent ? "text-primary-foreground/75" : "text-muted-foreground"
+              isSocialOutbound
+                ? "text-white/85"
+                : isAgent
+                  ? "text-black/60 dark:text-white/75"
+                  : "text-muted-foreground"
             )}
           />
         </span>
@@ -191,7 +298,11 @@ function StatusIcon({
           <CheckCheck
             className={cn(
               "h-3 w-3",
-              isAgent ? "text-sky-300 dark:text-sky-400" : "text-blue-500"
+              isSocialOutbound
+                ? "text-white font-bold"
+                : isAgent
+                  ? "text-[#53bdeb]"
+                  : "text-blue-500"
             )}
           />
         </span>
@@ -212,6 +323,8 @@ function MessageContent({
   template,
   t,
   isAgent,
+  channel = "whatsapp",
+  linkClass,
   onOpenMedia,
 }: {
   message: Message;
@@ -219,6 +332,8 @@ function MessageContent({
   t: ReturnType<typeof useTranslations>;
   /** Outbound bubbles sit on the primary fill — badges must invert. */
   isAgent: boolean;
+  channel?: ChannelType;
+  linkClass?: string;
   onOpenMedia?: (messageId: string) => void;
 }) {
   // Passed to the media bubbles as a no-arg callback; `undefined` when the
@@ -226,12 +341,26 @@ function MessageContent({
   const openMedia = onOpenMedia ? () => onOpenMedia(message.id) : undefined;
 
   switch (message.content_type) {
-    case "text":
+    case "text": {
+      const parsedInteractive = parseInteractivePayload(
+        message.interactive_payload,
+        message.content_text
+      );
+      if (parsedInteractive) {
+        return (
+          <LocalizedInteractivePreview
+            payload={parsedInteractive}
+            channel={channel}
+            isAgent={isAgent}
+          />
+        );
+      }
       return (
         <p className="whitespace-pre-wrap break-words text-sm">
-          <LinkifyText text={message.content_text ?? ""} isAgent={isAgent} />
+          <LinkifyText text={message.content_text ?? ""} isAgent={isAgent} linkClassName={linkClass} />
         </p>
       );
+    }
 
     case "image":
       return (
@@ -243,7 +372,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              <LinkifyText text={message.content_text} isAgent={isAgent} />
+              <LinkifyText text={message.content_text} isAgent={isAgent} linkClassName={linkClass} />
             </p>
           )}
         </div>
@@ -265,14 +394,17 @@ function MessageContent({
 
         return (
           <div className="flex flex-col gap-2 min-w-[240px] max-w-[320px]">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-pink-600 dark:text-pink-400">
-              <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-pink-500 stroke-[2.25]" />
+            <div className={cn(
+              "flex items-center gap-1.5 text-xs font-semibold",
+              isAgent ? "text-white" : "text-purple-600 dark:text-purple-400"
+            )}>
+              <ChannelIcon channel="instagram" size="xs" className={cn("h-3.5 w-3.5 stroke-[2.25]", isAgent ? "text-white" : "text-purple-500")} />
               <span>Instagram Reel</span>
             </div>
 
             {caption && (
               <p className="whitespace-pre-wrap break-words text-sm">
-                <LinkifyText text={caption} isAgent={isAgent} />
+                <LinkifyText text={caption} isAgent={isAgent} linkClassName={linkClass} />
               </p>
             )}
 
@@ -281,11 +413,11 @@ function MessageContent({
                 className={cn(
                   "flex flex-col gap-2 rounded-lg border p-2.5",
                   isAgent
-                    ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground"
+                    ? "border-white/25 bg-white/15 text-white"
                     : "border-border/70 bg-card text-card-foreground shadow-xs",
                 )}
               >
-                <span className="text-[11px] font-medium truncate opacity-75">
+                <span className={cn("text-[11px] font-medium truncate", isAgent ? "text-white/80" : "opacity-75")}>
                   {reelUrl.replace(/^https?:\/\/(www\.)?/, "")}
                 </span>
                 <a
@@ -320,7 +452,7 @@ function MessageContent({
           )}
           {message.content_text && (
             <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-              <LinkifyText text={message.content_text} isAgent={isAgent} />
+              <LinkifyText text={message.content_text} isAgent={isAgent} linkClassName={linkClass} />
             </p>
           )}
         </div>
@@ -437,17 +569,19 @@ function MessageContent({
       );
 
     case "interactive": {
-      // Three cases share content_type='interactive':
-      //  - OUTBOUND with payload (composer / automation / Flow send after
-      //    migration 035): render the buttons/list as they appear on the phone.
-      //  - INBOUND tap (customer chose an option, sender_type='customer'):
-      //    no payload; show the tapped option's title with a reply affordance
-      //    so agents can tell it's a tap, not the customer typing.
-      //  - OUTBOUND with NO payload (legacy bot/Flow sends from before
-      //    migration 035 backfilled the column): show the body text plainly —
-      //    it is our own message, NOT a customer tap.
-      if (message.interactive_payload) {
-        return <LocalizedInteractivePreview payload={message.interactive_payload} />;
+      // Outbound with payload (or payload parsed from text) -> render buttons/list/carousel.
+      const parsed = parseInteractivePayload(
+        message.interactive_payload,
+        message.content_text
+      );
+      if (parsed) {
+        return (
+          <LocalizedInteractivePreview
+            payload={parsed}
+            channel={channel}
+            isAgent={isAgent}
+          />
+        );
       }
       if (message.sender_type === "customer") {
         return (
@@ -460,6 +594,7 @@ function MessageContent({
               <LinkifyText
                 text={message.content_text || t("interactiveReply")}
                 isAgent={isAgent}
+                linkClassName={linkClass}
               />
             </p>
           </div>
@@ -470,6 +605,7 @@ function MessageContent({
           <LinkifyText
             text={message.content_text || t("interactiveReply")}
             isAgent={isAgent}
+            linkClassName={linkClass}
           />
         </p>
       );
@@ -481,6 +617,7 @@ function MessageContent({
           <LinkifyText
             text={message.content_text || t("unsupported")}
             isAgent={isAgent}
+            linkClassName={linkClass}
           />
         </p>
       );
@@ -489,6 +626,7 @@ function MessageContent({
 
 export function MessageBubble({
   message,
+  channel,
   template = null,
   reply,
   reactions,
@@ -497,10 +635,12 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const t = useTranslations("Inbox.bubble");
 
+  const effectiveChannel: ChannelType = (message.channel || channel || "whatsapp") as ChannelType;
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
   const isSystem = (message as any).sender_type === "system";
   const time = format(new Date(message.created_at), "HH:mm");
   const failure = isAgent && !isSystem ? failureReason(message) : null;
+  const bubbleStyles = getBubbleClasses({ channel: effectiveChannel, isAgent });
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
@@ -524,10 +664,8 @@ export function MessageBubble({
         <>
           <div
             className={cn(
-              "relative rounded-2xl px-3 py-2 shadow-sm",
-              isAgent
-                ? "rounded-br-md bg-[#dcf8c6] text-black dark:bg-[#005c4b] dark:text-white"
-                : "rounded-bl-md bg-white text-black dark:bg-[#202c33] dark:text-white",
+              "relative px-3 py-2",
+              bubbleStyles.bubble
             )}
           >
             {reply && (
@@ -542,6 +680,8 @@ export function MessageBubble({
               template={template}
               t={t}
               isAgent={isAgent}
+              channel={effectiveChannel}
+              linkClass={bubbleStyles.linkClass}
               onOpenMedia={onOpenMedia}
             />
             <div
@@ -550,12 +690,13 @@ export function MessageBubble({
                 isAgent ? "justify-end" : "justify-start",
               )}
             >
-          
-           
               {message.is_human_agent_tag && (
                 <span
                   title="Delivered using Meta 7-Day Human Agent Tag"
-                  className="inline-flex items-center px-1.5 py-px rounded text-[8px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                  className={cn(
+                    "inline-flex items-center px-1.5 py-px rounded text-[8px] font-medium border",
+                    bubbleStyles.badgeHuman
+                  )}
                 >
                   Human Agent
                 </span>
@@ -564,9 +705,7 @@ export function MessageBubble({
                 <span
                   className={cn(
                     "inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide",
-                    isAgent
-                      ? "bg-black/10 text-black/70 dark:bg-white/20 dark:text-white/80"
-                      : "bg-primary/10 text-primary"
+                    bubbleStyles.badgeAi
                   )}
                   title={t("aiBadgeTitle")}
                 >
@@ -577,9 +716,7 @@ export function MessageBubble({
               <span
                 className={cn(
                   "text-[10px]",
-                  isAgent
-                    ? "text-black/60 dark:text-white/70"
-                    : "text-muted-foreground",
+                  bubbleStyles.metaText
                 )}
               >
                 {time}
@@ -589,7 +726,7 @@ export function MessageBubble({
                   status={message.status}
                   title={failure}
                   isAgent={isAgent}
-                  channel={message.channel}
+                  channel={effectiveChannel}
                 />
               )}
             </div>
@@ -604,7 +741,7 @@ export function MessageBubble({
           {t("notDelivered")}: {failure}
         </p>
       )}
-      {reactions && reactions.length > 0 && onToggleReaction && !isSystem && (
+      {reactions && reactions.length > 0 && onToggleReaction && !isSystem && effectiveChannel === "whatsapp" && (
         <MessageReactions
           reactions={reactions}
           onToggle={onToggleReaction}

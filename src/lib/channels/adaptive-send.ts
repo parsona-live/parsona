@@ -9,6 +9,7 @@ import {
 } from '@/lib/flows/meta-send'
 import { getDecryptedChannelToken } from '@/lib/meta/channels'
 import type { ChannelType } from '@/types'
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0'
 
@@ -231,6 +232,17 @@ export async function sendAdaptiveButtons(args: SendAdaptiveButtonsArgs): Promis
     ? `${args.headerText}\n\n${args.bodyText}`
     : args.bodyText
 
+  const interactivePayload: InteractiveMessagePayload = {
+    kind: 'buttons',
+    header: args.headerText,
+    body: args.bodyText,
+    footer: args.footerText,
+    buttons: args.buttons.map((b) => ({
+      id: b.id,
+      title: truncate(b.title, 20),
+    })),
+  }
+
   // Instagram Direct / Messenger: Try native Generic Template card first for 1-3 buttons
   if (postbackButtons.length > 0 && postbackButtons.length <= 3) {
     const templateResult = await postMetaGraphMessage({
@@ -258,6 +270,8 @@ export async function sendAdaptiveButtons(args: SendAdaptiveButtonsArgs): Promis
       },
       previewText: messageText,
       senderType: args.senderType || 'bot',
+      contentType: 'interactive',
+      interactivePayload,
     })
 
     if (templateResult.success) {
@@ -291,6 +305,8 @@ export async function sendAdaptiveButtons(args: SendAdaptiveButtonsArgs): Promis
     },
     previewText: messageText,
     senderType: args.senderType || 'bot',
+    contentType: 'interactive',
+    interactivePayload,
   })
 }
 
@@ -344,6 +360,15 @@ export async function sendAdaptiveList(args: SendAdaptiveListArgs): Promise<Adap
     ? `${args.headerText}\n\n${args.bodyText}`
     : args.bodyText
 
+  const interactivePayload: InteractiveMessagePayload = {
+    kind: 'list',
+    header: args.headerText,
+    body: args.bodyText,
+    footer: args.footerText,
+    button_label: args.buttonText || 'Select',
+    sections: args.sections,
+  }
+
   // If items fit cleanly in Quick Replies (< 13 items and titles fit in 20 chars)
   if (allRows.length <= 13 && allRows.every((r) => r.title.length <= 20)) {
     const quickReplies = allRows.map((r) => ({
@@ -366,6 +391,8 @@ export async function sendAdaptiveList(args: SendAdaptiveListArgs): Promise<Adap
       },
       previewText: messageText,
       senderType: args.senderType || 'bot',
+      contentType: 'interactive',
+      interactivePayload,
     })
   }
 
@@ -401,6 +428,8 @@ export async function sendAdaptiveList(args: SendAdaptiveListArgs): Promise<Adap
     },
     previewText: messageText,
     senderType: args.senderType || 'bot',
+    contentType: 'interactive',
+    interactivePayload,
   })
 }
 
@@ -463,6 +492,17 @@ export async function sendAdaptiveCarousel(args: SendAdaptiveCarouselArgs): Prom
     })),
   }))
 
+  const interactivePayload: InteractiveMessagePayload = {
+    kind: 'carousel',
+    body: '',
+    cards: args.cards.map((c, i) => ({
+      card_index: c.cardIndex ?? c.card_index ?? i,
+      header_image_url: c.headerImageUrl || c.header_media_url || '',
+      body_text: c.bodyText || c.body_text || '',
+      buttons: c.buttons.map((b) => ({ id: b.id, title: truncate(b.title, 20) })),
+    })),
+  }
+
   return postMetaGraphMessage({
     db,
     channel,
@@ -482,6 +522,8 @@ export async function sendAdaptiveCarousel(args: SendAdaptiveCarouselArgs): Prom
     },
     previewText: '[Carousel Cards]',
     senderType: args.senderType || 'bot',
+    contentType: 'interactive',
+    interactivePayload,
   })
 }
 
@@ -588,6 +630,8 @@ interface PostMetaGraphArgs {
   mediaType?: string
   senderType: 'agent' | 'bot'
   aiGenerated?: boolean
+  contentType?: string
+  interactivePayload?: unknown
 }
 
 async function postMetaGraphMessage(args: PostMetaGraphArgs): Promise<AdaptiveResult> {
@@ -647,16 +691,23 @@ async function postMetaGraphMessage(args: PostMetaGraphArgs): Promise<AdaptiveRe
 
     const messageId = data.message_id || `meta_${Date.now()}`
     const timestamp = new Date().toISOString()
+    const isInteractive = Boolean(args.interactivePayload) || args.contentType === 'interactive'
+    const contentType = isInteractive
+      ? 'interactive'
+      : args.mediaUrl
+        ? (args.mediaType || 'image')
+        : (args.contentType || 'text')
 
     // Persist outbound message in database
     await db.from('messages').insert({
       conversation_id: conversationId,
       sender_type: args.senderType,
       sender_id: userId,
-      content_type: args.mediaUrl ? (args.mediaType || 'image') : 'text',
+      content_type: contentType,
       content_text: args.previewText || null,
       media_url: args.mediaUrl || null,
       media_type: args.mediaType || null,
+      interactive_payload: args.interactivePayload || null,
       message_id: messageId,
       channel,
       ai_generated: args.aiGenerated || false,
