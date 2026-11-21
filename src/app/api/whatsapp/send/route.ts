@@ -124,6 +124,7 @@ export async function POST(request: Request) {
           text: content_text,
           senderType: 'agent',
           mediaUrl: media_url,
+          interactivePayload: interactive_payload,
         })
         if (!dispatchRes.success) {
           return NextResponse.json({ error: dispatchRes.error }, { status: 400 })

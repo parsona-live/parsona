@@ -140,23 +140,65 @@ function failureReason(message: Message): string | null {
 function StatusIcon({
   status,
   title,
+  isAgent = true,
+  channel,
 }: {
-  status: Message["status"];
+  status?: Message["status"];
   /** Tooltip for the failed state — Meta's reason, when we have one. */
   title?: string | null;
+  isAgent?: boolean;
+  channel?: string | null;
 }) {
+  if (!status) return null;
+
   switch (status) {
     case "sending":
-      return <Clock className="h-3 w-3 text-muted-foreground" />;
+      return (
+        <span className="inline-flex" title="Sending">
+          <Clock
+            className={cn(
+              "h-3 w-3 animate-pulse",
+              isAgent ? "text-primary-foreground/60" : "text-muted-foreground"
+            )}
+          />
+        </span>
+      );
     case "sent":
-      return <Check className="h-3 w-3 text-muted-foreground" />;
+      return (
+        <span className="inline-flex" title="Sent">
+          <Check
+            className={cn(
+              "h-3 w-3",
+              isAgent ? "text-primary-foreground/75" : "text-muted-foreground"
+            )}
+          />
+        </span>
+      );
     case "delivered":
-      return <CheckCheck className="h-3 w-3 text-muted-foreground" />;
+      return (
+        <span className="inline-flex" title="Delivered">
+          <CheckCheck
+            className={cn(
+              "h-3 w-3",
+              isAgent ? "text-primary-foreground/75" : "text-muted-foreground"
+            )}
+          />
+        </span>
+      );
     case "read":
-      return <CheckCheck className="h-3 w-3 text-blue-400" />;
+      return (
+        <span className="inline-flex" title="Read">
+          <CheckCheck
+            className={cn(
+              "h-3 w-3",
+              isAgent ? "text-sky-300 dark:text-sky-400" : "text-blue-500"
+            )}
+          />
+        </span>
+      );
     case "failed":
       return (
-        <span className="inline-flex" title={title ?? undefined}>
+        <span className="inline-flex" title={title ?? "Failed"}>
           <XCircle className="h-3 w-3 text-red-400" />
         </span>
       );
@@ -207,7 +249,68 @@ function MessageContent({
         </div>
       );
 
-    case "video":
+    case "video": {
+      const isReel =
+        message.media_type === "reel" ||
+        message.media_type === "ig_reel" ||
+        Boolean(message.media_url && /instagram\.com\/(reel|p|tv)\//i.test(message.media_url)) ||
+        (message.channel === "instagram" && message.content_text?.includes("Reel"));
+
+      if (isReel) {
+        const reelUrl = message.media_url || null;
+        const caption =
+          message.content_text && message.content_text !== "Shared an Instagram Reel"
+            ? message.content_text
+            : null;
+
+        return (
+          <div className="flex flex-col gap-2 min-w-[240px] max-w-[320px]">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-pink-600 dark:text-pink-400">
+              <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-pink-500 stroke-[2.25]" />
+              <span>Instagram Reel</span>
+            </div>
+
+            {caption && (
+              <p className="whitespace-pre-wrap break-words text-sm">
+                <LinkifyText text={caption} isAgent={isAgent} />
+              </p>
+            )}
+
+            {reelUrl ? (
+              <div
+                className={cn(
+                  "flex flex-col gap-2 rounded-lg border p-2.5",
+                  isAgent
+                    ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground"
+                    : "border-border/70 bg-card text-card-foreground shadow-xs",
+                )}
+              >
+                <span className="text-[11px] font-medium truncate opacity-75">
+                  {reelUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                </span>
+                <a
+                  href={reelUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-xs font-semibold text-white transition-all shadow-sm",
+                    "bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] hover:opacity-95 active:scale-[0.98]",
+                  )}
+                >
+                  <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-white stroke-[2.25]" />
+                  <span>View Reel</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-white/90" />
+                </a>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border/50 bg-muted/40 p-2.5 text-xs text-muted-foreground">
+                <span>Reel link unavailable</span>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       return (
         <div>
           {message.media_url ? (
@@ -222,6 +325,7 @@ function MessageContent({
           )}
         </div>
       );
+    }
 
     case "audio":
       return (
@@ -480,7 +584,14 @@ export function MessageBubble({
               >
                 {time}
               </span>
-              {isAgent && <StatusIcon status={message.status} title={failure} />}
+              {isAgent && (
+                <StatusIcon
+                  status={message.status}
+                  title={failure}
+                  isAgent={isAgent}
+                  channel={message.channel}
+                />
+              )}
             </div>
           </div>
         </>

@@ -358,9 +358,9 @@ export function ConversationList({
             </div>
             <div
               title="Instagram"
-              className="relative z-20 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white ring-2 ring-card shadow-2xs"
+              className="relative z-20 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white ring-2 ring-card shadow-2xs"
             >
-              <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-white" />
+              <ChannelIcon channel="instagram" size="xs" className="h-3.5 w-3.5 text-white stroke-[2.25]" />
             </div>
             <div
               title="Facebook / Messenger"
@@ -394,7 +394,7 @@ export function ConversationList({
         <div className="relative flex items-center">
           <div
             ref={channelScrollRef}
-            className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar scroll-smooth flex-1 pr-5"
+            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar scroll-smooth flex-1 pr-5"
           >
             {(
               [
@@ -405,28 +405,37 @@ export function ConversationList({
               ] as const
             ).map((ch) => {
               const isSelected = channelFilter === ch.key;
+              const selectedStyle =
+                ch.key === 'whatsapp'
+                  ? 'bg-[#25D366] text-white shadow-xs border-transparent'
+                  : ch.key === 'instagram'
+                    ? 'bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-xs border-transparent'
+                    : ch.key === 'facebook'
+                      ? 'bg-[#0084FF] text-white shadow-xs border-transparent'
+                      : 'bg-primary text-primary-foreground shadow-xs border-transparent';
+
               return (
                 <button
                   key={ch.key}
                   type="button"
                   onClick={() => setChannelFilter(ch.key)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] transition-colors shrink-0 font-medium",
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] transition-colors shrink-0 font-medium border",
                     isSelected
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/40"
+                      ? selectedStyle
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border-border/40"
                   )}
                 >
                   {ch.key === "whatsapp" && (
-                    <ChannelIcon channel="whatsapp" size="xs" className={isSelected ? "text-white" : "text-emerald-500"} />
+                    <ChannelIcon channel="whatsapp" size="xs" className={isSelected ? "text-white" : "text-[#25D366]"} />
                   )}
                   {ch.key === "instagram" && (
-                    <ChannelIcon channel="instagram" size="xs" className={isSelected ? "text-white" : "text-pink-500"} />
+                    <ChannelIcon channel="instagram" size="xs" className={isSelected ? "text-white stroke-[2.25]" : "text-[#ee2a7b] stroke-[2.25]"} />
                   )}
                   {ch.key === "facebook" && (
                     <ChannelIcon channel="facebook" size="xs" className={isSelected ? "text-white" : "text-[#0084FF]"} />
                   )}
-                  <span>{ch.label}</span>
+                  <span className={isSelected ? "text-white font-semibold" : ""}>{ch.label}</span>
                   <span
                     className={cn(
                       "flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] font-bold",

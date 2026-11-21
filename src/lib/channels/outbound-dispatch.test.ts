@@ -257,4 +257,97 @@ describe('Omnichannel Outbound Dispatcher', () => {
     expect(res.success).toBe(false)
     expect(res.error).toContain('Outside allowed messaging window')
   })
+
+  it('routes interactive button payload to Meta quick_replies for Instagram & Messenger', async () => {
+    h.getDecryptedChannelToken.mockResolvedValue('decrypted_token')
+
+    const mockFetchRes = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({ message_id: 'mid_buttons_1' }),
+    }
+    vi.mocked(global.fetch).mockResolvedValue(mockFetchRes as unknown as Response)
+
+    const insertMock = vi.fn().mockResolvedValue({ error: null })
+    const updateMock = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }))
+
+    const mockDb = {
+      from: vi.fn((table: string) => {
+        if (table === 'conversations') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'conv_ig_buttons',
+                    channel: 'instagram',
+                    channel_connection_id: 'conn_ig_1',
+                    last_inbound_at: new Date().toISOString(),
+                  },
+                  error: null,
+                }),
+              })),
+            })),
+            update: updateMock,
+          }
+        }
+        if (table === 'contacts') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { ig_user_id: 'igsid_buttons', fb_page_scoped_id: null },
+                  error: null,
+                }),
+              })),
+            })),
+          }
+        }
+        if (table === 'messages') {
+          return { insert: insertMock }
+        }
+        return {}
+      }),
+    } as unknown as Parameters<typeof dispatchOutboundMessage>[0]['db']
+
+    const res = await dispatchOutboundMessage({
+      db: mockDb,
+      accountId: 'acc_1',
+      userId: 'usr_1',
+      conversationId: 'conv_ig_buttons',
+      contactId: 'cnt_1',
+      text: 'Choose an option',
+      interactivePayload: {
+        kind: 'buttons',
+        body: 'Choose an option',
+        buttons: [
+          { id: 'btn_1', title: 'Option 1' },
+          { id: 'btn_2', title: 'Option 2' },
+        ],
+      },
+    })
+
+    expect(res.success).toBe(true)
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('graph.facebook.com'),
+      expect.objectContaining({
+        body: JSON.stringify({
+          recipient: { id: 'igsid_buttons' },
+          message: {
+            text: 'Choose an option',
+            quick_replies: [
+              { content_type: 'text', title: 'Option 1', payload: 'btn_1' },
+              { content_type: 'text', title: 'Option 2', payload: 'btn_2' },
+            ],
+          },
+        }),
+      }),
+    )
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content_type: 'interactive',
+        interactive_payload: expect.objectContaining({ kind: 'buttons' }),
+      }),
+    )
+  })
 })

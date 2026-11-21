@@ -80,6 +80,17 @@ describe("collectMediaGallery", () => {
     expect(collectMediaGallery([msg("t1", "text")])).toEqual([]);
     expect(collectMediaGallery([])).toEqual([]);
   });
+
+  it("skips Instagram Reel web URLs so lightbox does not attempt to play HTML pages", () => {
+    const items = collectMediaGallery([
+      msg("v1", "video", {
+        media_type: "ig_reel",
+        media_url: "https://www.instagram.com/reel/Df86HjsxccM/",
+      }),
+      msg("v2", "video", { media_url: "/api/whatsapp/media/real-video.mp4" }),
+    ]);
+    expect(items.map((i) => i.messageId)).toEqual(["v2"]);
+  });
 });
 
 describe("galleryIndexOf", () => {

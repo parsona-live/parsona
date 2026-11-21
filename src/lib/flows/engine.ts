@@ -501,6 +501,7 @@ async function isDuplicateInbound(
   contactId: string,
   metaMessageId: string,
 ): Promise<boolean> {
+  if (!metaMessageId) return false;
   // Fetch ALL run ids for this contact in this account (active +
   // historical). Bounded by how many flows the customer has been
   // through — small.
@@ -516,7 +517,7 @@ async function isDuplicateInbound(
     .from("flow_run_events")
     .select("id", { count: "exact", head: true })
     .in("flow_run_id", runIds)
-    .eq("event_type", "reply_received")
+    .in("event_type", ["reply_received", "started"])
     .filter("payload->>meta_message_id", "eq", metaMessageId);
   return (count ?? 0) > 0;
 }
@@ -896,7 +897,7 @@ async function endRun(
   status: "completed" | "handed_off" | "cancelled" | "failed",
   reason: string,
 ): Promise<void> {
-  await db
+  const { data: updatedRuns } = await db
     .from("flow_runs")
     .update({
       status,
@@ -904,7 +905,16 @@ async function endRun(
       end_reason: reason,
     })
     .eq("id", runId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .select("conversation_id");
+
+  const convId = updatedRuns?.[0]?.conversation_id;
+  if (convId && (status === "completed" || status === "cancelled")) {
+    await db
+      .from("conversations")
+      .update({ ai_autoreply_disabled: false, ai_reply_count: 0 })
+      .eq("id", convId);
+  }
 }
 
 // ============================================================
@@ -1733,11 +1743,8 @@ export async function dispatchInboundToFlows(
       input.conversationId,
     );
 
-    // Idempotency — only matters if there's already a run for this
-    // contact. For new runs, the partial unique index catches duplicate
-    // starts at INSERT time.
-    if (activeRun) {
-      ownedRunId = activeRun.id;
+    // Global idempotency deduplication by meta_message_id across active & historical runs
+    if (input.message?.meta_message_id) {
       const dupe = await isDuplicateInbound(
         db,
         input.accountId,
@@ -1747,10 +1754,14 @@ export async function dispatchInboundToFlows(
       if (dupe) {
         return {
           consumed: true,
-          flow_run_id: activeRun.id,
+          flow_run_id: activeRun?.id,
           outcome: "duplicate_inbound_ignored",
         };
       }
+    }
+
+    if (activeRun) {
+      ownedRunId = activeRun.id;
       // One SELECT for the whole flow's nodes — advance loop is now
       // in-memory. See loadAllNodes.
       const [runFlow, nodes] = await Promise.all([
@@ -1765,7 +1776,7 @@ export async function dispatchInboundToFlows(
         now,
       });
       if (!closure) {
-        // Priority 1: Check if user sent a keyword trigger for any active flow
+        // Priority 1: Check if user sent a keyword trigger for a DIFFERENT active flow
         const matchingEntryFlow = await findEntryFlow(
           db,
           input.accountId,
@@ -1778,14 +1789,9 @@ export async function dispatchInboundToFlows(
             await endRun(db, activeRun.id, "completed", "superseded_by_new_flow");
             const newNodes = await loadAllNodes(db, matchingEntryFlow.id);
             return startNewRun(db, matchingEntryFlow, input, newNodes);
-          } else if (
-            input.message.kind === "text" &&
-            runFlow?.trigger_type === "keyword" &&
-            matchesKeywordTrigger(input.message.text, (runFlow.trigger_config as unknown as KeywordTriggerConfig) ?? { keywords: [] })
-          ) {
-            await endRun(db, activeRun.id, "completed", "restarted_by_keyword");
-            return startNewRun(db, matchingEntryFlow, input, nodes);
           }
+          // Note: If matchingEntryFlow is the SAME flow as activeRun, do not restart!
+          // The user is currently in this flow run. Progress to handleReplyForActiveRun below.
         }
 
         // Fire typing indicator immediately so customer sees "typing..." instantly
@@ -2090,11 +2096,11 @@ async function handleReplyForActiveRun(
         })
         .eq("id", run.id);
 
-      // Ensure AI auto-reply is enabled on this conversation so the interruption query gets answered
+      // Ensure AI auto-reply is enabled and has fresh budget on this conversation so the interruption query gets answered
       if (run.conversation_id) {
         await db
           .from("conversations")
-          .update({ ai_autoreply_disabled: false })
+          .update({ ai_autoreply_disabled: false, ai_reply_count: 0 })
           .eq("id", run.conversation_id);
       }
 
@@ -2250,28 +2256,8 @@ async function handleReplyForActiveRun(
       );
     }
 
-    // 1. Check if the typed text matches the current flow's entry trigger keywords to restart
-    if (
-      flow.trigger_type === "keyword" &&
-      matchesKeywordTrigger(message.text, flow.trigger_config as KeywordTriggerConfig)
-    ) {
-      await endRun(db, run.id, "completed", "restarted_by_keyword");
-      return startNewRun(
-        db,
-        flow,
-        {
-          accountId: run.account_id,
-          userId: run.user_id,
-          contactId: run.contact_id!,
-          conversationId: run.conversation_id!,
-          message,
-        },
-        nodes,
-      );
-    }
-
-    // 2. Off-script message (e.g. "I want a book", "Hello"):
-    // Pause the flow and route to AI Auto-Reply or agent!
+    // Off-script message (e.g. "I want a book", "Hello"):
+    // Pause the flow and route to AI Auto-Reply or agent without resending the menu in a loop!
     await db
       .from("flow_runs")
       .update({
@@ -2279,6 +2265,13 @@ async function handleReplyForActiveRun(
         end_reason: "interrupted_by_user",
       })
       .eq("id", run.id);
+
+    if (run.conversation_id) {
+      await db
+        .from("conversations")
+        .update({ ai_autoreply_disabled: false, ai_reply_count: 0 })
+        .eq("id", run.conversation_id);
+    }
 
     await logEvent(db, run.id, "fallback_fired", currentNode.node_key, {
       action: "paused_for_ai",

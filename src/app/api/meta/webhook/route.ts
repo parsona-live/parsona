@@ -5,7 +5,11 @@ import {
   verifyTokenMatches,
 } from '@/lib/whatsapp/webhook-signature'
 import { readCappedBody } from '@/lib/whatsapp/webhook-body'
-import { processInboundMetaMessage, type MetaMessagingEvent } from '@/lib/meta/inbound-normalizer'
+import {
+  processInboundMetaMessage,
+  handleMetaDeliveryOrReadEvent,
+  type MetaMessagingEvent,
+} from '@/lib/meta/inbound-normalizer'
 import { processInboundComment, type InboundCommentEvent } from '@/lib/meta/comment-to-dm'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
@@ -103,6 +107,14 @@ export async function POST(req: Request) {
         // Direct messages
         if (entry.messaging && entry.messaging.length > 0) {
           for (const event of entry.messaging) {
+            // Handle delivery & read receipts for Facebook Messenger & Instagram
+            if (event.delivery || event.read) {
+              await handleMetaDeliveryOrReadEvent(db, channel, event).catch((err) => {
+                console.error('[Meta Webhook] Failed to handle delivery/read event:', err)
+              })
+              continue
+            }
+
             const inboundResult = await processInboundMetaMessage(db, channel, event).catch((err) => {
               console.error('[Meta Webhook] Failed to process messaging event:', err)
               return null

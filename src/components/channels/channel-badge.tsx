@@ -69,18 +69,42 @@ export function ChannelIcon({ channel, className, size = 'sm', ...props }: Chann
 
 /**
  * Avatar badge positioned at the bottom-right corner of a contact avatar.
+ * Increased size and alignment for enhanced visibility across platforms.
  */
-export function AvatarChannelBadge({ channel, className }: { channel?: ChannelType | string | null; className?: string }) {
+export function AvatarChannelBadge({
+  channel,
+  className,
+  size = 'md',
+}: {
+  channel?: ChannelType | string | null;
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const containerSize =
+    size === 'sm'
+      ? 'h-4 w-4'
+      : size === 'lg'
+        ? 'h-6 w-6'
+        : 'h-5 w-5';
+
+  const iconClass =
+    size === 'sm'
+      ? 'h-2.5 w-2.5'
+      : size === 'lg'
+        ? 'h-3.5 w-3.5'
+        : 'h-3 w-3';
+
   if (channel === 'instagram') {
     return (
       <span
         title="Instagram Direct"
         className={cn(
-          "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-xs ring-1.5 ring-background",
+          "absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-xs ring-2 ring-background shrink-0",
+          containerSize,
           className
         )}
       >
-        <ChannelIcon channel="instagram" size="xs" className="h-2.5 w-2.5 text-white" />
+        <ChannelIcon channel="instagram" size="xs" className={cn(iconClass, "text-white stroke-[2.25]")} />
       </span>
     )
   }
@@ -90,11 +114,12 @@ export function AvatarChannelBadge({ channel, className }: { channel?: ChannelTy
       <span
         title="Facebook Messenger"
         className={cn(
-          "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#0084FF] text-white shadow-xs ring-1.5 ring-background",
+          "absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-[#0084FF] text-white shadow-xs ring-2 ring-background shrink-0",
+          containerSize,
           className
         )}
       >
-        <ChannelIcon channel="facebook" size="xs" className="h-2.5 w-2.5 text-white" />
+        <ChannelIcon channel="facebook" size="xs" className={cn(iconClass, "text-white")} />
       </span>
     )
   }
@@ -103,17 +128,18 @@ export function AvatarChannelBadge({ channel, className }: { channel?: ChannelTy
     <span
       title="WhatsApp"
       className={cn(
-        "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xs ring-1.5 ring-background",
+        "absolute -bottom-1 -right-1 flex items-center justify-center rounded-full bg-[#25D366] text-white shadow-xs ring-2 ring-background shrink-0",
+        containerSize,
         className
       )}
     >
-      <ChannelIcon channel="whatsapp" size="xs" className="h-2.5 w-2.5 text-white" />
+      <ChannelIcon channel="whatsapp" size="xs" className={cn(iconClass, "text-white")} />
     </span>
   )
 }
 
 /**
- * Pill-style channel badge with icon and label.
+ * Pill-style channel badge with brand-accurate background, white icon, and white text.
  */
 export function ChannelPillBadge({
   channel,
@@ -128,12 +154,12 @@ export function ChannelPillBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#f9ce34]/90 via-[#ee2a7b]/90 to-[#6228d7]/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-2xs",
+          "inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-2xs shrink-0",
           className
         )}
       >
-        <ChannelIcon channel="instagram" size="xs" className="text-white" />
-        {showLabel && <span>Instagram</span>}
+        <ChannelIcon channel="instagram" size="xs" className="h-3 w-3 text-white stroke-[2.25] shrink-0" />
+        {showLabel && <span className="leading-none text-white">Instagram</span>}
       </span>
     )
   }
@@ -142,12 +168,12 @@ export function ChannelPillBadge({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1 rounded-full bg-[#0084FF] px-2 py-0.5 text-[10px] font-semibold text-white shadow-2xs",
+          "inline-flex items-center gap-1.5 rounded-full bg-[#0084FF] px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-2xs shrink-0",
           className
         )}
       >
-        <ChannelIcon channel="facebook" size="xs" className="text-white" />
-        {showLabel && <span>Messenger</span>}
+        <ChannelIcon channel="facebook" size="xs" className="h-3 w-3 text-white shrink-0" />
+        {showLabel && <span className="leading-none text-white">Messenger</span>}
       </span>
     )
   }
@@ -155,12 +181,12 @@ export function ChannelPillBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-[#25D366] px-2 py-0.5 text-[10px] font-semibold text-white shadow-2xs",
+        "inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-2xs shrink-0",
         className
       )}
     >
-      <ChannelIcon channel="whatsapp" size="xs" className="text-white" />
-      {showLabel && <span>WhatsApp</span>}
+      <ChannelIcon channel="whatsapp" size="xs" className="h-3 w-3 text-white shrink-0" />
+      {showLabel && <span className="leading-none text-white">WhatsApp</span>}
     </span>
   )
 }

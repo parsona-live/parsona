@@ -3,6 +3,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { getDecryptedChannelToken } from '@/lib/meta/channels';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
 
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('id, account_id, contact:contacts(phone, wa_user_id)')
+      .select('id, account_id, channel, channel_connection_id, contact:contacts(phone, wa_user_id, ig_user_id, fb_page_scoped_id)')
       .eq('id', targetMessage.conversation_id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -88,48 +89,119 @@ export async function POST(request: Request) {
     const contact = Array.isArray(conversation.contact)
       ? conversation.contact[0]
       : conversation.contact;
-    // Phone number, or the business-scoped user ID for a contact Meta
-    // never gave us a number for (issue #519).
-    const sendTarget = resolveContactSendTarget(contact);
-    if (!sendTarget) {
-      return NextResponse.json(
-        { error: t('react.contactNoPhone') },
-        { status: 400 },
+
+    const channel = conversation.channel || 'whatsapp';
+
+    if (channel === 'instagram' || channel === 'facebook') {
+      const recipientId =
+        channel === 'instagram' ? contact?.ig_user_id : contact?.fb_page_scoped_id;
+
+      if (!recipientId) {
+        return NextResponse.json(
+          {
+            error:
+              channel === 'instagram'
+                ? 'Contact has no Instagram identifier (IGSID)'
+                : 'Contact has no Messenger identifier (PSID)',
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!conversation.channel_connection_id) {
+        return NextResponse.json(
+          { error: `No channel connection configured for this ${channel} conversation` },
+          { status: 400 },
+        );
+      }
+
+      const token = await getDecryptedChannelToken(
+        conversation.channel_connection_id,
+        accountId,
       );
-    }
 
-    // WhatsApp config + access token. Account-scoped post-multi-user.
-    const { data: config, error: configError } = await supabase
-      .from('whatsapp_config')
-      .select('phone_number_id, access_token')
-      .eq('account_id', accountId)
-      .single();
+      if (!token) {
+        return NextResponse.json(
+          { error: 'Failed to decrypt access token for connected page' },
+          { status: 400 },
+        );
+      }
 
-    if (configError || !config) {
-      return NextResponse.json(
-        { error: t('common.whatsappNotConfiguredDot') },
-        { status: 400 },
-      );
-    }
+      try {
+        const sendUrl = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(token)}`;
+        const isUnreact = emoji === '';
+        const reactionBody = {
+          recipient: { id: recipientId },
+          sender_action: isUnreact ? 'unreact' : 'react',
+          payload: {
+            message_id: targetMessage.message_id,
+            ...(isUnreact ? {} : { reaction: emoji }),
+          },
+        };
 
-    const accessToken = decrypt(config.access_token);
+        const res = await fetch(sendUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reactionBody),
+        });
 
-    try {
-      await sendReactionMessage({
-        phoneNumberId: config.phone_number_id,
-        accessToken,
-        to: sendTarget.target,
-        targetMessageId: targetMessage.message_id,
-        emoji,
-      });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t('react.unknownMetaError');
-      console.error('[whatsapp/react] Meta send failed:', message);
-      return NextResponse.json(
-        { error: t('react.metaError', { message }) },
-        { status: 502 },
-      );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok && data?.error) {
+          const errMsg = data.error.message || 'Meta API reaction failed';
+          console.warn(`[${channel}/react] Meta API warning:`, errMsg);
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : t('react.unknownMetaError');
+        console.error(`[${channel}/react] Meta send failed:`, message);
+        return NextResponse.json(
+          { error: t('react.metaError', { message }) },
+          { status: 502 },
+        );
+      }
+    } else {
+      // WhatsApp channel
+      const sendTarget = resolveContactSendTarget(contact);
+      if (!sendTarget) {
+        return NextResponse.json(
+          { error: t('react.contactNoPhone') },
+          { status: 400 },
+        );
+      }
+
+      // WhatsApp config + access token. Account-scoped post-multi-user.
+      const { data: config, error: configError } = await supabase
+        .from('whatsapp_config')
+        .select('phone_number_id, access_token')
+        .eq('account_id', accountId)
+        .single();
+
+      if (configError || !config) {
+        return NextResponse.json(
+          { error: t('common.whatsappNotConfiguredDot') },
+          { status: 400 },
+        );
+      }
+
+      const accessToken = decrypt(config.access_token);
+
+      try {
+        await sendReactionMessage({
+          phoneNumberId: config.phone_number_id,
+          accessToken,
+          to: sendTarget.target,
+          targetMessageId: targetMessage.message_id,
+          emoji,
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : t('react.unknownMetaError');
+        console.error('[whatsapp/react] Meta send failed:', message);
+        return NextResponse.json(
+          { error: t('react.metaError', { message }) },
+          { status: 502 },
+        );
+      }
     }
 
     // Mirror into DB. Empty emoji = removal.

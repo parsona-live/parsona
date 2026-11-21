@@ -29,7 +29,17 @@ export interface MediaGalleryItem {
 
 function galleryKind(message: Message): MediaGalleryKind | null {
   if (message.content_type === "image") return "image";
-  if (message.content_type === "video") return "video";
+  if (message.content_type === "video") {
+    // External Instagram Reel / post links are viewed via external redirect, not direct video lightbox
+    if (
+      message.media_type === "reel" ||
+      message.media_type === "ig_reel" ||
+      (message.media_url && /instagram\.com\/(reel|p|tv)\//i.test(message.media_url))
+    ) {
+      return null;
+    }
+    return "video";
+  }
   return null;
 }
 

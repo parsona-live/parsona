@@ -539,6 +539,7 @@ export async function sendMessageToConversation(
       last_message_text: lastMessageText,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      ai_reply_count: 0,
     })
     .eq('id', conversationId);
 

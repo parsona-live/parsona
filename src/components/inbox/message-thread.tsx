@@ -1307,7 +1307,7 @@ export function MessageThread({
 
       {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {loading ? (
+        {loading || (messages.length > 0 && messages[0].conversation_id !== conversationId) ? (
           <MessageThreadSkeleton />
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">

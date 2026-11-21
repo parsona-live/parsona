@@ -544,10 +544,24 @@ function InboxPageInner() {
   );
 
   const handleOpenConversationById = useCallback(
-    (convId: string) => {
+    async (convId: string) => {
       const target = conversations.find((c) => c.id === convId);
       if (target) {
         handleSelectConversation(target);
+        return;
+      }
+      // If the conversation is on a different channel or not in the loaded page, fetch it directly
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("conversations")
+        .select(CONVERSATION_SELECT)
+        .eq("id", convId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const fetched = normalizeConversation(data);
+        setConversations((prev) => [fetched, ...prev.filter((c) => c.id !== fetched.id)]);
+        handleSelectConversation(fetched);
       }
     },
     [conversations, handleSelectConversation]

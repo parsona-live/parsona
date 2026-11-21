@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import {
   Unlink,
   MessageSquare,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -81,10 +82,15 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
   const [addingNote, setAddingNote] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContactItem[]>([]);
+  const [loadingLinked, setLoadingLinked] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+  const activeContactIdRef = useRef<string | null>(null);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
+    const currentId = contact.id;
+    activeContactIdRef.current = currentId;
+    setLoadingLinked(true);
 
     const supabase = createClient();
 
@@ -106,6 +112,9 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
         .eq("contact_id", contact.id),
     ]);
 
+    // Check if contact changed while requests were in flight
+    if (activeContactIdRef.current !== currentId) return;
+
     if (dealsRes.data) setDeals(dealsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
     if (tagsRes.data) {
@@ -121,19 +130,25 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
     // Fetch linked channels
     try {
       const res = await fetch(`/api/contacts/${contact.id}/linked`);
-      if (res.ok) {
+      if (activeContactIdRef.current === currentId && res.ok) {
         const json = await res.json();
-        setLinkedContacts(json.linked || []);
+        if (activeContactIdRef.current === currentId) {
+          setLinkedContacts(json.linked || []);
+        }
       }
     } catch {
       // Best-effort
+    } finally {
+      if (activeContactIdRef.current === currentId) {
+        setLoadingLinked(false);
+      }
     }
   }, [contact]);
 
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
+  // Load on contact change. Reset linked contacts immediately to avoid flashing stale channels
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLinkedContacts([]);
+    setLoadingLinked(true);
     fetchContactData();
   }, [fetchContactData]);
 
@@ -335,7 +350,12 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
             </div>
 
             {/* Linked contacts list */}
-            {linkedContacts.length > 0 ? (
+            {loadingLinked ? (
+              <div className="py-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                <span className="text-[11px]">Loading connected channels...</span>
+              </div>
+            ) : linkedContacts.length > 0 ? (
               <div className="space-y-1.5">
                 {linkedContacts.map((linked) => (
                   <div

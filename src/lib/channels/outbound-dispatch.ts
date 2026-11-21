@@ -17,6 +17,7 @@ export interface OutboundDispatchArgs {
   senderType?: 'agent' | 'bot'
   mediaUrl?: string | null
   mediaType?: string | null
+  interactivePayload?: any
 }
 
 export interface OutboundDispatchResult {
@@ -44,6 +45,7 @@ export async function dispatchOutboundMessage(
     senderType = 'agent',
     mediaUrl,
     mediaType,
+    interactivePayload,
   } = args
 
   const db = args.db ?? supabaseAdmin()
@@ -139,7 +141,24 @@ export async function dispatchOutboundMessage(
     recipient: { id: recipientId },
   }
 
-  if (mediaUrl) {
+  if (
+    interactivePayload &&
+    interactivePayload.kind === 'buttons' &&
+    Array.isArray(interactivePayload.buttons) &&
+    interactivePayload.buttons.length > 0
+  ) {
+    const quickReplies = interactivePayload.buttons.map(
+      (b: { id?: string; title?: string }) => ({
+        content_type: 'text',
+        title: (b.title || 'Option').slice(0, 20),
+        payload: b.id || b.title || 'OPTION',
+      }),
+    )
+    bodyPayload.message = {
+      text: interactivePayload.body || text || 'Please choose an option:',
+      quick_replies: quickReplies,
+    }
+  } else if (mediaUrl) {
     const attachmentType = mediaType === 'video' ? 'video' : mediaType === 'audio' ? 'audio' : 'image'
     bodyPayload.message = {
       attachment: {
@@ -170,16 +189,26 @@ export async function dispatchOutboundMessage(
 
     const messageId = data.message_id || `meta_${Date.now()}`
     const timestamp = new Date().toISOString()
+    const isInteractive = Boolean(interactivePayload)
+    const contentType = isInteractive
+      ? 'interactive'
+      : mediaUrl
+        ? (mediaType === 'audio' ? 'audio' : mediaType === 'video' ? 'video' : 'image')
+        : 'text'
+    const storedText = isInteractive
+      ? (interactivePayload.body || text || null)
+      : (text || null)
 
     // 6. Persist outbound message in database
     await db.from('messages').insert({
       conversation_id: conversationId,
       sender_type: senderType,
       sender_id: userId,
-      content_type: mediaUrl ? (mediaType === 'audio' ? 'audio' : mediaType === 'video' ? 'video' : 'image') : 'text',
-      content_text: text || null,
+      content_type: contentType,
+      content_text: storedText,
       media_url: mediaUrl || null,
       media_type: mediaType || null,
+      interactive_payload: interactivePayload || null,
       message_id: messageId,
       channel,
       is_human_agent_tag: isHumanAgentTag,
@@ -196,6 +225,7 @@ export async function dispatchOutboundMessage(
         last_message_at: timestamp,
         last_reply_at: timestamp,
         updated_at: timestamp,
+        ...(senderType === 'agent' ? { ai_reply_count: 0 } : {}),
       })
       .eq('id', conversationId)
 

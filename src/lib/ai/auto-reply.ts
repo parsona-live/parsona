@@ -95,15 +95,55 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, channel')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, channel, last_message_at')
       .eq('id', conversationId)
       .maybeSingle()
-    if (convErr || !conv) return
-    if (conv.assigned_agent_id) return // a human owns this thread
-    if (conv.ai_autoreply_disabled) return // handed off / turned off here
-    // Cheap early-out; the authoritative cap check is the atomic claim
-    // below (this read can race a concurrent inbound).
-    if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
+    if (convErr || !conv) {
+      console.warn(`[ai auto-reply] Conversation ${conversationId} not found or query error:`, convErr)
+      return
+    }
+    if (conv.assigned_agent_id) {
+      console.log(`[ai auto-reply] Standing down: human agent assigned (${conv.assigned_agent_id}) to conversation ${conversationId}`)
+      return // a human owns this thread
+    }
+    if (conv.ai_autoreply_disabled) {
+      console.log(`[ai auto-reply] Standing down: auto-reply is disabled/paused on conversation ${conversationId}`)
+      return // handed off / turned off here
+    }
+
+    // Inactivity / new session window reset:
+    // If more than 2 hours have passed since the last message, this is a new inquiry/session.
+    // Reset the AI reply count so returning customers receive an answer instead of being permanently blocked.
+    const lastMsgTime = conv.last_message_at ? new Date(conv.last_message_at).getTime() : 0
+    const hoursSinceLastMsg = lastMsgTime ? (Date.now() - lastMsgTime) / (1000 * 60 * 60) : 0
+    if (hoursSinceLastMsg >= 2 && (conv.ai_reply_count ?? 0) > 0) {
+      console.log(`[ai auto-reply] Resetting ai_reply_count for conversation ${conversationId} (${hoursSinceLastMsg.toFixed(1)}h since last message)`)
+      await db
+        .from('conversations')
+        .update({ ai_reply_count: 0 })
+        .eq('id', conversationId)
+      conv.ai_reply_count = 0
+    }
+
+    // Per-conversation auto-reply cap:
+    // When the reply limit is reached, hand off to human agent so the thread is clearly marked as paused in the UI.
+    if ((conv.ai_reply_count ?? 0) >= config.autoReplyMaxPerConversation) {
+      console.warn(
+        `[ai auto-reply] Conversation ${conversationId} reached auto-reply limit (${conv.ai_reply_count}/${config.autoReplyMaxPerConversation}). Handing off to agent.`
+      )
+      const summary = `AI reached maximum reply limit (${conv.ai_reply_count}/${config.autoReplyMaxPerConversation}). Handed off for human response.`
+      await db
+        .from('conversations')
+        .update({
+          ai_autoreply_disabled: true,
+          ai_handoff_summary: summary,
+          ...(config.handoffAgentId && !conv.assigned_agent_id
+            ? { assigned_agent_id: config.handoffAgentId }
+            : {}),
+        })
+        .eq('id', conversationId)
+      return
+    }
 
     const messages = await buildConversationContext(
       db,
@@ -242,7 +282,7 @@ export async function dispatchInboundToAiReply(
     if (claimed !== true) return
 
     if (conv.channel === 'instagram' || conv.channel === 'facebook') {
-      await dispatchOutboundMessage({
+      const res = await dispatchOutboundMessage({
         db,
         accountId,
         userId: configOwnerUserId,
@@ -252,8 +292,9 @@ export async function dispatchInboundToAiReply(
         aiGenerated: true,
         senderType: 'bot',
       })
+      console.log(`[ai auto-reply] Dispatched ${conv.channel} AI reply for ${conversationId}:`, res.success ? 'success' : res.error)
     } else {
-      await engineSendText({
+      const res = await engineSendText({
         accountId,
         userId: configOwnerUserId,
         conversationId,
@@ -261,6 +302,7 @@ export async function dispatchInboundToAiReply(
         text: cleanText,
         aiGenerated: true,
       })
+      console.log(`[ai auto-reply] Dispatched whatsapp AI reply for ${conversationId}:`, res)
     }
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
