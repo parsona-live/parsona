@@ -368,6 +368,26 @@ describe('countAudience', () => {
     expect(requests).toHaveLength(0);
   });
 
+  it('counts audience for contact groups correctly', async () => {
+    const { db } = cappedPostgrest({
+      contact_group_members: [
+        { group_id: 'g1', contact_id: 'c1' },
+        { group_id: 'g1', contact_id: 'c2' },
+        { group_id: 'g2', contact_id: 'c3' },
+      ],
+      contacts: [
+        { id: 'c1', phone: '+111' },
+        { id: 'c2', phone: '+222' },
+        { id: 'c3', phone: '+333' },
+      ],
+    });
+    const audience: AudienceConfig = {
+      type: 'groups',
+      groupIds: ['g1'],
+    };
+    expect(await countAudience(db, audience)).toBe(2);
+  });
+
   it('returns null for a partially configured audience', async () => {
     const { db } = cappedPostgrest({});
     expect(await countAudience(db, { type: 'tags', tagIds: [] })).toBeNull();

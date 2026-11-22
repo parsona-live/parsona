@@ -4,12 +4,13 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { countAudience } from '@/lib/broadcast-audience';
 import { parseBroadcastCsv } from '@/lib/broadcast-csv';
-import { CustomField, Tag } from '@/types';
+import { CustomField, Tag, ContactGroup } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Users,
   Tags,
+  FolderKanban,
   Filter,
   Upload,
   FileText,
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+type AudienceType = 'all' | 'tags' | 'groups' | 'custom_field' | 'csv';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
 interface CustomFieldFilter {
@@ -32,6 +33,7 @@ interface CustomFieldFilter {
 interface AudienceConfig {
   type: AudienceType;
   tagIds?: string[];
+  groupIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
   excludeTagIds?: string[];
@@ -71,6 +73,12 @@ export function Step2SelectAudience({
       icon: Users,
     },
     {
+      type: 'groups',
+      label: 'Contact Groups',
+      description: 'Target specific segmented contact groups',
+      icon: FolderKanban,
+    },
+    {
       type: 'tags',
       label: t('selectAudience.method.tags'),
       description: t('selectAudience.tagDesc'),
@@ -90,8 +98,10 @@ export function Step2SelectAudience({
     },
   ], [t]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingFields, setLoadingFields] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
@@ -122,6 +132,23 @@ export function Step2SelectAudience({
     fetchTags();
   }, []);
 
+  // Groups loader
+  useEffect(() => {
+    async function fetchGroups() {
+      setLoadingGroups(true);
+      try {
+        const res = await fetch('/api/contacts/groups');
+        const data = await res.json();
+        if (data?.groups) setGroups(data.groups);
+      } catch (err) {
+        console.error('Failed to load contact groups:', err);
+      } finally {
+        setLoadingGroups(false);
+      }
+    }
+    fetchGroups();
+  }, []);
+
   // Lazy-load custom fields only when that audience type is active.
   useEffect(() => {
     if (audience.type !== 'custom_field') return;
@@ -150,6 +177,7 @@ export function Step2SelectAudience({
       count = await countAudience(createClient(), {
         type: audience.type,
         tagIds: audience.tagIds,
+        groupIds: audience.groupIds,
         customField: audience.customField,
         csvContacts: audience.csvContacts,
         excludeTagIds: audience.excludeTagIds,
@@ -163,6 +191,7 @@ export function Step2SelectAudience({
   }, [
     audience.type,
     audience.tagIds,
+    audience.groupIds,
     audience.customField,
     audience.csvContacts,
     audience.excludeTagIds,
@@ -205,6 +234,14 @@ export function Step2SelectAudience({
     onUpdate({ ...audience, csvContacts: result.contacts });
   }
 
+  function toggleGroup(groupId: string) {
+    const current = audience.groupIds ?? [];
+    const updated = current.includes(groupId)
+      ? current.filter((id) => id !== groupId)
+      : [...current, groupId];
+    onUpdate({ ...audience, groupIds: updated });
+  }
+
   function toggleTag(tagId: string) {
     const current = audience.tagIds ?? [];
     const updated = current.includes(tagId)
@@ -232,6 +269,7 @@ export function Step2SelectAudience({
 
   const isValid =
     audience.type === 'all' ||
+    (audience.type === 'groups' && audience.groupIds && audience.groupIds.length > 0) ||
     (audience.type === 'tags' && audience.tagIds && audience.tagIds.length > 0) ||
     (audience.type === 'custom_field' &&
       !!audience.customField?.fieldId &&
@@ -263,6 +301,7 @@ export function Step2SelectAudience({
                   // Wipe shape fields from other types to avoid stale
                   // config leaking across selections.
                   tagIds: option.type === 'tags' ? audience.tagIds : undefined,
+                  groupIds: option.type === 'groups' ? audience.groupIds : undefined,
                   customField:
                     option.type === 'custom_field'
                       ? audience.customField
@@ -296,6 +335,45 @@ export function Step2SelectAudience({
           );
         })}
       </div>
+
+      {audience.type === 'groups' && (
+        <div className="rounded-xl border border-border bg-card/50 p-4">
+          <p className="mb-3 text-sm font-medium text-foreground">Select Contact Groups</p>
+          {loadingGroups ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : groups.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No contact groups found. Create groups on the Contacts page first.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {groups.map((group) => {
+                const isSelected = audience.groupIds?.includes(group.id);
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => toggleGroup(group.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                      isSelected
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-border bg-muted text-muted-foreground hover:border-border'
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: group.color || '#3b82f6' }}
+                    />
+                    {group.name}
+                    <span className="text-[10px] text-muted-foreground">
+                      ({group.member_count ?? 0})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {audience.type === 'tags' && (
         <div className="rounded-xl border border-border bg-card/50 p-4">

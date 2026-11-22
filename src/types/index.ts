@@ -176,6 +176,39 @@ export interface ContactTag {
   tag_id: string;
 }
 
+export interface ContactGroup {
+  id: string;
+  account_id: string;
+  name: string;
+  description?: string | null;
+  color: string;
+  created_at: string;
+  updated_at: string;
+  member_count?: number;
+}
+
+export interface ContactGroupMember {
+  id: string;
+  account_id: string;
+  group_id: string;
+  contact_id: string;
+  added_at: string;
+  contact?: Contact;
+}
+
+export interface GroupContact {
+  id: string;
+  account_id: string;
+  group_id: string;
+  source_contact_id?: string | null;
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  company?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CustomField {
   id: string;
   user_id: string;

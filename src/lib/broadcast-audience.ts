@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { fetchAllInChunks, fetchAllPages } from '@/lib/supabase/paged-query';
 import type { Contact } from '@/types';
+import { fetchGroupContactIds } from '@/lib/contacts/groups';
 
 export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
@@ -11,7 +12,7 @@ export interface CustomFieldFilter {
   value: string;
 }
 
-export type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+export type AudienceType = 'all' | 'tags' | 'groups' | 'custom_field' | 'csv';
 
 export interface CsvAudienceRow {
   phone: string;
@@ -21,6 +22,7 @@ export interface CsvAudienceRow {
 export interface AudienceConfig {
   type: AudienceType;
   tagIds?: string[];
+  groupIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: CsvAudienceRow[];
   excludeTagIds?: string[];
@@ -113,6 +115,9 @@ async function fetchAudienceContactIds(
   db: SupabaseClient,
   audience: AudienceConfig,
 ): Promise<Set<string> | null> {
+  if (audience.type === 'groups' && audience.groupIds && audience.groupIds.length > 0) {
+    return fetchGroupContactIds(db, audience.groupIds);
+  }
   if (audience.type === 'tags' && audience.tagIds && audience.tagIds.length > 0) {
     return fetchTaggedContactIds(db, audience.tagIds);
   }

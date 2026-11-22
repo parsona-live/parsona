@@ -37,7 +37,9 @@ import {
   XCircle,
   AlertTriangle,
   Tag,
+  FolderKanban,
 } from 'lucide-react';
+import type { ContactGroup } from '@/types';
 import { useTranslations } from 'next-intl';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
@@ -120,12 +122,14 @@ interface ImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
+  defaultGroupId?: string | null;
 }
 
 export function ImportModal({
   open,
   onOpenChange,
   onImported,
+  defaultGroupId,
 }: ImportModalProps) {
   const t = useTranslations('Contacts.importModal');
   const supabase = createClient();
@@ -139,6 +143,9 @@ export function ImportModal({
   const [tagColorByKey, setTagColorByKey] = useState<Map<string, string>>(
     new Map()
   );
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(defaultGroupId || '');
+  const [newGroupName, setNewGroupName] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
     imported: number;
@@ -149,18 +156,35 @@ export function ImportModal({
     tagsAssigned: number;
   } | null>(null);
 
+  async function loadGroups() {
+    try {
+      const res = await fetch('/api/contacts/groups');
+      const data = await res.json();
+      if (data?.groups) setGroups(data.groups);
+    } catch (e) {
+      console.warn('Failed to load contact groups:', e);
+    }
+  }
+
   function reset() {
     setFile(null);
     setParsedRows([]);
     setHasTagsColumn(false);
     setHasCompanyColumn(false);
     setTagColorByKey(new Map());
+    setSelectedGroupId(defaultGroupId || '');
+    setNewGroupName('');
     setResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset();
+    if (!next) {
+      reset();
+    } else {
+      loadGroups();
+      if (defaultGroupId) setSelectedGroupId(defaultGroupId);
+    }
     onOpenChange(next);
   }
 
@@ -275,6 +299,7 @@ export function ImportModal({
       }
 
       const tagAssignments: ContactTagAssignment[] = [];
+      const importedContactIds: string[] = [];
 
       // 4) Batch insert the genuinely-new rows in chunks of 50. The DB
       //    unique index is the backstop: a 23505 (race, or a format
@@ -311,6 +336,7 @@ export function ImportModal({
 
             if (!singleErr && singleData) {
               imported++;
+              importedContactIds.push(singleData.id);
               if (source.tagNames.length > 0) {
                 tagAssignments.push({
                   contactId: singleData.id,
@@ -321,10 +347,6 @@ export function ImportModal({
               skipped++;
             } else {
               failed++;
-              // Keep the actual DB error instead of discarding it —
-              // "N contacts failed" with no reason attached left no
-              // way to tell an RLS/constraint failure from a fluke,
-              // let alone which contact it was.
               console.error(
                 '[contacts import] insert failed for',
                 row.phone,
@@ -342,10 +364,8 @@ export function ImportModal({
         } else {
           const inserted = data ?? [];
           imported += inserted.length;
-          // inserted[j] ↔ chunk[j] only holds because a single INSERT
-          // preserves RETURNING order. If this path is ever split into
-          // parallel inserts, zip by phone or returned id instead.
           for (let j = 0; j < inserted.length; j++) {
+            importedContactIds.push(inserted[j].id);
             const source = chunk[j];
             if (!source || source.tagNames.length === 0) continue;
             tagAssignments.push({
@@ -356,8 +376,7 @@ export function ImportModal({
         }
       }
 
-      // 5) Wire tags onto the contacts we just created. Failure here must
-      //    not mask a successful contact import.
+      // 5) Wire tags onto the contacts we just created.
       let tagsAssigned = 0;
       try {
         tagsAssigned = await assignImportedContactTags(
@@ -367,6 +386,34 @@ export function ImportModal({
         );
       } catch {
         toast.warning(t('toastTagsWarning'));
+      }
+
+      // 6) Assign to group if chosen
+      let targetGroupId = selectedGroupId;
+      if (selectedGroupId === '__new__' && newGroupName.trim()) {
+        try {
+          const res = await fetch('/api/contacts/groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newGroupName.trim() }),
+          });
+          const json = await res.json();
+          if (json.group?.id) targetGroupId = json.group.id;
+        } catch (e) {
+          console.warn('[import] Failed to create new group:', e);
+        }
+      }
+
+      if (targetGroupId && targetGroupId !== '__new__' && importedContactIds.length > 0) {
+        try {
+          await fetch(`/api/contacts/groups/${targetGroupId}/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', contactIds: importedContactIds }),
+          });
+        } catch (e) {
+          console.warn('[import] Failed to assign imported contacts to group:', e);
+        }
       }
 
       setResult({
@@ -492,6 +539,40 @@ export function ImportModal({
                 </p>
               </>
             )}
+          </div>
+
+          <div className="space-y-1.5 pt-2">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <FolderKanban className="size-3.5 text-primary" />
+              Assign to Contact Group (Optional)
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={selectedGroupId}
+                onChange={(e) => {
+                  setSelectedGroupId(e.target.value);
+                  if (e.target.value !== '__new__') setNewGroupName('');
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">No Group (Default Inbox)</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.member_count ?? 0} members)
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Group...</option>
+              </select>
+              {selectedGroupId === '__new__' && (
+                <input
+                  type="text"
+                  placeholder="New Group Name..."
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              )}
+            </div>
           </div>
 
           <input

@@ -24,6 +24,9 @@ const tablesWithoutDomainData = new Set([
   "contact_intelligence_snapshots",
   "conversation_summaries",
   "context_traces",
+  "contact_groups",
+  "contact_group_members",
+  "group_contacts",
 ]);
 
 function accountScopedTables(): Set<string> {
