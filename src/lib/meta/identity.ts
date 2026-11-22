@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhone, phoneVariants } from '@/lib/whatsapp/phone-utils'
+import { logContactActivity } from '@/lib/contacts/timeline'
 import type { ChannelType, Contact } from '@/types'
 
 export interface ExtractedIdentifiers {
@@ -284,8 +285,77 @@ export async function linkContacts(
 
   if (updErr) throw updErr
 
+  // 3. Bidirectionally merge missing fields onto rootPrimary
+  let rootContact = primary
+  if (primary.id !== rootPrimaryId) {
+    const { data: fetchedRoot } = await db
+      .from('contacts')
+      .select('*')
+      .eq('id', rootPrimaryId)
+      .eq('account_id', accountId)
+      .single()
+    if (fetchedRoot) rootContact = fetchedRoot
+  }
+
+  const rootUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+
+  if (!rootContact.phone && secondary.phone) {
+    rootUpdates.phone = secondary.phone
+  }
+  if (!rootContact.ig_user_id && secondary.ig_user_id) {
+    rootUpdates.ig_user_id = secondary.ig_user_id
+    rootUpdates.ig_username = secondary.ig_username
+  }
+  if (!rootContact.fb_page_scoped_id && secondary.fb_page_scoped_id) {
+    rootUpdates.fb_page_scoped_id = secondary.fb_page_scoped_id
+    rootUpdates.fb_name = secondary.fb_name
+  }
+  if (!rootContact.email && secondary.email) {
+    rootUpdates.email = secondary.email
+  }
+  if (!rootContact.avatar_url && secondary.avatar_url) {
+    rootUpdates.avatar_url = secondary.avatar_url
+  }
+  const isDefaultName = !rootContact.name || rootContact.name === 'Instagram User' || rootContact.name === 'Facebook User'
+  if (isDefaultName && secondary.name && secondary.name !== 'Instagram User' && secondary.name !== 'Facebook User') {
+    rootUpdates.name = secondary.name
+  }
+
+  // Merge dynamic metadata
+  const primaryMeta = (rootContact.metadata as Record<string, unknown>) || {}
+  const secondaryMeta = (secondary.metadata as Record<string, unknown>) || {}
+  if (Object.keys(secondaryMeta).length > 0) {
+    rootUpdates.metadata = { ...secondaryMeta, ...primaryMeta }
+  }
+
+  let finalPrimary = rootContact
+  if (Object.keys(rootUpdates).length > 1) {
+    const { data: updatedPrimary } = await db
+      .from('contacts')
+      .update(rootUpdates)
+      .eq('id', rootPrimaryId)
+      .eq('account_id', accountId)
+      .select()
+      .single()
+    if (updatedPrimary) finalPrimary = updatedPrimary
+  }
+
+  // 4. Log timeline activity
+  await logContactActivity(db, {
+    accountId,
+    contactId: rootPrimaryId,
+    channel: 'system',
+    eventType: 'identity_linked',
+    summary: `Merged identity with ${secondary.name || secondary.phone || 'linked channel'}`,
+    metadata: {
+      secondaryContactId: secondaryId,
+    },
+  }).catch(() => null)
+
   return {
-    primary: primary as Contact,
+    primary: finalPrimary as Contact,
     secondary: updatedSecondary as Contact,
   }
 }

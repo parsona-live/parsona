@@ -250,6 +250,8 @@ export interface CollectInputNodeConfig {
   invalid_message?: string;
   /** When true (default), interruptions pause the flow and yield to Full AI Agent. When false, off-topic messages are treated as unclear input. */
   allow_interruption?: boolean;
+  /** When true or omitted, if the variable is already known in the contact context, the step is automatically skipped. */
+  skip_if_known?: boolean;
   /** Node to advance to after capture. */
   next_node_key: string;
 }

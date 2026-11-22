@@ -56,6 +56,25 @@ vi.mock('./admin-client', () => ({
         }
         return chain
       }
+      if (table === 'contact_activities') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          order: () => chain,
+          limit: () => Promise.resolve({ data: [], error: null }),
+          insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
+        }
+        return chain
+      }
+      if (table === 'contacts') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          maybeSingle: () => Promise.resolve({ data: { id: 'contact-1', name: 'Yash' }, error: null }),
+          update: () => chain,
+        }
+        return chain
+      }
       if (table === 'messages') {
         const chain = {
           select: () => chain,

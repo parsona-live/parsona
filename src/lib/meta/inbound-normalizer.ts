@@ -9,6 +9,7 @@ import {
   linkContacts,
 } from './identity'
 import { getDecryptedChannelToken, fetchSenderProfile } from './channels'
+import { logContactActivity } from '@/lib/contacts/timeline'
 import type { ChannelType, Contact, Conversation, Message, MetaChannelConnection } from '@/types'
 
 export interface MetaMessagingEvent {
@@ -358,6 +359,40 @@ export async function processInboundMetaMessage(
 
   if (!updateErr && updatedConv) {
     conversation = updatedConv as Conversation
+  }
+
+  // 5. Log inbound message to contact activity timeline (fire-and-forget safe)
+  await logContactActivity(db, {
+    accountId,
+    contactId: contact.id,
+    conversationId: conversation.id,
+    channel,
+    eventType: 'message_inbound',
+    summary: displaySummary ? `${channel === 'instagram' ? 'Instagram' : 'Facebook'}: ${displaySummary.slice(0, 100)}` : `Inbound message from ${channel}`,
+    metadata: {
+      mid,
+      isInteractive,
+      isReel,
+      quickReplyPayload,
+    },
+  }).catch((err) => {
+    console.warn('[processInboundMetaMessage] Failed to log activity:', err)
+  })
+
+  if (autoLinked && matchingContact) {
+    await logContactActivity(db, {
+      accountId,
+      contactId: contact.id,
+      conversationId: conversation.id,
+      channel: 'system',
+      eventType: 'identity_linked',
+      summary: `Auto-linked identity to existing profile (${matchingContact.name || matchingContact.phone})`,
+      metadata: {
+        primaryContactId: matchingContact.id,
+      },
+    }).catch((err) => {
+      console.warn('[processInboundMetaMessage] Failed to log identity link activity:', err)
+    })
   }
 
   return {

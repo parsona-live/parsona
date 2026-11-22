@@ -4,6 +4,8 @@ import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
 import { buildSystemPrompt } from './defaults'
+import { buildContactContextCapsule } from './context-capsule'
+import { logContactActivity } from '@/lib/contacts/timeline'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
@@ -189,17 +191,17 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
-    const { data: contactRow } = await db
-      .from('contacts')
-      .select('name')
-      .eq('id', contactId)
-      .maybeSingle()
+    const capsule = await buildContactContextCapsule(db, contactId, { maxActivities: 8 }).catch((err) => {
+      console.warn('[auto-reply] Failed to build context capsule:', err)
+      return null
+    })
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
-      contactName: contactRow?.name || undefined,
+      contactName: capsule?.name || undefined,
+      capsuleContext: capsule?.renderedPromptContext || null,
     })
 
     const { text, handoff, usage } = await generateReply({
@@ -304,6 +306,19 @@ export async function dispatchInboundToAiReply(
       })
       console.log(`[ai auto-reply] Dispatched whatsapp AI reply for ${conversationId}:`, res)
     }
+
+    void logContactActivity(db, {
+      accountId,
+      contactId,
+      conversationId,
+      channel: (conv?.channel as any) || 'whatsapp',
+      eventType: 'message_outbound',
+      summary: `AI auto-reply: ${cleanText.slice(0, 100)}`,
+      metadata: {
+        aiGenerated: true,
+        provider: config.provider,
+      },
+    }).catch(() => null)
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
   }

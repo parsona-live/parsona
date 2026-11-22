@@ -58,6 +58,8 @@ import { loadAiConfig } from "@/lib/ai/config";
 import { dispatchEmail, type EmailConfigData } from "@/lib/email/email-service";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { logContactActivity } from "@/lib/contacts/timeline";
+import { upsertCustomerMemory } from "@/lib/context/memory";
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
 import {
   type CollectInputNodeConfig,
@@ -1220,9 +1222,49 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "collect_input" || node.node_type === "input_flow") {
+      const cfg = effectiveNode.config as unknown as CollectInputNodeConfig;
+
+      // Smart Context Skip: If variable is already populated and valid, skip prompting
+      const rawKey = cfg.var_key?.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
+      const existingVal = run.vars[cfg.var_key] ?? (rawKey ? run.vars[rawKey] : undefined);
+      const isKnown =
+        typeof existingVal === "string" &&
+        existingVal.trim().length > 0 &&
+        existingVal !== "Instagram User" &&
+        existingVal !== "Facebook User";
+
+      if (cfg.skip_if_known !== false && isKnown && cfg.next_node_key) {
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "step_skipped",
+          node_type: node.node_type,
+          var_key: cfg.var_key,
+          value: existingVal,
+          reason: "already_known_in_context",
+        });
+
+        if (run.contact_id) {
+          await logContactActivity(db as any, {
+            accountId: run.account_id,
+            contactId: run.contact_id,
+            conversationId: run.conversation_id,
+            channel: 'system',
+            eventType: 'flow_step_skipped',
+            summary: `Auto-filled ${rawKey || cfg.var_key} with "${existingVal}" from profile`,
+            metadata: {
+              flowId: run.flow_id,
+              nodeKey: node.node_key,
+              varKey: cfg.var_key,
+            },
+            updateContactHotPath: false,
+          }).catch(() => null);
+        }
+
+        currentKey = cfg.next_node_key;
+        continue;
+      }
+
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
-      const cfg = effectiveNode.config as unknown as CollectInputNodeConfig;
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
@@ -2139,6 +2181,68 @@ async function handleReplyForActiveRun(
           captured_key: cfg.var_key,
           captured_length: normalized.length,
         });
+
+        // Backfill profile details and dynamic memory to contacts table & log activity
+        if (run.contact_id) {
+          const { data: curContact } = await db
+            .from("contacts")
+            .select("id, linked_contact_id, metadata")
+            .eq("id", run.contact_id)
+            .maybeSingle();
+
+          const rootId = (curContact as any)?.linked_contact_id || run.contact_id;
+          const contactUpdates: Record<string, unknown> = {
+            updated_at: new Date().toISOString(),
+          };
+
+          if ((rawKey === "name" || rawKey === "contact_name" || rawKey === "user_name") && normalized) {
+            contactUpdates.name = normalized;
+          } else if ((rawKey === "phone" || rawKey === "phone_number") && normalized) {
+            contactUpdates.phone = normalized;
+          } else if (rawKey === "email" && normalized) {
+            contactUpdates.email = normalized;
+          }
+
+          // Always store any captured variable into dynamic customer memory
+          const existingMeta = ((curContact as any)?.metadata as Record<string, unknown>) || {};
+          contactUpdates.metadata = {
+            ...existingMeta,
+            [rawKey]: normalized,
+          };
+
+          await db.from("contacts").update(contactUpdates).eq("id", run.contact_id);
+          if (rootId !== run.contact_id) {
+            await db.from("contacts").update(contactUpdates).eq("id", rootId);
+          }
+
+          logContactActivity(db as any, {
+            accountId: run.account_id,
+            contactId: run.contact_id,
+            conversationId: run.conversation_id,
+            channel: 'system',
+            eventType: 'flow_input_collected',
+            summary: `Collected ${rawKey || cfg.var_key}: "${normalized}" via flow`,
+            metadata: {
+              flowId: run.flow_id,
+              nodeKey: currentNode.node_key,
+              varKey: cfg.var_key,
+              normalizedValue: normalized,
+            },
+          }).catch(() => null);
+
+          // Persist into Customer Memory Engine with provenance
+          upsertCustomerMemory(db as any, {
+            accountId: run.account_id,
+            contactId: rootId,
+            memoryKey: rawKey || cfg.var_key,
+            memoryValue: normalized,
+            sourceType: 'customer_explicit',
+            sourceChannel: 'whatsapp',
+            authority: 'customer_explicit',
+            confidence: 1.0,
+          }).catch(() => null);
+        }
+
         const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
         return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
       }
@@ -2418,24 +2522,69 @@ async function startNewRun(
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
-  // Pre-seed contact info into run vars so {{contact.name}}, {{contact.phone}}, {{contact.email}} work
+  // Pre-seed contact info into run vars so {{contact.name}}, {{name}}, {{phone}}, {{email}} work
   let initialVars: Record<string, unknown> = {};
   if (input.contactId) {
     try {
       const { data: contact } = await db
         .from("contacts")
-        .select("name, phone, email")
+        .select("id, name, phone, email, ig_username, fb_name, last_seen_channel, metadata, linked_contact_id")
         .eq("id", input.contactId)
         .maybeSingle();
       if (contact) {
+        let c = contact as any;
+
+        // If this is a linked contact, merge in root contact's metadata and fields
+        if (c.linked_contact_id) {
+          const { data: rootContact } = await db
+            .from("contacts")
+            .select("id, name, phone, email, ig_username, fb_name, last_seen_channel, metadata")
+            .eq("id", c.linked_contact_id)
+            .maybeSingle();
+          if (rootContact) {
+            const r = rootContact as any;
+            c = {
+              ...r,
+              ...c,
+              phone: c.phone || r.phone,
+              ig_username: c.ig_username || r.ig_username,
+              fb_name: c.fb_name || r.fb_name,
+              email: c.email || r.email,
+              name: (c.name && c.name !== "Instagram User" && c.name !== "Facebook User") ? c.name : r.name,
+              metadata: { ...(r.metadata || {}), ...(c.metadata || {}) },
+            };
+          }
+        }
+
+        const cName = c.name && c.name !== "Instagram User" && c.name !== "Facebook User" ? c.name : "";
+        const cPhone = c.phone || "";
+        const cEmail = c.email || "";
+        const cIg = c.ig_username ? `@${c.ig_username.replace(/^@/, '')}` : "";
+        const cFb = c.fb_name || "";
+        const cMeta = (c.metadata as Record<string, unknown>) || {};
+
         initialVars = {
-          "contact.name": (contact as any).name || "",
-          "contact.phone": (contact as any).phone || "",
-          "contact.email": (contact as any).email || "",
+          ...cMeta, // Injects all dynamic memory fields (address, preferred_time, budget, etc.)
+          "contact.name": cName,
+          "contact.phone": cPhone,
+          "contact.email": cEmail,
+          name: cName || cMeta.name || "",
+          contact_name: cName || cMeta.name || "",
+          user_name: cName || cMeta.name || "",
+          phone: cPhone || cMeta.phone || "",
+          phone_number: cPhone || cMeta.phone || "",
+          email: cEmail || cMeta.email || "",
+          ig_username: cIg,
+          fb_name: cFb,
+          channel: input.channel || c.last_seen_channel || "whatsapp",
+          metadata: cMeta,
           contact: {
-            name: (contact as any).name || "",
-            phone: (contact as any).phone || "",
-            email: (contact as any).email || "",
+            ...cMeta,
+            name: cName,
+            phone: cPhone,
+            email: cEmail,
+            ig_username: cIg,
+            fb_name: cFb,
           },
         };
       }

@@ -13,6 +13,10 @@ import {
 import { processInboundComment, type InboundCommentEvent } from '@/lib/meta/comment-to-dm'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
+import {
+  enqueueInboundEvent,
+  drainInboundQueue,
+} from '@/lib/queue/inbound-worker'
 import type { ParsedInbound } from '@/lib/flows/types'
 
 export const maxDuration = 60
@@ -97,115 +101,62 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'ignored_object' })
   }
 
-  // 2. Process events in the background with `after()` so Meta gets a fast 200
-  after(async () => {
-    try {
-      const db = supabaseAdmin()
-      const channel = payload.object === 'instagram' ? 'instagram' : 'facebook'
+  const db = supabaseAdmin()
+  const channel = payload.object === 'instagram' ? 'instagram' : 'facebook'
 
-      for (const entry of payload.entry || []) {
-        // Direct messages
-        if (entry.messaging && entry.messaging.length > 0) {
-          for (const event of entry.messaging) {
-            // Handle delivery & read receipts for Facebook Messenger & Instagram
-            if (event.delivery || event.read) {
-              await handleMetaDeliveryOrReadEvent(db, channel, event).catch((err) => {
-                console.error('[Meta Webhook] Failed to handle delivery/read event:', err)
-              })
-              continue
-            }
+  // 2. Fast durable queue ingestion (deduplicated by event_key)
+  for (const entry of payload.entry || []) {
+    if (entry.messaging && entry.messaging.length > 0) {
+      for (const event of entry.messaging) {
+        const eventKey =
+          event.message?.mid ||
+          (event as any).postback?.mid ||
+          event.delivery?.mids?.[0] ||
+          event.read?.mid ||
+          `meta_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+        const partitionKey = `${channel}:${event.sender.id}`
 
-            const inboundResult = await processInboundMetaMessage(db, channel, event).catch((err) => {
-              console.error('[Meta Webhook] Failed to process messaging event:', err)
-              return null
-            })
+        await enqueueInboundEvent(db, {
+          channel,
+          eventKey,
+          partitionKey,
+          payload: { messaging_event: event },
+        }).catch((err) => {
+          console.warn('[Meta Webhook] Ingestion enqueue warning:', err)
+        })
+      }
+    }
 
-            if (inboundResult) {
-              // Parse inbound into Flow-compatible ParsedInbound format
-              let parsedFlowMessage: ParsedInbound | null = null
-              const metaMsg = event.message
-              const postback = (event as unknown as { postback?: { payload: string; title?: string } }).postback
+    if (entry.changes && entry.changes.length > 0) {
+      for (const change of entry.changes) {
+        if (change.field === 'comments') {
+          const commentVal = change.value as Record<string, unknown>
+          const commentId = commentVal?.comment_id as string | undefined
+          const fromObj = commentVal?.from as { id?: string } | undefined
+          const eventKey =
+            commentId ||
+            `comment_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+          const partitionKey = `${channel}:${fromObj?.id || entry.id}`
 
-              if (metaMsg?.quick_reply) {
-                parsedFlowMessage = {
-                  kind: 'interactive_reply',
-                  reply_id: metaMsg.quick_reply.payload,
-                  reply_title: metaMsg.text || metaMsg.quick_reply.payload,
-                  meta_message_id: metaMsg.mid,
-                }
-              } else if (postback) {
-                parsedFlowMessage = {
-                  kind: 'interactive_reply',
-                  reply_id: postback.payload,
-                  reply_title: postback.title || postback.payload,
-                  meta_message_id: metaMsg?.mid || `pb_${Date.now()}`,
-                }
-              } else if (metaMsg?.text) {
-                parsedFlowMessage = {
-                  kind: 'text',
-                  text: metaMsg.text,
-                  meta_message_id: metaMsg.mid,
-                }
-              }
-
-              let flowConsumed = false
-              if (parsedFlowMessage) {
-                const isFirst = inboundResult.autoLinked ? false : (inboundResult.conversation.unread_count <= 1)
-                const flowRes = await dispatchInboundToFlows({
-                  accountId: inboundResult.connection.account_id,
-                  userId: inboundResult.connection.user_id,
-                  contactId: inboundResult.contact.id,
-                  conversationId: inboundResult.conversation.id,
-                  message: parsedFlowMessage,
-                  isFirstInboundMessage: isFirst,
-                  channel,
-                }).catch((err) => {
-                  console.error('[Meta Webhook] Flow dispatch error:', err)
-                  return null
-                })
-                flowConsumed = Boolean(flowRes?.consumed)
-              }
-
-              // Trigger AI auto-reply only if flow did not consume the message AND message has non-empty text
-              if (!flowConsumed && metaMsg?.text?.trim()) {
-                // If there's an active flow run for this contact, the flow owns the conversation
-                const { data: activeFlow } = await db
-                  .from('flow_runs')
-                  .select('id')
-                  .eq('account_id', inboundResult.connection.account_id)
-                  .eq('contact_id', inboundResult.contact.id)
-                  .eq('status', 'active')
-                  .limit(1)
-
-                if (!activeFlow || activeFlow.length === 0) {
-                  await dispatchInboundToAiReply({
-                    accountId: inboundResult.connection.account_id,
-                    conversationId: inboundResult.conversation.id,
-                    contactId: inboundResult.contact.id,
-                    configOwnerUserId: inboundResult.connection.user_id,
-                    inboundMessageId: inboundResult.message.message_id || undefined,
-                  }).catch((err) => {
-                    console.warn('[Meta Webhook] AI auto-reply dispatch error:', err)
-                  })
-                }
-              }
-            }
-          }
-        }
-
-        // Comment-to-DM triggers
-        if (entry.changes && entry.changes.length > 0) {
-          for (const change of entry.changes) {
-            if (change.field === 'comments') {
-              await processInboundComment(db, entry.id, change as unknown as InboundCommentEvent).catch((err) => {
-                console.error('[Meta Webhook] Failed to process comment event:', err)
-              })
-            }
-          }
+          await enqueueInboundEvent(db, {
+            channel,
+            eventKey,
+            partitionKey,
+            payload: { comment_event: change as unknown as Record<string, unknown> },
+          }).catch((err) => {
+            console.warn('[Meta Webhook] Comment enqueue warning:', err)
+          })
         }
       }
+    }
+  }
+
+  // 3. Process events asynchronously with after() so Meta gets sub-50ms 200 OK
+  after(async () => {
+    try {
+      await drainInboundQueue(db, { batchSize: 20 })
     } catch (err) {
-      console.error('[Meta Webhook] Background execution error:', err)
+      console.error('[Meta Webhook] Queue drain error in after():', err)
     }
   })
 

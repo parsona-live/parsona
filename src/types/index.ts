@@ -127,6 +127,30 @@ export interface Contact {
   fb_name?: string | null;
   /** Linked primary or parent contact ID for omnichannel unified context. */
   linked_contact_id?: string | null;
+  /** Last channel where contact engaged ('whatsapp' | 'instagram' | 'facebook'). */
+  last_seen_channel?: ChannelType | null;
+  /** Hot-path denormalized summary of the most recent user action. */
+  last_action_summary?: string | null;
+  /** Timestamp of the most recent user action. */
+  last_action_at?: string | null;
+  /** Dynamic customer memory & arbitrary attributes captured in conversations/flows. */
+  metadata?: Record<string, unknown> | null;
+  /** Business milestone (e.g., 'Appointment Booked', 'Pricing Inquiry', 'Appointment Canceled'). */
+  last_business_action?: string | null;
+  /** Timestamp when the business action occurred. */
+  last_business_action_at?: string | null;
+  /** Evaluated intent category. */
+  intent_category?: IntentCategory | null;
+  /** Calculated buying intent score (0-100). */
+  intent_score?: number | null;
+  /** Plain-text executive summary of customer's current goals and intent. */
+  intent_summary?: string | null;
+  /** Recommended next operational or sales action. */
+  next_best_action?: string | null;
+  /** Evaluated sentiment/tone. */
+  sentiment?: CustomerSentiment | null;
+  /** Timestamp when customer intelligence was last evaluated. */
+  intelligence_updated_at?: string | null;
   name?: string;
   email?: string;
   company?: string;
@@ -176,6 +200,229 @@ export interface ContactNote {
   user_id: string;
   note_text: string;
   created_at: string;
+}
+
+export type ActivityChannel = ChannelType | 'system';
+
+export type ContactEventType =
+  | 'message_inbound'
+  | 'message_outbound'
+  | 'flow_started'
+  | 'flow_completed'
+  | 'flow_step_skipped'
+  | 'appointment_booked'
+  | 'tag_added'
+  | 'tag_removed'
+  | 'identity_linked'
+  | 'note_added'
+  | 'custom_field_updated';
+
+export interface ContactActivity {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  conversation_id?: string | null;
+  channel: ActivityChannel;
+  event_type: ContactEventType | string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+// ============================================================
+// Customer Context Engine Entities (076_customer_context_engine_core.sql)
+// ============================================================
+
+export type IntentCategory =
+  | 'new_inquiry'
+  | 'information_seeking'
+  | 'purchase_evaluation'
+  | 'ready_to_convert'
+  | 'customer_active'
+  | 'support_needed'
+  | 'inactive'
+  | 'unknown';
+
+export type CustomerSentiment =
+  | 'positive'
+  | 'neutral'
+  | 'skeptical'
+  | 'frustrated'
+  | 'interested';
+
+export type MemorySourceType =
+  | 'customer_explicit'
+  | 'verified_system'
+  | 'human_business_edit'
+  | 'ai_extracted'
+  | 'ai_inferred';
+
+export type MemoryAuthority =
+  | 'human_business_edit'
+  | 'verified_system'
+  | 'customer_explicit'
+  | 'ai_extracted'
+  | 'ai_inferred';
+
+export type MemoryStatus = 'active' | 'superseded' | 'expired' | 'deleted';
+
+export interface ContactIdentity {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  channel: ChannelType | 'web' | 'other';
+  external_id: string;
+  external_username?: string | null;
+  display_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  identity_status: 'verified' | 'unverified' | 'pending_review' | 'unlinked';
+  verification_method: 'platform_id' | 'verified_phone' | 'verified_email' | 'manual_link';
+  verified_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactEvent {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  event_type: string;
+  source: string;
+  source_reference?: string | null;
+  payload: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+  idempotency_key?: string | null;
+}
+
+export interface ContactMemory {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  memory_key: string;
+  memory_value: string;
+  value_type: 'string' | 'number' | 'boolean' | 'json' | 'date';
+  source_type: MemorySourceType;
+  source_channel?: ChannelType | 'system' | 'web' | 'other' | null;
+  source_message_id?: string | null;
+  source_reference?: string | null;
+  confidence: number;
+  authority: MemoryAuthority;
+  status: MemoryStatus;
+  first_observed_at: string;
+  last_confirmed_at: string;
+  expires_at?: string | null;
+  supersedes_memory_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuyingSignal {
+  signal: string;
+  evidence_message_ids?: string[];
+  confidence: number;
+  observed_at: string;
+}
+
+export interface CustomerObjection {
+  type: string;
+  description: string;
+  status: 'open' | 'addressed' | 'resolved' | 'reopened';
+  evidence_message_ids?: string[];
+  first_observed_at: string;
+  last_observed_at?: string;
+}
+
+export interface ResponseBehavior {
+  responsiveness?: 'fast' | 'moderate' | 'slow';
+  avg_response_minutes?: number;
+  preferred_channel?: ChannelType;
+  inbound_count?: number;
+  outbound_count?: number;
+}
+
+export interface ContactIntelligenceSnapshot {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  intent_category: IntentCategory | null;
+  intent_score: number | null;
+  intent_summary: string | null;
+  signals: BuyingSignal[];
+  objections: CustomerObjection[];
+  sentiment: CustomerSentiment | null;
+  response_behavior: ResponseBehavior;
+  next_best_action: string | null;
+  confidence: number;
+  source_window: Record<string, unknown>;
+  evaluated_at: string;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  conversation_id: string;
+  conversation_purpose?: string | null;
+  customer_needs?: string | null;
+  known_facts: string[];
+  decisions: string[];
+  requirements: string[];
+  objections: string[];
+  unresolved_questions: string[];
+  business_promises: string[];
+  current_status?: string | null;
+  last_summarized_message_id?: string | null;
+  last_summarized_sequence: number;
+  summary_version: number;
+  summarized_at: string;
+  model_id?: string | null;
+  created_at: string;
+}
+
+export interface ContextTrace {
+  id: string;
+  trace_id: string;
+  account_id: string;
+  contact_id: string;
+  conversation_id?: string | null;
+  context_version: string;
+  included_memory_ids: string[];
+  included_event_ids: string[];
+  included_summary_ids: string[];
+  intelligence_snapshot_id?: string | null;
+  retrieval_reasons: Record<string, unknown>;
+  model_id?: string | null;
+  prompt_version?: string | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  context_tokens?: number | null;
+  retrieval_latency?: number | null;
+  llm_latency?: number | null;
+  total_latency?: number | null;
+  created_at: string;
+}
+
+export type InboundEventStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface InboundEvent {
+  id: string;
+  account_id?: string | null;
+  channel: ChannelType;
+  event_key: string;
+  partition_key?: string | null;
+  payload: Record<string, unknown>;
+  status: InboundEventStatus;
+  attempts: number;
+  max_attempts: number;
+  retry_after: string;
+  last_error?: string | null;
+  created_at: string;
+  processed_at?: string | null;
 }
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';

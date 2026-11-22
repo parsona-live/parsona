@@ -443,6 +443,7 @@ import {
   Inbox,
   KeyRound,
   LayoutGrid,
+  Layers,
   LogOut,
   Mail,
   MessagesCircle,
@@ -541,6 +542,10 @@ const ICON_COLORS = {
   contacts: {
     icon: "text-violet-600 dark:text-violet-400",
     bg: "bg-violet-50 dark:bg-violet-950/40",
+  },
+  context: {
+    icon: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-50 dark:bg-purple-950/40",
   },
   pipelines: {
     icon: "text-indigo-600 dark:text-indigo-400",
@@ -688,6 +693,12 @@ const mainNavItems: NavItem[] = [
     labelKey: "contacts",
     icon: Contact,
     colors: ICON_COLORS.contacts,
+  },
+  {
+    href: "/context",
+    labelKey: "contextHub",
+    icon: Layers,
+    colors: ICON_COLORS.context,
   },
   {
     href: "/pipelines",

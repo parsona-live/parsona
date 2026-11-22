@@ -143,7 +143,7 @@ describe('Identity & Cross-Channel Matching', () => {
     const contactA = { id: 'c_wa', account_id: 'acc_1', name: 'John Doe', phone: '15551234567' }
     const contactB = { id: 'c_fb', account_id: 'acc_1', name: 'John Doe (FB)', fb_page_scoped_id: 'psid_1' }
 
-    let updatedPayload: Record<string, unknown> | null = null
+    const updatePayloads: Record<string, unknown>[] = []
 
     const db = {
       from: vi.fn(() => ({
@@ -158,13 +158,13 @@ describe('Identity & Cross-Channel Matching', () => {
           })),
         })),
         update: vi.fn((payload) => {
-          updatedPayload = payload
+          updatePayloads.push(payload)
           return {
             eq: vi.fn(() => ({
               eq: vi.fn(() => ({
                 select: vi.fn(() => ({
                   single: vi.fn().mockResolvedValue({
-                    data: { ...contactB, ...payload },
+                    data: payload?.linked_contact_id ? { ...contactB, ...payload } : { ...contactA, ...payload },
                     error: null,
                   }),
                 })),
@@ -179,7 +179,7 @@ describe('Identity & Cross-Channel Matching', () => {
 
     expect(result.primary.id).toBe('c_wa')
     expect(result.secondary.id).toBe('c_fb')
-    expect(updatedPayload).toMatchObject({
+    expect(updatePayloads[0]).toMatchObject({
       linked_contact_id: 'c_wa',
     })
   })
