@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import type { Contact, Tag, ContactTag, ContactGroup } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +71,7 @@ import {
 } from '@/lib/contacts/search-filter';
 import { pageAfterRangeError, pageAfterShrink } from '@/lib/contacts/page-bounds';
 import { formatContactsCsv, downloadCsv } from '@/lib/contacts/export-csv';
+import { ChannelIcon, AvatarChannelBadge } from '@/components/channels/channel-badge';
 
 const PAGE_SIZE = 25;
 
@@ -77,8 +79,13 @@ interface ContactWithTags extends Contact {
   tags?: Tag[];
   secondaryChannels?: {
     hasWhatsApp?: boolean;
+    phone?: string | null;
+    email?: string | null;
     igUsername?: string | null;
+    hasInstagram?: boolean;
     fbName?: string | null;
+    hasFacebook?: boolean;
+    avatarUrl?: string | null;
   };
 }
 
@@ -95,9 +102,9 @@ export default function ContactsPage() {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Group and Profile Reachability filters
+  // Group and Profile Reachability filters (defaults to 'all' so all contacts are visible)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [profileFilter, setProfileFilter] = useState<'actionable' | 'all'>('actionable');
+  const [profileFilter, setProfileFilter] = useState<'actionable' | 'all'>('all');
   const [groups, setGroups] = useState<ContactGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
@@ -257,7 +264,8 @@ export default function ContactsPage() {
       let query = supabase
         .from('contacts')
         .select('*', { count: 'exact' })
-        // Deduplicate merged contacts: Only canonical root contacts (linked_contact_id IS NULL)
+        // Deduplicate merged contacts: always only show canonical root contacts (linked_contact_id IS NULL)
+        // so merged contacts are shown as a single contact!
         .is('linked_contact_id', null)
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -268,9 +276,9 @@ export default function ContactsPage() {
       }
 
       // Actionable vs All filter:
-      // Actionable contacts must have a reachable phone or email address
+      // Actionable contacts must have a reachable non-empty phone or non-empty email
       if (profileFilter === 'actionable') {
-        query = query.or('phone.not.is.null,email.not.is.null');
+        query = query.or('phone.gt.,email.gt.');
       }
 
       const searchFilter = contactSearchFilter(term, { includeEmail: true });
@@ -291,7 +299,14 @@ export default function ContactsPage() {
         return;
       }
 
-      contactRows = data ?? [];
+      let fetchedRows = data ?? [];
+      // Guarantee actionable contacts actually have a non-empty phone or email
+      if (profileFilter === 'actionable') {
+        fetchedRows = fetchedRows.filter((c) =>
+          Boolean((c.phone && c.phone.trim() !== '') || (c.email && c.email.trim() !== ''))
+        );
+      }
+      contactRows = fetchedRows;
       count = exactCount ?? 0;
     }
 
@@ -316,7 +331,7 @@ export default function ContactsPage() {
       supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', contactIds),
       supabase
         .from('contacts')
-        .select('id, linked_contact_id, phone, email, ig_username, fb_name')
+        .select('id, linked_contact_id, phone, email, ig_username, ig_user_id, fb_name, fb_page_scoped_id, avatar_url')
         .in('linked_contact_id', contactIds),
     ]);
 
@@ -330,23 +345,60 @@ export default function ContactsPage() {
 
     const childChannelsByParent = new Map<
       string,
-      { hasWhatsApp: boolean; igUsername?: string | null; fbName?: string | null }
+      {
+        hasWhatsApp: boolean;
+        phone?: string | null;
+        email?: string | null;
+        igUsername?: string | null;
+        hasInstagram: boolean;
+        fbName?: string | null;
+        hasFacebook: boolean;
+        avatarUrl?: string | null;
+      }
     >();
 
     linkedChildrenRes.data?.forEach((ch) => {
       if (ch.linked_contact_id) {
-        const existing = childChannelsByParent.get(ch.linked_contact_id) || { hasWhatsApp: false };
-        if (ch.phone) existing.hasWhatsApp = true;
-        if (ch.ig_username && !existing.igUsername) existing.igUsername = ch.ig_username;
-        if (ch.fb_name && !existing.fbName) existing.fbName = ch.fb_name;
+        const existing = childChannelsByParent.get(ch.linked_contact_id) || {
+          hasWhatsApp: false,
+          hasInstagram: false,
+          hasFacebook: false,
+        };
+        if (ch.phone && ch.phone.trim() !== '') {
+          existing.hasWhatsApp = true;
+          if (!existing.phone) existing.phone = ch.phone;
+        }
+        if (ch.email && ch.email.trim() !== '' && !existing.email) {
+          existing.email = ch.email;
+        }
+        if (ch.ig_user_id || ch.ig_username) {
+          existing.hasInstagram = true;
+          if (ch.ig_username && !existing.igUsername) existing.igUsername = ch.ig_username;
+        }
+        if (ch.fb_page_scoped_id || ch.fb_name) {
+          existing.hasFacebook = true;
+          if (ch.fb_name && !existing.fbName) existing.fbName = ch.fb_name;
+        }
+        if (ch.avatar_url && !existing.avatarUrl) {
+          existing.avatarUrl = ch.avatar_url;
+        }
         childChannelsByParent.set(ch.linked_contact_id, existing);
       }
     });
 
     const enriched: ContactWithTags[] = contactRows.map((c) => {
       const childData = childChannelsByParent.get(c.id);
+      const unifiedPhone =
+        c.phone && c.phone.trim() !== '' ? c.phone : childData?.phone || '';
+      const rawEmail =
+        c.email && c.email.trim() !== '' ? c.email : childData?.email || undefined;
+      const rawAvatar = c.avatar_url || childData?.avatarUrl || undefined;
+
       return {
         ...c,
+        phone: unifiedPhone,
+        email: rawEmail,
+        avatar_url: rawAvatar,
         tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
         secondaryChannels: childData,
       };
@@ -569,7 +621,6 @@ export default function ContactsPage() {
 
   // Selection helpers
   const allOnPageSelected = contacts.length > 0 && contacts.every((c) => selected.has(c.id));
-  const someOnPageSelected = contacts.some((c) => selected.has(c.id));
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -676,7 +727,9 @@ export default function ContactsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <GatedButton
@@ -1123,14 +1176,15 @@ export default function ContactsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allOnPageSelected}
-                      indeterminate={!allOnPageSelected && someOnPageSelected}
-                      onCheckedChange={toggleSelectAll}
-                      disabled={contacts.length === 0}
-                      aria-label={t('selectAllOnPage')}
-                    />
+                  <TableHead className="w-12 px-3 text-center">
+                    <div className="flex items-center justify-center">
+                      <Checkbox
+                        checked={allOnPageSelected}
+                        onCheckedChange={toggleSelectAll}
+                        disabled={contacts.length === 0}
+                        aria-label={t('selectAllOnPage')}
+                      />
+                    </div>
                   </TableHead>
                   <TableHead className="text-muted-foreground">{t('tableColumns.name')}</TableHead>
                   <TableHead className="text-muted-foreground">{t('tableColumns.phone')}</TableHead>
@@ -1172,47 +1226,85 @@ export default function ContactsPage() {
                   </TableRow>
                 ) : (
                   contacts.map((contact) => {
-                    const igHandle = contact.ig_username || contact.secondaryChannels?.igUsername;
-                    const fbUser = contact.fb_name || contact.secondaryChannels?.fbName;
-                    const hasWa = Boolean(contact.phone || contact.secondaryChannels?.hasWhatsApp);
+                    const childData = contact.secondaryChannels;
+                    const hasWa = Boolean(
+                      (contact.phone && contact.phone.trim() !== '') || childData?.hasWhatsApp
+                    );
+                    const igHandle = contact.ig_username || childData?.igUsername;
+                    const hasIg = Boolean(
+                      contact.ig_user_id || contact.ig_username || childData?.hasInstagram
+                    );
+                    const fbUser = contact.fb_name || childData?.fbName;
+                    const hasFb = Boolean(
+                      contact.fb_page_scoped_id || contact.fb_name || childData?.hasFacebook
+                    );
+
+                    const primaryChannel =
+                      hasWa ? 'whatsapp' : (hasIg ? 'instagram' : (hasFb ? 'facebook' : 'whatsapp'));
 
                     return (
                       <TableRow
                         key={contact.id}
-                        className="border-border hover:bg-muted/50 cursor-pointer"
+                        className={cn(
+                          "border-border hover:bg-muted/50 cursor-pointer transition-colors",
+                          selected.has(contact.id) && "bg-primary/[0.04] hover:bg-primary/[0.08]"
+                        )}
                         onClick={() => openDetail(contact.id)}
                       >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            checked={selected.has(contact.id)}
-                            onCheckedChange={() => toggleSelect(contact.id)}
-                            aria-label={t('selectContact', { name: contact.name || contact.phone })}
-                          />
+                        <TableCell onClick={(e) => e.stopPropagation()} className="w-12 px-3 text-center">
+                          <div className="flex items-center justify-center">
+                            <Checkbox
+                              checked={selected.has(contact.id)}
+                              onCheckedChange={() => toggleSelect(contact.id)}
+                              aria-label={t('selectContact', { name: contact.name || contact.phone })}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell className="text-foreground font-medium">
-                          <div>
-                            <span className="block truncate max-w-[12rem]">
-                              {(!contact.name || contact.name === 'Instagram User' || contact.name === 'Facebook User')
-                                ? (igHandle ? `@${igHandle.replace(/^@/, '')}` : fbUser || contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>)
-                                : contact.name}
-                            </span>
-                            {/* Omnichannel Channel Badges */}
-                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                              {hasWa && (
-                                <span className="inline-flex items-center text-[9px] font-semibold text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded">
-                                  WhatsApp
-                                </span>
+                          <div className="flex items-center gap-3">
+                            {/* Avatar with primary channel badge */}
+                            <div className="relative shrink-0">
+                              {contact.avatar_url ? (
+                                <img
+                                  src={contact.avatar_url}
+                                  alt={contact.name || 'Avatar'}
+                                  className="h-9 w-9 rounded-full object-cover ring-1 ring-border shadow-2xs"
+                                />
+                              ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-1 ring-border">
+                                  {((contact.name || igHandle || fbUser || contact.phone || 'CU').replace(/^@/, '')[0] || 'C').toUpperCase()}
+                                </div>
                               )}
-                              {igHandle && (
-                                <span className="inline-flex items-center text-[9px] font-semibold text-pink-600 bg-pink-500/10 px-1 py-0.2 rounded">
-                                  @{igHandle.replace(/^@/, '')}
-                                </span>
-                              )}
-                              {fbUser && (
-                                <span className="inline-flex items-center text-[9px] font-semibold text-blue-600 bg-blue-500/10 px-1 py-0.2 rounded">
-                                  FB: {fbUser}
-                                </span>
-                              )}
+                              <AvatarChannelBadge channel={primaryChannel} size="sm" />
+                            </div>
+
+                            <div className="min-w-0">
+                              <span className="block truncate max-w-[14rem] font-semibold">
+                                {(!contact.name || contact.name === 'Instagram User' || contact.name === 'Facebook User')
+                                  ? (igHandle ? `@${igHandle.replace(/^@/, '')}` : fbUser || contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>)
+                                  : contact.name}
+                              </span>
+                              {/* Omnichannel Channel Badges with official brand colors */}
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                {hasWa && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                                    <ChannelIcon channel="whatsapp" size="xs" className="text-[#25D366]" />
+                                    <span>WhatsApp</span>
+                                  </span>
+                                )}
+                                {hasIg && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-pink-600 dark:text-pink-400 bg-pink-500/10 border border-pink-500/20 px-1.5 py-0.5 rounded-full">
+                                    <ChannelIcon channel="instagram" size="xs" className="text-[#E1306C] stroke-[2.25]" />
+                                    <span>{igHandle ? `@${igHandle.replace(/^@/, '')}` : 'Instagram'}</span>
+                                  </span>
+                                )}
+                                {hasFb && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-full">
+                                    <ChannelIcon channel="facebook" size="xs" className="text-[#0084FF]" />
+                                    <span>{fbUser || 'Facebook'}</span>
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </TableCell>
@@ -1451,9 +1543,9 @@ export default function ContactsPage() {
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="bg-popover border-border">
           <DialogHeader>
-            <DialogTitle className="text-popover-foreground">{t('deleteConfirmTitle')}</DialogTitle>
+            <DialogTitle className="text-popover-foreground">{t('deleteContactTitle')}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {t('deleteConfirmDescription', { name: deleteTarget?.name || deleteTarget?.phone || '' })}
+              {t('deleteContactDesc', { name: deleteTarget?.name || deleteTarget?.phone || '' })}
               <span className="block mt-1 text-xs text-muted-foreground/80">
                 Note: Any message history in the Inbox is preserved.
               </span>
@@ -1466,10 +1558,10 @@ export default function ContactsPage() {
               disabled={deleting}
               className="border-border text-muted-foreground hover:bg-muted"
             >
-              {t('cancelAction')}
+              {t('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="size-4 animate-spin" /> : t('deleteAction')}
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : t('deleteBtn')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1481,7 +1573,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">{t('deleteBulkTitle')}</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {t('deleteBulkDescription', { count: selected.size })}
+              {t('deleteBulkDesc', { count: selected.size })}
               <span className="block mt-1 text-xs text-muted-foreground/80">
                 Note: Any message history in the Inbox is preserved.
               </span>
@@ -1494,10 +1586,10 @@ export default function ContactsPage() {
               disabled={deleting}
               className="border-border text-muted-foreground hover:bg-muted"
             >
-              {t('cancelAction')}
+              {t('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleBulkDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="size-4 animate-spin" /> : t('deleteAction')}
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : t('deleteBtn')}
             </Button>
           </DialogFooter>
         </DialogContent>

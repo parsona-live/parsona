@@ -571,10 +571,15 @@
       "pageCount": "Page {page} of {total}",
       "deleteContactTitle": "Delete Contact",
       "deleteContactDesc": "Are you sure you want to delete {name}? This action cannot be undone.",
+      "deleteConfirmTitle": "Delete Contact",
+      "deleteConfirmDescription": "Are you sure you want to delete {name}? This action cannot be undone.",
       "cancel": "Cancel",
+      "cancelAction": "Cancel",
       "deleteBtn": "Delete",
+      "deleteAction": "Delete",
       "deleteBulkTitle": "Delete Contacts",
       "deleteBulkDesc": "Are you sure you want to delete {count} selected contacts? This action cannot be undone.",
+      "deleteBulkDescription": "Are you sure you want to delete {count} selected contacts? This action cannot be undone.",
       "toastFailedLoad": "Failed to load contacts",
       "toastFailedDelete": "Failed to delete contact",
       "toastDeleted": "Contact deleted",
@@ -2483,7 +2488,8 @@
       "createFlows": "create flows",
       "createPipelines": "create pipelines",
       "createDeals": "create deals",
-      "sendMessages": "send messages"
+      "sendMessages": "send messages",
+      "manageCustomFields": "manage custom fields"
     }
   },
   "Metadata": {

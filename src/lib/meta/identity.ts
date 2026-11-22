@@ -406,6 +406,20 @@ export async function linkContacts(
     updated_at: new Date().toISOString(),
   }
 
+  if (
+    (!rootContact.phone || rootContact.phone.trim() === '') &&
+    secondary.phone &&
+    secondary.phone.trim() !== ''
+  ) {
+    // Clear secondary phone first to avoid unique constraint violations on idx_contacts_account_phone_normalized
+    await db
+      .from('contacts')
+      .update({ phone: '', updated_at: new Date().toISOString() })
+      .eq('id', secondaryId)
+      .eq('account_id', accountId)
+    rootUpdates.phone = secondary.phone
+  }
+
   if (!rootContact.email && secondary.email) {
     rootUpdates.email = secondary.email
   }

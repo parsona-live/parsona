@@ -571,10 +571,15 @@
       "pageCount": "Página {page} de {total}",
       "deleteContactTitle": "Eliminar contacto",
       "deleteContactDesc": "¿Seguro que quieres eliminar a {name}? Esta acción no se puede deshacer.",
+      "deleteConfirmTitle": "Eliminar contacto",
+      "deleteConfirmDescription": "¿Seguro que quieres eliminar a {name}? Esta acción no se puede deshacer.",
       "cancel": "Cancelar",
+      "cancelAction": "Cancelar",
       "deleteBtn": "Eliminar",
+      "deleteAction": "Eliminar",
       "deleteBulkTitle": "Eliminar contactos",
       "deleteBulkDesc": "¿Seguro que quieres eliminar los {count} contactos seleccionados? Esta acción no se puede deshacer.",
+      "deleteBulkDescription": "¿Seguro que quieres eliminar los {count} contactos seleccionados? Esta acción no se puede deshacer.",
       "toastFailedLoad": "Error al cargar los contactos",
       "toastFailedDelete": "Error al eliminar el contacto",
       "toastDeleted": "Contacto eliminado",
@@ -2483,7 +2488,8 @@
       "createFlows": "crear flujos",
       "createPipelines": "crear pipelines",
       "createDeals": "crear negocios",
-      "sendMessages": "enviar mensajes"
+      "sendMessages": "enviar mensajes",
+      "manageCustomFields": "administrar campos personalizados"
     }
   },
   "Metadata": {
