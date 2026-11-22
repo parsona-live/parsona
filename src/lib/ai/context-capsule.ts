@@ -32,6 +32,8 @@ export interface ContactContextCapsule {
 export interface CapsuleBuildOptions {
   maxActivities?: number
   includeRawTimeline?: boolean
+  currentChannel?: string | null
+  conversationId?: string | null
 }
 
 /**
@@ -102,7 +104,10 @@ export async function buildContactContextCapsule(
   let renderedPromptContext: string
   if (contact.account_id) {
     try {
-      const assembled = await assembleCustomerContext(db, contact.account_id, contactId)
+      const assembled = await assembleCustomerContext(db, contact.account_id, contactId, {
+        currentChannel: options.currentChannel,
+        conversationId: options.conversationId,
+      })
       renderedPromptContext = assembled?.renderedPromptBlock || renderCapsuleForAiPrompt({
         name: contact.name || null,
         phone: contact.phone || null,

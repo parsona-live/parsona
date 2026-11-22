@@ -3,7 +3,7 @@ import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
-import { buildSystemPrompt } from './defaults'
+import { buildSystemPrompt, sanitizeAiReply } from './defaults'
 import { buildContactContextCapsule } from './context-capsule'
 import { logContactActivity } from '@/lib/contacts/timeline'
 import { buildHandoffSummary } from './handoff'
@@ -191,7 +191,11 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
-    const capsule = await buildContactContextCapsule(db, contactId, { maxActivities: 8 }).catch((err) => {
+    const capsule = await buildContactContextCapsule(db, contactId, {
+      maxActivities: 8,
+      currentChannel: conv.channel || 'whatsapp',
+      conversationId,
+    }).catch((err) => {
       console.warn('[auto-reply] Failed to build context capsule:', err)
       return null
     })
@@ -202,6 +206,7 @@ export async function dispatchInboundToAiReply(
       knowledge,
       contactName: capsule?.name || undefined,
       capsuleContext: capsule?.renderedPromptContext || null,
+      currentChannel: conv.channel || 'whatsapp',
     })
 
     const { text, handoff, usage } = await generateReply({
@@ -224,7 +229,7 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
-    const cleanText = text ? text.replace(/^\[Via [^\]]+\]\s*/i, '').trim() : ''
+    const cleanText = sanitizeAiReply(text)
 
     if (handoff || !cleanText) {
       // The model can't (or shouldn't) answer — stop auto-replying on

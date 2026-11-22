@@ -3,6 +3,7 @@ import {
   parseAiPersona,
   injectAiPersona,
   buildSystemPrompt,
+  sanitizeAiReply,
   DEFAULT_AI_PERSONA,
 } from './defaults'
 
@@ -104,5 +105,42 @@ describe('buildSystemPrompt with AI Persona', () => {
       'Formulate and adapt the answer to match the configured Language, Tone, and Length guidelines above.',
     )
   })
+
+  it('injects natural personalization, anti-cliché, and identity awareness rules', () => {
+    const prompt = buildSystemPrompt({
+      contactName: 'Yash',
+      mode: 'auto_reply',
+    })
+    expect(prompt).toContain("The customer's name is Yash")
+    expect(prompt).toContain('CONVERSATIONAL RULES & NATURAL HUMAN PERSONA')
+    expect(prompt).toContain('Returning Customer Continuity')
+    expect(prompt).toContain('Direct Answer Behavior')
+    expect(prompt).toContain('Authoritative Identity & Channel Awareness')
+    expect(prompt).toContain('Strict Anti-Cliché Rules')
+  })
 })
+
+describe('sanitizeAiReply', () => {
+  it('strips bracketed channel tags from generated responses', () => {
+    const raw = '[Via Instagram DM] Hey Yash, your order is ready.'
+    expect(sanitizeAiReply(raw)).toBe('Hey Yash, your order is ready.')
+  })
+
+  it('strips robotic trailing support clichés', () => {
+    const raw1 = 'Aapka naam Yash hai. 😊 Aapki kisi aur madad ki zaroorat hai? 😊'
+    expect(sanitizeAiReply(raw1)).toBe('Aapka naam Yash hai.')
+
+    const raw2 = 'Humare packages 9,999 se shuru hote hain. Hum yahaan aapki madad ke liye hain!'
+    expect(sanitizeAiReply(raw2)).toBe('Humare packages 9,999 se shuru hote hain.')
+
+    const raw3 = 'Aapki Instagram profile @yashtupkar hai. Agar aapko aur jaankari chahiye toh bataiye!'
+    expect(sanitizeAiReply(raw3)).toBe('Aapki Instagram profile @yashtupkar hai.')
+  })
+
+  it('strips accidental system instruction echoes', () => {
+    const raw = '[CRITICAL INSTRUCTION: All facts below reflect verified business CRM data] Aapka naam Yash hai.'
+    expect(sanitizeAiReply(raw)).toBe('Aapka naam Yash hai.')
+  })
+})
+
 

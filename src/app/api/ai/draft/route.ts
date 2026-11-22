@@ -5,7 +5,8 @@ import { loadAiConfig } from '@/lib/ai/config'
 import { buildConversationContext } from '@/lib/ai/context'
 import { retrieveKnowledge } from '@/lib/ai/knowledge'
 import { generateReply } from '@/lib/ai/generate'
-import { buildSystemPrompt } from '@/lib/ai/defaults'
+import { buildSystemPrompt, sanitizeAiReply } from '@/lib/ai/defaults'
+import { buildContactContextCapsule } from '@/lib/ai/context-capsule'
 import { latestUserMessage } from '@/lib/ai/query'
 import { logAiUsage } from '@/lib/ai/usage'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     // row means "not yours / not found" either way.
     const { data: conversation, error: convErr } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, contact_id, channel')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr) {
@@ -101,10 +102,24 @@ export async function POST(request: Request) {
       latestUserMessage(messages),
     )
 
+    let capsule = null
+    if (conversation.contact_id) {
+      capsule = await buildContactContextCapsule(supabase, conversation.contact_id, {
+        currentChannel: conversation.channel || 'whatsapp',
+        conversationId,
+      }).catch((err) => {
+        console.warn('[ai/draft] Failed to build context capsule:', err)
+        return null
+      })
+    }
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'draft',
       knowledge,
+      contactName: capsule?.name || undefined,
+      capsuleContext: capsule?.renderedPromptContext || null,
+      currentChannel: conversation.channel || 'whatsapp',
     })
 
     const { text, usage } = await generateReply({ config, systemPrompt, messages })
@@ -129,7 +144,7 @@ export async function POST(request: Request) {
       console.error('[ai/draft] usage log skipped:', logErr)
     }
 
-    return NextResponse.json({ draft: text })
+    return NextResponse.json({ draft: sanitizeAiReply(text) })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json(

@@ -45,6 +45,7 @@ describe('Customer Context Engine — Context Retrieval & Assembly', () => {
                 eq: vi.fn(() => ({
                   single: vi.fn().mockResolvedValue({ data: contact, error: null }),
                 })),
+                in: vi.fn(() => Promise.resolve({ data: [contact], error: null })),
               })),
             })),
           }
@@ -103,6 +104,17 @@ describe('Customer Context Engine — Context Retrieval & Assembly', () => {
             })),
           }
         }
+        if (table === 'contact_identities') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                in: vi.fn(() => ({
+                  neq: vi.fn().mockResolvedValue({ data: [], error: null }),
+                })),
+              })),
+            })),
+          }
+        }
         if (table === 'context_traces') {
           return {
             insert: vi.fn().mockResolvedValue({ error: null }),
@@ -144,6 +156,7 @@ describe('Customer Context Engine — Context Retrieval & Assembly', () => {
             eq: vi.fn(() => ({
               single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Not found' } }),
             })),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
           })),
         })),
       })),

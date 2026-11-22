@@ -46,4 +46,35 @@ describe('Customer Context Engine — AI Behavioral Golden Scenarios', () => {
     expect(prompt).toContain('Conversations may span multiple channels')
     expect(prompt).toContain('Use this cross-channel history naturally to recall past context, preferences, and products discussed earlier')
   })
+
+  it('Scenario 5: Instructs accurate identity retrieval and direct answer behavior without chatbot filler', () => {
+    const prompt = buildSystemPrompt({
+      mode: 'auto_reply',
+      contactName: 'Yash',
+      capsuleContext: `### AUTHORITATIVE CUSTOMER IDENTITY & CRM CONTEXT:
+- **Current Conversation**: Channel: Instagram | Sender Handle: @yashtupkar | Status: Returning Customer
+- **Customer Identity & Connected Profiles**: Name: Yash | Phone (WhatsApp): +919876543210 | Instagram: @yashtupkar | Email: yashtupkar6@gmail.com | Company: Parsona AI`,
+    })
+
+    expect(prompt).toContain('Direct Answer Behavior')
+    expect(prompt).toContain('Authoritative Identity & Channel Awareness')
+    expect(prompt).toContain('Strict Anti-Cliché Rules')
+    expect(prompt).toContain('Instagram: @yashtupkar')
+    expect(prompt).toContain('NEVER claim that you do not know their Instagram ID')
+  })
+
+  it('Scenario 6: Recognizes returning customer and instructs natural conversation continuity over blank greetings', () => {
+    const prompt = buildSystemPrompt({
+      mode: 'auto_reply',
+      contactName: 'Yash',
+      capsuleContext: `### AUTHORITATIVE CUSTOMER IDENTITY & CRM CONTEXT:
+- **Current Conversation**: Channel: WhatsApp | Status: Returning Customer (Prior history exists)
+- **Previous Conversation Context & Continuity**:
+  * Ongoing/Previous Topic: Automation solutions and pricing for Parsona AI`,
+    })
+
+    expect(prompt).toContain('Returning Customer Continuity')
+    expect(prompt).toContain('The customer\'s name is Yash. Address them naturally by first name when appropriate.')
+    expect(prompt).toContain('Do NOT give a blank generic greeting like "Hello! 😊 Kaise ho? Aapko kis cheez ki madad chahiye?" as if meeting them for the very first time.')
+  })
 })
