@@ -797,14 +797,8 @@ const expandableGroups: NavGroup[] = [
         colors: ICON_COLORS.settingsAppearance,
       },
       {
-        href: "/settings?tab=whatsapp",
-        label: "WhatsApp",
-        icon: PlugZap,
-        colors: ICON_COLORS.settingsWhatsapp,
-      },
-      {
         href: "/settings?tab=channels",
-        label: "Meta Channels (IG & FB)",
+        label: "Channels & Integrations",
         icon: Share2,
         colors: ICON_COLORS.settingsChannels,
       },
@@ -1696,7 +1690,7 @@ export function Sidebar({
               <DropdownMenuItem
                 render={
                   <Link
-                    href="/settings?tab=whatsapp"
+                    href="/settings?tab=channels"
                     onClick={onClose}
                     className="text-popover-foreground"
                   />

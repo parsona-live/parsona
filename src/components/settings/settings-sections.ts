@@ -31,7 +31,6 @@ export const SETTINGS_SECTIONS = [
   'profile',
   'security',
   'appearance',
-  'whatsapp',
   'channels',
   'templates',
   'quick-replies',
@@ -61,8 +60,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
-  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
-  channels: { id: 'channels', label: 'Meta Channels (IG & FB)', icon: Share2, group: 'workspace' },
+  channels: { id: 'channels', label: 'Channels & Integrations', icon: Share2, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },
   inbox: { id: 'inbox', label: 'Inbox', icon: Inbox, group: 'workspace' },
@@ -90,6 +88,7 @@ function isSection(value: string | null): value is SettingsSection {
  * Overview landing.
  */
 export function resolveSection(raw: string | null): SettingsSection {
+  if (raw === 'whatsapp' || raw === 'meta') return 'channels';
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
   if (raw === 'smtp') return 'email';
   if (isSection(raw)) return raw;

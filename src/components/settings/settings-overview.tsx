@@ -159,17 +159,17 @@ export function SettingsOverview({
     subtitle: ReactNode;
   }[] = [
     {
-      section: 'whatsapp',
+      section: 'channels',
       loading: whatsappLoading,
       subtitle: !whatsapp?.configured ? (
-        t('notSetup')
+        'WhatsApp, Facebook & Instagram'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> {t('connected')}
+          <StatusDot tone="ok" /> WhatsApp active · Meta channels
         </>
       ) : (
         <>
-          <StatusDot tone="muted" /> {t('needsReconnecting')}
+          <StatusDot tone="muted" /> Reconnection needed
         </>
       ),
     },
