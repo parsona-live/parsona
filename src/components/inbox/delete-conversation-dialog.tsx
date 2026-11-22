@@ -51,8 +51,8 @@ export function DeleteConversationDialog({
 
       toast.success(
         deleteContact
-          ? 'Conversation and contact profile deleted successfully.'
-          : 'Conversation deleted and connected channels unlinked.'
+          ? 'Conversation deleted. Customer identity context preserved.'
+          : 'Conversation thread deleted successfully.'
       );
       onOpenChange(false);
       onDeleted?.(conversation.id, deleteContact);
@@ -86,7 +86,7 @@ export function DeleteConversationDialog({
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-600 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              This action permanently deletes all messages in this thread. Any other profiles linked to this contact will be <strong>automatically unlinked</strong> so you can connect fresh.
+              This action permanently deletes messages in this conversation thread. Customer identity mappings and shared context across channels remain safely preserved.
             </p>
           </div>
 
@@ -97,10 +97,10 @@ export function DeleteConversationDialog({
             />
             <div className="space-y-0.5">
               <span className="text-xs font-semibold text-foreground block">
-                Also delete contact profile from CRM
+                Delete channel thread contact from inbox
               </span>
               <span className="text-[11px] text-muted-foreground block">
-                Recommended if you want to wipe &quot;Facebook User&quot; and restart fresh with new name resolution.
+                Deletes this thread entry while preserving customer identity and context for future chats.
               </span>
             </div>
           </label>

@@ -66,7 +66,7 @@ import {
   templateNamesInMessages,
 } from "@/lib/whatsapp/template-message-view";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
-import { AvatarChannelBadge, ChannelPillBadge } from "@/components/channels/channel-badge";
+import { AvatarChannelBadge, ChannelIcon, ChannelPillBadge } from "@/components/channels/channel-badge";
 import { DeleteConversationDialog } from "./delete-conversation-dialog";
 import { ClearChatDialog } from "./clear-chat-dialog";
 import { resolveAssignmentResult } from "@/lib/inbox/assignment";
@@ -232,6 +232,10 @@ export function MessageThread({
   const [profilesVersion, setProfilesVersion] = useState(0);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
   const [sentTemplates, setSentTemplates] = useState<MessageTemplate[]>([]);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [contact?.avatar_url]);
   const sentTemplateNames = useMemo(
     () => templateNamesInMessages(messages).join("\n"),
     [messages],
@@ -1042,7 +1046,8 @@ export function MessageThread({
     );
   }
 
-  const displayName = contact.name || contactHandle(contact);
+  const isGenericName = !contact.name || contact.name === 'Instagram User' || contact.name === 'Facebook User';
+  const displayName = (!isGenericName ? contact.name : null) || (contact.ig_username ? `@${contact.ig_username.replace(/^@/, '')}` : null) || contact.fb_name || contactHandle(contact) || t("customer");
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1079,21 +1084,39 @@ export function MessageThread({
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">
-            {contact?.avatar_url ? (
-              <img src={contact.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+          <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground ">
+            {contact?.avatar_url && !avatarFailed ? (
+              <img
+                src={contact.avatar_url}
+                alt=""
+                className="h-10 w-10 rounded-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
             ) : (
-              displayName.charAt(0).toUpperCase()
+              displayName.replace(/^@/, '').charAt(0).toUpperCase()
             )}
             <AvatarChannelBadge channel={conversation?.channel} />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-sm sm:text-base font-semibold text-foreground leading-tight">
+            <h2 className="truncate text-sm sm:text-md font-semibold text-foreground leading-tight">
               {displayName}
             </h2>
-            <p className="truncate text-xs text-muted-foreground mt-0.5">
-              {contactHandle(contact)}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+              {conversation.channel === 'instagram' || contact.ig_username ? (
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] text-pink-600 dark:text-pink-400">
+                  <span>@{contact.ig_username ? contact.ig_username.replace(/^@/, '') : (contact.name || 'user')}</span>
+                </span>
+              ) : conversation.channel === 'facebook' || contact.fb_name ? (
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] text-blue-600 dark:text-blue-400">
+                  <span>{contact.fb_name || contact.name}</span>
+                </span>
+              ) : null}
+              {contact.phone && (
+                <span className="font-mono text-[11px]">
+                  {contact.phone}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Badges in Header: Expiration Badge (short text) + AI drafting + Assigned */}

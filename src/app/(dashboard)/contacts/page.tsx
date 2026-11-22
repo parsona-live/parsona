@@ -1192,7 +1192,9 @@ export default function ContactsPage() {
                         <TableCell className="text-foreground font-medium">
                           <div>
                             <span className="block truncate max-w-[12rem]">
-                              {contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}
+                              {(!contact.name || contact.name === 'Instagram User' || contact.name === 'Facebook User')
+                                ? (igHandle ? `@${igHandle.replace(/^@/, '')}` : fbUser || contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>)
+                                : contact.name}
                             </span>
                             {/* Omnichannel Channel Badges */}
                             <div className="flex flex-wrap items-center gap-1 mt-0.5">

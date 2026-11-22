@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhone, phoneVariants } from '@/lib/whatsapp/phone-utils'
 import { logContactActivity } from '@/lib/contacts/timeline'
+import { upsertCustomerMemory } from '@/lib/context/memory'
 import type { ChannelType, Contact } from '@/types'
 
 export interface ExtractedIdentifiers {
@@ -106,6 +107,89 @@ export async function findContactBySocialId(
 
   if (error || !data) return null
   return data as Contact
+}
+
+/**
+ * Find canonical contact by persistent identity mapping in contact_identities.
+ * Recovers customer identity and context even after a conversation thread or channel contact was deleted.
+ */
+export async function findCanonicalContactByIdentity(
+  db: SupabaseClient,
+  accountId: string,
+  channel: ChannelType,
+  externalId: string,
+): Promise<Contact | null> {
+  const { data: identity, error } = await db
+    .from('contact_identities')
+    .select('contact_id')
+    .eq('account_id', accountId)
+    .eq('channel', channel)
+    .eq('external_id', externalId)
+    .maybeSingle()
+
+  if (error || !identity?.contact_id) return null
+
+  const { data: contact, error: cErr } = await db
+    .from('contacts')
+    .select('*')
+    .eq('account_id', accountId)
+    .eq('id', identity.contact_id)
+    .maybeSingle()
+
+  if (cErr || !contact) return null
+  return contact as Contact
+}
+
+export interface UpsertIdentityParams {
+  accountId: string
+  contactId: string
+  channel: ChannelType | string
+  externalId: string
+  externalUsername?: string | null
+  displayName?: string | null
+  avatarUrl?: string | null
+  phone?: string | null
+  email?: string | null
+  verificationMethod?: 'platform_id' | 'verified_phone' | 'verified_email' | 'manual_link'
+}
+
+/**
+ * Upsert persistent channel identity mapping in contact_identities.
+ */
+export async function upsertContactIdentity(
+  db: SupabaseClient,
+  params: UpsertIdentityParams,
+): Promise<void> {
+  const now = new Date().toISOString()
+  const payload: Record<string, unknown> = {
+    account_id: params.accountId,
+    contact_id: params.contactId,
+    channel: params.channel,
+    external_id: params.externalId,
+    external_username: params.externalUsername ? params.externalUsername.replace(/^@/, '') : null,
+    display_name: params.displayName || null,
+    avatar_url: params.avatarUrl || null,
+    phone: params.phone || null,
+    email: params.email || null,
+    identity_status: 'verified',
+    verification_method: params.verificationMethod || 'platform_id',
+    verified_at: now,
+    updated_at: now,
+  }
+
+  try {
+    const fromQuery: any = db.from('contact_identities')
+    if (typeof fromQuery?.upsert === 'function') {
+      const res = await fromQuery.upsert(payload, {
+        onConflict: 'account_id,channel,external_id',
+      })
+      if (res?.error) {
+        console.warn('[upsertContactIdentity] Supabase upsert error:', res.error)
+      }
+    }
+  } catch (err: unknown) {
+    console.warn('[upsertContactIdentity] Failed to upsert identity:', err)
+  }
 }
 
 /**
@@ -271,21 +355,6 @@ export async function linkContacts(
   // If primary itself already points to a parent linked_contact_id, resolve root primary
   const rootPrimaryId = primary.linked_contact_id || primary.id
 
-  // 2. Set secondary's linked_contact_id to rootPrimaryId
-  const { data: updatedSecondary, error: updErr } = await db
-    .from('contacts')
-    .update({
-      linked_contact_id: rootPrimaryId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', secondaryId)
-    .eq('account_id', accountId)
-    .select()
-    .single()
-
-  if (updErr) throw updErr
-
-  // 3. Bidirectionally merge missing fields onto rootPrimary
   let rootContact = primary
   if (primary.id !== rootPrimaryId) {
     const { data: fetchedRoot } = await db
@@ -297,29 +366,53 @@ export async function linkContacts(
     if (fetchedRoot) rootContact = fetchedRoot
   }
 
+  // 2. Set secondary's linked_contact_id to rootPrimaryId
+  // Synchronize non-unique attributes (name, email, avatar) onto secondary.
+  // DO NOT copy phone or social IDs (ig_user_id, fb_page_scoped_id) across contact rows
+  // because PostgreSQL unique partial indexes (idx_contacts_account_phone_normalized,
+  // idx_contacts_account_ig_user_id, idx_contacts_account_fb_psid) enforce uniqueness per account.
+  // Cross-channel identity mapping is stored persistently in contact_identities.
+  const secondaryUpdates: Record<string, unknown> = {
+    linked_contact_id: rootPrimaryId,
+    updated_at: new Date().toISOString(),
+  }
+
+  const isSecDefaultName = !secondary.name || secondary.name === 'Instagram User' || secondary.name === 'Facebook User'
+  const isRootDefaultName = !rootContact.name || rootContact.name === 'Instagram User' || rootContact.name === 'Facebook User'
+  if (isSecDefaultName && !isRootDefaultName && rootContact.name) {
+    secondaryUpdates.name = rootContact.name
+  }
+
+  if (!secondary.email && rootContact.email) {
+    secondaryUpdates.email = rootContact.email
+  }
+
+  if (!secondary.avatar_url && rootContact.avatar_url) {
+    secondaryUpdates.avatar_url = rootContact.avatar_url
+  }
+
+  const { data: updatedSecondary, error: updErr } = await db
+    .from('contacts')
+    .update(secondaryUpdates)
+    .eq('id', secondaryId)
+    .eq('account_id', accountId)
+    .select()
+    .single()
+
+  if (updErr) throw updErr
+
+  // 3. Bidirectionally merge non-unique fields onto rootPrimary
   const rootUpdates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
 
-  if (!rootContact.phone && secondary.phone) {
-    rootUpdates.phone = secondary.phone
-  }
-  if (!rootContact.ig_user_id && secondary.ig_user_id) {
-    rootUpdates.ig_user_id = secondary.ig_user_id
-    rootUpdates.ig_username = secondary.ig_username
-  }
-  if (!rootContact.fb_page_scoped_id && secondary.fb_page_scoped_id) {
-    rootUpdates.fb_page_scoped_id = secondary.fb_page_scoped_id
-    rootUpdates.fb_name = secondary.fb_name
-  }
   if (!rootContact.email && secondary.email) {
     rootUpdates.email = secondary.email
   }
   if (!rootContact.avatar_url && secondary.avatar_url) {
     rootUpdates.avatar_url = secondary.avatar_url
   }
-  const isDefaultName = !rootContact.name || rootContact.name === 'Instagram User' || rootContact.name === 'Facebook User'
-  if (isDefaultName && secondary.name && secondary.name !== 'Instagram User' && secondary.name !== 'Facebook User') {
+  if (isRootDefaultName && secondary.name && secondary.name !== 'Instagram User' && secondary.name !== 'Facebook User') {
     rootUpdates.name = secondary.name
   }
 
@@ -342,7 +435,95 @@ export async function linkContacts(
     if (updatedPrimary) finalPrimary = updatedPrimary
   }
 
-  // 4. Log timeline activity
+  // 4. Anchor persistent channel identities in contact_identities & memories
+  const canonicalPhone = finalPrimary.phone || secondary.phone || null
+  const canonicalEmail = finalPrimary.email || secondary.email || null
+  const canonicalAvatar = secondary.avatar_url || finalPrimary.avatar_url || null
+
+  // Anchor WhatsApp identity
+  if (canonicalPhone) {
+    await upsertContactIdentity(db, {
+      accountId,
+      contactId: rootPrimaryId,
+      channel: 'whatsapp',
+      externalId: canonicalPhone,
+      phone: canonicalPhone,
+      email: canonicalEmail,
+      avatarUrl: canonicalAvatar,
+      verificationMethod: 'verified_phone',
+    })
+
+    await upsertCustomerMemory(db, {
+      accountId,
+      contactId: rootPrimaryId,
+      memoryKey: 'verified_phone',
+      memoryValue: canonicalPhone,
+      sourceType: 'verified_system',
+      sourceChannel: 'whatsapp',
+      authority: 'verified_system',
+    }).catch(() => null)
+  }
+
+  // Anchor Instagram identity
+  const igId = secondary.ig_user_id || finalPrimary.ig_user_id
+  const igUser = secondary.ig_username || finalPrimary.ig_username
+  if (igId) {
+    await upsertContactIdentity(db, {
+      accountId,
+      contactId: rootPrimaryId,
+      channel: 'instagram',
+      externalId: igId,
+      externalUsername: igUser,
+      displayName: secondary.name || finalPrimary.name,
+      avatarUrl: canonicalAvatar,
+      phone: canonicalPhone,
+      email: canonicalEmail,
+      verificationMethod: 'platform_id',
+    })
+
+    if (igUser) {
+      await upsertCustomerMemory(db, {
+        accountId,
+        contactId: rootPrimaryId,
+        memoryKey: 'instagram_handle',
+        memoryValue: `@${igUser.replace(/^@/, '')}`,
+        sourceType: 'customer_explicit',
+        sourceChannel: 'instagram',
+        authority: 'customer_explicit',
+      }).catch(() => null)
+    }
+  }
+
+  // Anchor Facebook identity
+  const fbId = secondary.fb_page_scoped_id || finalPrimary.fb_page_scoped_id
+  const fbUser = secondary.fb_name || finalPrimary.fb_name
+  if (fbId) {
+    await upsertContactIdentity(db, {
+      accountId,
+      contactId: rootPrimaryId,
+      channel: 'facebook',
+      externalId: fbId,
+      displayName: fbUser,
+      avatarUrl: canonicalAvatar,
+      phone: canonicalPhone,
+      email: canonicalEmail,
+      verificationMethod: 'platform_id',
+    })
+
+    if (fbUser) {
+      await upsertCustomerMemory(db, {
+        accountId,
+        contactId: rootPrimaryId,
+        memoryKey: 'facebook_name',
+        memoryValue: fbUser,
+        sourceType: 'customer_explicit',
+        sourceChannel: 'facebook',
+        authority: 'customer_explicit',
+      }).catch(() => null)
+    }
+  }
+
+  // 5. Log timeline activity
   await logContactActivity(db, {
     accountId,
     contactId: rootPrimaryId,
@@ -452,6 +633,20 @@ export async function mergeContacts(
   if (!primary.fb_page_scoped_id && secondary.fb_page_scoped_id) updates.fb_page_scoped_id = secondary.fb_page_scoped_id
   if (!primary.fb_name && secondary.fb_name) updates.fb_name = secondary.fb_name
   if ((!primary.phone || primary.phone === '') && secondary.phone) updates.phone = secondary.phone
+
+  // Clear transferred unique fields from secondary first to prevent 23505 duplicate key violations
+  // on idx_contacts_account_ig_user_id, idx_contacts_account_fb_psid, idx_contacts_account_phone_normalized
+  const secondaryClear: Record<string, unknown> = {}
+  if (updates.ig_user_id) secondaryClear.ig_user_id = null
+  if (updates.fb_page_scoped_id) secondaryClear.fb_page_scoped_id = null
+  if (updates.phone) secondaryClear.phone = ''
+  if (Object.keys(secondaryClear).length > 0) {
+    await db
+      .from('contacts')
+      .update(secondaryClear)
+      .eq('id', secondaryId)
+      .eq('account_id', accountId)
+  }
 
   // Update primary
   await db

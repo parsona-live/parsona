@@ -23,7 +23,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ChannelIcon } from '@/components/channels/channel-badge';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -417,30 +418,53 @@ export function ContactDetailView({
             <SheetHeader className="p-4 border-b border-border/50">
               <div className="flex items-center gap-3">
                 <Avatar className="size-12 bg-muted border border-border">
+                  {contact.avatar_url && (
+                    <AvatarImage src={contact.avatar_url} alt={contact.name || ""} />
+                  )}
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                    {getInitials(contact.name)}
+                    {getInitials(contact.name || (contact.ig_username ? `@${contact.ig_username}` : "C"))}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <SheetTitle className="text-popover-foreground truncate">
-                    {contact.name || t('unnamed')}
+                    {(!contact.name || contact.name === 'Instagram User' || contact.name === 'Facebook User')
+                      ? (contact.ig_username ? `@${contact.ig_username.replace(/^@/, '')}` : contact.fb_name || contact.name || t('unnamed'))
+                      : contact.name}
                   </SheetTitle>
                   <SheetDescription className="text-muted-foreground text-xs mt-0.5">
                     {t('contactDetailsDesc')}
                   </SheetDescription>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                    <button
-                      onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
-                    >
-                      <Phone className="size-3" />
-                      {contactHandle(contact)}
-                      {copiedPhone ? (
-                        <Check className="size-3 text-primary" />
-                      ) : (
-                        <Copy className="size-3" />
-                      )}
-                    </button>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                    {/* Instagram handle & ID */}
+                    {contact.ig_username && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
+                        <ChannelIcon channel="instagram" size="xs" />
+                        <span>@{contact.ig_username.replace(/^@/, '')}</span>
+                        {contact.ig_user_id && <span className="text-[10px] text-pink-500/80 font-mono">(ID: {contact.ig_user_id})</span>}
+                      </span>
+                    )}
+                    {/* Facebook name & ID */}
+                    {contact.fb_name && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        <ChannelIcon channel="facebook" size="xs" />
+                        <span>FB: {contact.fb_name}</span>
+                        {contact.fb_page_scoped_id && <span className="text-[10px] text-blue-500/80 font-mono">(ID: {contact.fb_page_scoped_id})</span>}
+                      </span>
+                    )}
+                    {contact.phone && (
+                      <button
+                        onClick={copyPhone}
+                        className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer font-mono"
+                      >
+                        <Phone className="size-3" />
+                        {contactHandle(contact)}
+                        {copiedPhone ? (
+                          <Check className="size-3 text-primary" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
+                    )}
                     {contact.email && (
                       <span className="flex items-center gap-1">
                         <Mail className="size-3" />

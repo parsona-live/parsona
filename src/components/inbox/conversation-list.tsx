@@ -643,8 +643,14 @@ function ConversationItem({
   t,
 }: ConversationItemProps) {
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || t("unknown") || "Unknown";
-  const initials = displayName.charAt(0).toUpperCase();
+  const isGenericName = !contact?.name || contact.name === 'Instagram User' || contact.name === 'Facebook User';
+  const displayName = (!isGenericName ? contact!.name : null) ||
+    (contact?.ig_username ? `@${contact.ig_username.replace(/^@/, '')}` : null) ||
+    (contact?.fb_name ? contact.fb_name : null) ||
+    contact?.phone ||
+    t("unknown") ||
+    "Unknown";
+  const initials = displayName.replace(/^@/, '').charAt(0).toUpperCase() || "U";
   const avatarColor = getAvatarColor(contact?.id || displayName);
 
   const handleClick = useCallback(() => {

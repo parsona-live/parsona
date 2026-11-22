@@ -36,29 +36,20 @@ export async function deleteConversation(
 
   const contactId = conv.contact_id
 
-  // 2. Unlink any contacts linked to this contact or that this contact links to
-  const { data: linkedToTarget } = await db
-    .from('contacts')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('linked_contact_id', contactId)
-
-  let unlinkedCount = 0
-  if (linkedToTarget && linkedToTarget.length > 0) {
-    await db
+  // 2. Fetch contact to check its linked relationships and canonical root
+  let rootPrimaryId: string | null = null
+  if (contactId) {
+    const { data: contactRow } = await db
       .from('contacts')
-      .update({ linked_contact_id: null, updated_at: new Date().toISOString() })
+      .select('id, linked_contact_id')
+      .eq('id', contactId)
       .eq('account_id', accountId)
-      .eq('linked_contact_id', contactId)
-    unlinkedCount += linkedToTarget.length
-  }
+      .maybeSingle()
 
-  // Also clear linked_contact_id on the contact itself
-  await db
-    .from('contacts')
-    .update({ linked_contact_id: null, updated_at: new Date().toISOString() })
-    .eq('id', contactId)
-    .eq('account_id', accountId)
+    if (contactRow?.linked_contact_id) {
+      rootPrimaryId = contactRow.linked_contact_id
+    }
+  }
 
   // 3. Delete messages for this conversation
   await db
@@ -75,9 +66,40 @@ export async function deleteConversation(
 
   if (delConvErr) throw delConvErr
 
-  // 5. If deleteContact requested, delete the contact record
+  // 5. If deleteContact requested, preserve persistent identities and memories before deleting contact
   let contactDeleted = false
   if (options.deleteContact && contactId) {
+    // If this contact was linked to a primary contact, re-anchor its identities and memories to the root primary
+    if (rootPrimaryId) {
+      await db
+        .from('contact_identities')
+        .update({ contact_id: rootPrimaryId, updated_at: new Date().toISOString() })
+        .eq('contact_id', contactId)
+        .eq('account_id', accountId)
+
+      await db
+        .from('contact_memories')
+        .update({ contact_id: rootPrimaryId, updated_at: new Date().toISOString() })
+        .eq('contact_id', contactId)
+        .eq('account_id', accountId)
+    }
+
+    // Re-link any children that were pointing to this contact so they don't become orphaned
+    const { data: linkedChildren } = await db
+      .from('contacts')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('linked_contact_id', contactId)
+
+    if (linkedChildren && linkedChildren.length > 0) {
+      const newParentId = rootPrimaryId || (linkedChildren[0].id !== contactId ? linkedChildren[0].id : null)
+      await db
+        .from('contacts')
+        .update({ linked_contact_id: newParentId, updated_at: new Date().toISOString() })
+        .eq('account_id', accountId)
+        .eq('linked_contact_id', contactId)
+    }
+
     // Delete contact notes & tags first
     await db.from('contact_notes').delete().eq('contact_id', contactId)
     await db.from('contact_tags').delete().eq('contact_id', contactId)
@@ -99,7 +121,7 @@ export async function deleteConversation(
     conversationId,
     contactId,
     contactDeleted,
-    unlinkedCount,
+    unlinkedCount: 0,
   }
 }
 

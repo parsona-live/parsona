@@ -3,6 +3,8 @@ import {
   extractPhoneAndEmail,
   extractNameFromText,
   findContactBySocialId,
+  findCanonicalContactByIdentity,
+  upsertContactIdentity,
   linkSocialIdToContact,
   createSocialContact,
   mergeContacts,
@@ -96,9 +98,13 @@ describe('Identity & Cross-Channel Matching', () => {
               })),
             })),
             update: vi.fn((payload) => {
-              updateCalls.push({ table, payload })
+              const callObj: { table: string; payload: any; id?: string } = { table, payload }
+              updateCalls.push(callObj)
               return {
-                eq: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+                eq: vi.fn((col: string, val: string) => {
+                  if (col === 'id') callObj.id = val
+                  return { eq: vi.fn().mockResolvedValue({ error: null }) }
+                }),
               }
             }),
             delete: vi.fn(() => ({
@@ -112,9 +118,13 @@ describe('Identity & Cross-Channel Matching', () => {
         if (table === 'conversations' || table === 'contact_notes') {
           return {
             update: vi.fn((payload) => {
-              updateCalls.push({ table, payload })
+              const callObj: { table: string; payload: any; id?: string } = { table, payload }
+              updateCalls.push(callObj)
               return {
-                eq: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+                eq: vi.fn((col: string, val: string) => {
+                  if (col === 'id') callObj.id = val
+                  return { eq: vi.fn().mockResolvedValue({ error: null }) }
+                }),
               }
             }),
           }
@@ -127,7 +137,7 @@ describe('Identity & Cross-Channel Matching', () => {
 
     expect(result).toBe(true)
     // Primary updated with secondary's email and ig_user_id
-    const contactUpdate = updateCalls.find((c) => c.table === 'contacts')
+    const contactUpdate = updateCalls.find((c) => c.table === 'contacts' && c.id === 'p1')
     expect(contactUpdate?.payload).toMatchObject({
       email: 'jane@example.com',
       ig_user_id: 'ig_777',
@@ -172,6 +182,7 @@ describe('Identity & Cross-Channel Matching', () => {
             })),
           }
         }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
       })),
     } as unknown as Parameters<typeof linkContacts>[0]
 
@@ -205,6 +216,92 @@ describe('Identity & Cross-Channel Matching', () => {
     expect(success).toBe(true)
     expect(unlinkedPayload).toMatchObject({
       linked_contact_id: null,
+    })
+  })
+
+  it('finds canonical contact from persistent contact_identities even after channel contact deletion', async () => {
+    const mockDb: any = {
+      from: vi.fn((table: string) => {
+        if (table === 'contact_identities') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  eq: vi.fn(() => ({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: { contact_id: 'primary_wa_123' },
+                      error: null,
+                    }),
+                  })),
+                })),
+              })),
+            })),
+          }
+        }
+        if (table === 'contacts') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: 'primary_wa_123',
+                      name: 'Yash Tupkar',
+                      phone: '+917898297769',
+                      avatar_url: 'https://igcdn.com/avatar.jpg',
+                    },
+                    error: null,
+                  }),
+                })),
+              })),
+            })),
+          }
+        }
+        return {}
+      }),
+    }
+
+    const contact = await findCanonicalContactByIdentity(mockDb, 'acc_1', 'instagram', '1784140099')
+
+    expect(contact).not.toBeNull()
+    expect(contact?.id).toBe('primary_wa_123')
+    expect(contact?.phone).toBe('+917898297769')
+    expect(contact?.name).toBe('Yash Tupkar')
+  })
+
+  it('upserts contact identity mapping to contact_identities', async () => {
+    let upsertPayload: Record<string, unknown> | null = null
+    const mockDb: any = {
+      from: vi.fn((table: string) => ({
+        upsert: vi.fn((payload: any) => {
+          upsertPayload = payload
+          return Promise.resolve({ error: null })
+        }),
+      })),
+    }
+
+    await upsertContactIdentity(mockDb, {
+      accountId: 'acc_1',
+      contactId: 'primary_wa_123',
+      channel: 'instagram',
+      externalId: '1784140099',
+      externalUsername: 'yashtupkar',
+      displayName: 'Yash Tupkar',
+      avatarUrl: 'https://igcdn.com/avatar.jpg',
+      phone: '+917898297769',
+    })
+
+    expect(upsertPayload).not.toBeNull()
+    expect(upsertPayload).toMatchObject({
+      account_id: 'acc_1',
+      contact_id: 'primary_wa_123',
+      channel: 'instagram',
+      external_id: '1784140099',
+      external_username: 'yashtupkar',
+      display_name: 'Yash Tupkar',
+      avatar_url: 'https://igcdn.com/avatar.jpg',
+      phone: '+917898297769',
+      identity_status: 'verified',
     })
   })
 })

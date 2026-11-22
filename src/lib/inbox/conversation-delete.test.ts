@@ -27,6 +27,16 @@ function createMockDb(initialData: {
           operations.push(`eq:${table}:${col}=${val}`)
           return queryBuilder
         },
+        maybeSingle: async () => {
+          if (table === 'conversations') {
+            if (!initialData.conv) return { data: null, error: new Error('not found') }
+            return { data: initialData.conv, error: null }
+          }
+          if (table === 'contacts') {
+            return { data: { id: initialData.conv?.contact_id, linked_contact_id: 'root_primary_123' }, error: null }
+          }
+          return { data: null, error: null }
+        },
         single: async () => {
           if (table === 'conversations') {
             if (!initialData.conv) return { data: null, error: new Error('not found') }
@@ -57,7 +67,7 @@ describe('deleteConversation', () => {
     )
   })
 
-  it('unlinks contacts, deletes messages and conversation without deleting contact by default', async () => {
+  it('deletes messages and conversation without unlinking or deleting contact by default', async () => {
     const { db, operations } = createMockDb({
       conv: { id: 'conv_123', contact_id: 'contact_456', channel: 'facebook' },
       linkedContacts: [{ id: 'contact_789' }],
@@ -69,7 +79,7 @@ describe('deleteConversation', () => {
     expect(result.conversationId).toBe('conv_123')
     expect(result.contactId).toBe('contact_456')
     expect(result.contactDeleted).toBe(false)
-    expect(result.unlinkedCount).toBe(1)
+    expect(result.unlinkedCount).toBe(0)
 
     expect(operations).toContain('delete:messages')
     expect(operations).toContain('delete:conversations')

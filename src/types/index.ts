@@ -307,6 +307,7 @@ export interface ContactIdentity {
   external_id: string;
   external_username?: string | null;
   display_name?: string | null;
+  avatar_url?: string | null;
   phone?: string | null;
   email?: string | null;
   identity_status: 'verified' | 'unverified' | 'pending_review' | 'unlinked';

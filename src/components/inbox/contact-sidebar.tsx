@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag, Conversation } from "@/types";
+import type { Contact, Deal, ContactNote, Tag, Conversation, ChannelType } from "@/types";
 import {
   Phone,
   Mail,
@@ -14,13 +14,9 @@ import {
   DollarSign,
   StickyNote,
   Plus,
-  GitMerge,
-  Share2,
   Link2,
   Unlink,
   MessageSquare,
-  ExternalLink,
-  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,35 +24,9 @@ import { format } from "date-fns";
 import { useTranslations } from "next-intl";
 import { contactHandle } from "@/lib/whatsapp/wa-identity";
 import { LinkContactDialog } from "./link-contact-dialog";
-import { ChannelIcon, ChannelPillBadge } from "@/components/channels/channel-badge";
+import { ChannelIcon, AvatarChannelBadge } from "@/components/channels/channel-badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-
-const AVATAR_COLORS = [
-  "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300",
-  "bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300",
-  "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
-  "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300",
-  "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300",
-  "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300",
-  "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300",
-  "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300",
-  "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-300",
-  "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-300",
-  "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300",
-  "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300",
-  "bg-lime-100 text-lime-600 dark:bg-lime-900/40 dark:text-lime-300",
-  "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300",
-  "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-300",
-  "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300",
-];
-
-function getAvatarColor(seed: string) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % AVATAR_COLORS.length;
-  }
-  return AVATAR_COLORS[Math.abs(hash)];
-}
 
 interface LinkedContactItem extends Contact {
   conversation_id?: string | null;
@@ -69,7 +39,86 @@ interface ContactSidebarProps {
   onOpenConversation?: (conversationId: string) => void;
 }
 
-export function ContactSidebar({ contact, conversation, onOpenConversation }: ContactSidebarProps) {
+function isGenericOrHandle(name?: string | null): boolean {
+  if (!name) return true;
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith("@")) return true;
+  if (
+    trimmed === "Instagram User" ||
+    trimmed === "Facebook User" ||
+    trimmed === "Unknown" ||
+    trimmed === "Contact"
+  ) {
+    return true;
+  }
+  // Check if string is only numbers or phone formatting symbols (+, -, space, parens)
+  if (/^[\d\s\+\-\(\)]+$/.test(trimmed)) return true;
+  return false;
+}
+
+function getChannelHandle(c: Contact | LinkedContactItem): string {
+  if (c.ig_username) return `@${c.ig_username.replace(/^@/, "")}`;
+  if (c.fb_name) return `FB: ${c.fb_name}`;
+  if (c.phone) return c.phone;
+  if (c.name && !isGenericOrHandle(c.name)) return c.name;
+  if (c.ig_user_id) return `IG: ${c.ig_user_id}`;
+  if (c.fb_page_scoped_id) return `FB: ${c.fb_page_scoped_id}`;
+  return contactHandle(c) || "Channel";
+}
+
+function getContactChannel(
+  c: Contact | LinkedContactItem,
+  conversationChannel?: string,
+): ChannelType {
+  if (
+    conversationChannel === "instagram" ||
+    conversationChannel === "facebook" ||
+    conversationChannel === "whatsapp"
+  ) {
+    return conversationChannel;
+  }
+  if (c.ig_user_id || c.ig_username) return "instagram";
+  if (c.fb_page_scoped_id || c.fb_name) return "facebook";
+  return "whatsapp";
+}
+
+function getChannelBrand(channel: ChannelType | string | null | undefined) {
+  if (channel === "instagram") {
+    return {
+      name: "Instagram",
+      color: "#E1306C",
+      textClass: "text-[#E1306C]",
+      bgClass: "bg-[#E1306C]/10",
+      borderClass: "border-[#E1306C]/30",
+      badgeClass: "bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-xs",
+    };
+  }
+  if (channel === "facebook") {
+    return {
+      name: "Facebook",
+      color: "#0084FF",
+      textClass: "text-[#0084FF]",
+      bgClass: "bg-[#0084FF]/10",
+      borderClass: "border-[#0084FF]/30",
+      badgeClass: "bg-[#0084FF] text-white shadow-xs",
+    };
+  }
+  return {
+    name: "WhatsApp",
+    color: "#25D366",
+    textClass: "text-[#25D366]",
+    bgClass: "bg-[#25D366]/10",
+    borderClass: "border-[#25D366]/30",
+    badgeClass: "bg-[#25D366] text-white shadow-xs",
+  };
+}
+
+export function ContactSidebar({
+  contact,
+  conversation,
+  onOpenConversation,
+}: ContactSidebarProps) {
   const tSidebar = useTranslations("Inbox.sidebar");
   const tThread = useTranslations("Inbox.messageThread");
 
@@ -83,57 +132,133 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContactItem[]>([]);
   const [loadingLinked, setLoadingLinked] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const activeContactIdRef = useRef<string | null>(null);
+
+  const activeChannel = conversation?.channel || (contact ? getContactChannel(contact) : "whatsapp");
+
+  // Reset avatar failed state on contact change
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [contact?.id, contact?.avatar_url]);
+
+  // Exact connected channels for this customer: at most 1 active + at most 1 per other channel platform
+  const connectedChannels = useMemo(() => {
+    if (!contact) return [];
+
+    const activePlatform = activeChannel;
+    const activeEntry = {
+      id: contact.id,
+      channel: activePlatform,
+      brand: getChannelBrand(activePlatform),
+      handle: getChannelHandle(contact),
+      name: contact.name && !isGenericOrHandle(contact.name) ? contact.name : getChannelHandle(contact),
+      avatarUrl: contact.avatar_url,
+      conversationId: conversation?.id || null,
+      isActive: true,
+    };
+
+    // For other linked contacts, only pick those for different channel platforms and at most 1 per platform
+    const seenPlatforms = new Set<string>([activePlatform]);
+    const others: Array<{
+      id: string;
+      channel: ChannelType;
+      brand: ReturnType<typeof getChannelBrand>;
+      handle: string;
+      name: string;
+      avatarUrl?: string | null;
+      conversationId?: string | null;
+      isActive: boolean;
+    }> = [];
+
+    for (const linked of linkedContacts) {
+      if (!linked || linked.id === contact.id) continue;
+      const platform = getContactChannel(linked, linked.channel);
+      // Skip if already have an entry for this platform (prevents duplicate cards)
+      if (seenPlatforms.has(platform)) continue;
+
+      seenPlatforms.add(platform);
+      others.push({
+        id: linked.id,
+        channel: platform,
+        brand: getChannelBrand(platform),
+        handle: getChannelHandle(linked),
+        name: linked.name && !isGenericOrHandle(linked.name) ? linked.name : getChannelHandle(linked),
+        avatarUrl: linked.avatar_url,
+        conversationId: linked.conversation_id || null,
+        isActive: false,
+      });
+    }
+
+    return [activeEntry, ...others];
+  }, [contact, activeChannel, conversation, linkedContacts]);
+
+  // Real Name: look for the first non-generic, non-handle name across the cluster
+  const realName = useMemo(() => {
+    if (contact?.name && !isGenericOrHandle(contact.name)) return contact.name;
+    const found = linkedContacts.find((c) => !isGenericOrHandle(c.name));
+    return found?.name || null;
+  }, [contact, linkedContacts]);
+
+  // Handle for the active channel
+  const activeHandle = useMemo(() => {
+    if (!contact) return "";
+    return getChannelHandle(contact);
+  }, [contact]);
+
+  // Main heading: Real Name if known, else handle or fallback
+  const headerTitle = realName || contact?.name || activeHandle || "Customer";
+
+  // Unified phone number across all connected channels
+  const unifiedPhone = useMemo(() => {
+    if (contact?.phone && contact.phone.trim() !== "") return contact.phone;
+    return linkedContacts.find((c) => c.phone && c.phone.trim() !== "")?.phone || null;
+  }, [contact, linkedContacts]);
+
+  // Unified email across all connected channels
+  const unifiedEmail = useMemo(() => {
+    if (contact?.email && contact.email.trim() !== "") return contact.email;
+    return linkedContacts.find((c) => c.email && c.email.trim() !== "")?.email || null;
+  }, [contact, linkedContacts]);
+
+  const initials = useMemo(() => {
+    const text = realName || contact?.name || activeHandle || "CU";
+    return (
+      text
+        .replace(/^@/, "")
+        .split(" ")
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "CU"
+    );
+  }, [realName, contact, activeHandle]);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
     const currentId = contact.id;
     activeContactIdRef.current = currentId;
     setLoadingLinked(true);
+    setLoadingDetails(true);
 
     const supabase = createClient();
 
-    // Fetch deals, notes, tags, and linked channels in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
-      supabase
-        .from("deals")
-        .select("*, stage:pipeline_stages(*)")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("contact_notes")
-        .select("*")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("contact_tags")
-        .select("id, tag_id, tags(*)")
-        .eq("contact_id", contact.id),
-    ]);
-
-    // Check if contact changed while requests were in flight
-    if (activeContactIdRef.current !== currentId) return;
-
-    if (dealsRes.data) setDeals(dealsRes.data);
-    if (notesRes.data) setNotes(notesRes.data);
-    if (tagsRes.data) {
-      const mapped = tagsRes.data
-        .filter((ct: Record<string, unknown>) => ct.tags)
-        .map((ct: Record<string, unknown>) => ({
-          ...(ct.tags as Tag),
-          contact_tag_id: ct.id as string,
-        }));
-      setTags(mapped);
+    // 1. Fetch linked channels first
+    let clusterIds = [contact.id];
+    if (contact.linked_contact_id) {
+      clusterIds.push(contact.linked_contact_id);
     }
 
-    // Fetch linked channels
     try {
       const res = await fetch(`/api/contacts/${contact.id}/linked`);
       if (activeContactIdRef.current === currentId && res.ok) {
         const json = await res.json();
         if (activeContactIdRef.current === currentId) {
-          setLinkedContacts(json.linked || []);
+          const links: LinkedContactItem[] = json.linked || [];
+          setLinkedContacts(links);
+          clusterIds = Array.from(new Set([contact.id, ...clusterIds, ...links.map((l) => l.id)]));
         }
       }
     } catch {
@@ -143,41 +268,105 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
         setLoadingLinked(false);
       }
     }
+
+    if (activeContactIdRef.current !== currentId) return;
+
+    // 2. Fetch deals, notes, and tags unified across connected contacts
+    try {
+      const [dealsRes, notesRes, tagsRes] = await Promise.all([
+        supabase
+          .from("deals")
+          .select("*, stage:pipeline_stages(*)")
+          .in("contact_id", clusterIds)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("contact_notes")
+          .select("*")
+          .in("contact_id", clusterIds)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("contact_tags")
+          .select("id, tag_id, tags(*)")
+          .in("contact_id", clusterIds),
+      ]);
+
+      if (activeContactIdRef.current !== currentId) return;
+
+      // Deduplicate deals
+      if (dealsRes.data) {
+        const seenDealIds = new Set<string>();
+        const uniqueDeals: Deal[] = [];
+        for (const d of dealsRes.data) {
+          if (!seenDealIds.has(d.id)) {
+            seenDealIds.add(d.id);
+            uniqueDeals.push(d);
+          }
+        }
+        setDeals(uniqueDeals);
+      }
+
+      // Deduplicate notes
+      if (notesRes.data) {
+        const seenNoteIds = new Set<string>();
+        const uniqueNotes: ContactNote[] = [];
+        for (const n of notesRes.data) {
+          if (!seenNoteIds.has(n.id)) {
+            seenNoteIds.add(n.id);
+            uniqueNotes.push(n);
+          }
+        }
+        setNotes(uniqueNotes);
+      }
+
+      // Deduplicate tags by tag_id
+      if (tagsRes.data) {
+        const seenTagIds = new Set<string>();
+        const mapped: (Tag & { contact_tag_id: string })[] = [];
+        for (const ct of tagsRes.data) {
+          if (ct.tags && !seenTagIds.has(ct.tag_id)) {
+            seenTagIds.add(ct.tag_id);
+            mapped.push({
+              ...(ct.tags as unknown as Tag),
+              contact_tag_id: ct.id as string,
+            });
+          }
+        }
+        setTags(mapped);
+      }
+    } finally {
+      if (activeContactIdRef.current === currentId) {
+        setLoadingDetails(false);
+      }
+    }
   }, [contact]);
 
-  // Load on contact change. Reset linked contacts immediately to avoid flashing stale channels
   useEffect(() => {
     setLinkedContacts([]);
     setLoadingLinked(true);
+    setLoadingDetails(true);
     fetchContactData();
   }, [fetchContactData]);
 
   const handleUnlink = async (targetId: string) => {
     setUnlinkingId(targetId);
     try {
-      const res = await fetch(`/api/contacts/${targetId}/unlink`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to unlink contact');
-      toast.success('Channel unlinked successfully');
+      const res = await fetch(`/api/contacts/${targetId}/unlink`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to unlink contact");
+      toast.success("Channel unlinked successfully");
       fetchContactData();
     } catch {
-      toast.error('Failed to unlink channel');
+      toast.error("Failed to unlink channel");
     } finally {
       setUnlinkingId(null);
     }
   };
 
-  const handleCopyPhone = useCallback(async () => {
-    // Copies whatever the row displays — a BSUID-only contact has no
-    // phone number to copy, but its @username still identifies them.
-    const handle = contact ? contactHandle(contact) : '';
-    if (!handle) return;
-    await navigator.clipboard.writeText(handle);
+  const handleCopy = useCallback(async (text: string) => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    // Dep is the whole `contact` object (not `contact?.phone`) so the
-    // React Compiler's inference agrees with the manual dep list —
-    // fixes the `preserve-manual-memoization` lint error.
-  }, [contact]);
+  }, []);
 
   const handleAddNote = useCallback(async () => {
     if (!contact || !newNote.trim()) return;
@@ -190,10 +379,12 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
     } = await supabase.auth.getSession();
     const user = session?.user;
 
+    const targetContactId = contact.linked_contact_id || contact.id;
+
     const { data, error } = await supabase
       .from("contact_notes")
       .insert({
-        contact_id: contact.id,
+        contact_id: targetContactId,
         account_id: accountId,
         user_id: user?.id,
         note_text: newNote.trim(),
@@ -209,13 +400,18 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
   }, [contact, newNote, accountId]);
 
   const customerSince = useMemo(() => {
-    if (!contact?.created_at) return null;
+    const dates = [contact?.created_at, ...linkedContacts.map((c) => c.created_at)]
+      .map((d) => (d ? new Date(d).getTime() : null))
+      .filter((t): t is number => t !== null && !isNaN(t));
+
+    if (dates.length === 0) return null;
+    const earliest = new Date(Math.min(...dates));
     try {
-      return `Customer since ${format(new Date(contact.created_at), "MMM yyyy")}`;
+      return `Customer since ${format(earliest, "MMM yyyy")}`;
     } catch {
       return null;
     }
-  }, [contact?.created_at]);
+  }, [contact?.created_at, linkedContacts]);
 
   if (!contact) {
     return (
@@ -225,37 +421,45 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
     );
   }
 
-  const displayName = contact.name || contactHandle(contact);
-  const initials = (contact.name || contactHandle(contact) || "AS")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "AS";
+  const activeBrand = getChannelBrand(activeChannel);
 
   return (
     <div className="flex h-full w-80 flex-col border-l border-border bg-card">
       <ScrollArea className="flex-1">
         <div className="p-4">
-          {/* Header row (Image 2 reference) */}
+          {/* Header row: Single clean avatar + Name + Real Name */}
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#fed7aa] text-base font-bold text-[#9a3412] dark:bg-[#7c2d12]/50 dark:text-[#fed7aa] shadow-2xs">
-              {contact.avatar_url ? (
+            {/* Single clean avatar with active channel badge */}
+            <div className="relative shrink-0">
+              {contact.avatar_url && !avatarFailed ? (
                 <img
                   src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-14 w-14 rounded-full object-cover"
+                  alt={headerTitle}
+                  className="h-14 w-14 rounded-full object-cover ring-2 ring-border shadow-xs"
+                  onError={() => setAvatarFailed(true)}
                 />
               ) : (
-                initials
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#fed7aa] text-base font-bold text-[#9a3412] dark:bg-[#7c2d12]/50 dark:text-[#fed7aa] shadow-2xs">
+                  {initials}
+                </div>
               )}
+              <AvatarChannelBadge channel={activeChannel} size="md" />
             </div>
+
+            {/* Name / Handle / Channel details */}
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-lg font-bold text-foreground leading-tight">
-                {displayName}
+                {headerTitle}
               </h3>
+
+              {/* Subtitle with active handle & channel in brand color */}
+              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                <ChannelIcon channel={activeChannel} size="xs" className={activeBrand.textClass} />
+                <span className="truncate font-mono">{activeHandle}</span>
+              </div>
+
               {customerSince && (
-                <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                   {customerSince}
                 </p>
               )}
@@ -265,8 +469,13 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
             </div>
           </div>
 
-          {/* Tags row: only show if contact actually has tags */}
-          {tags.length > 0 && (
+          {/* Tags row */}
+          {loadingDetails && tags.length === 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <Skeleton className="h-6 w-16 rounded-lg" />
+              <Skeleton className="h-6 w-20 rounded-lg" />
+            </div>
+          ) : tags.length > 0 ? (
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {tags.map((tag) => (
                 <span
@@ -282,39 +491,40 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
                 </span>
               ))}
             </div>
-          )}
+          ) : null}
 
-          {/* Phone */}
+          {/* Unified Phone & Email */}
           <div className="mt-4 space-y-2">
-            <button
-              onClick={handleCopyPhone}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-            >
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 text-left">
-                {contactHandle(contact)}
-              </span>
-              {copied ? (
-                <Check className="h-3 w-3 text-primary" />
-              ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" />
-              )}
-            </button>
+            {unifiedPhone ? (
+              <button
+                onClick={() => handleCopy(unifiedPhone)}
+                title="Click to copy phone number"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <Phone className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span className="flex-1 text-left font-mono">{unifiedPhone}</span>
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </button>
+            ) : null}
 
-            {contact.email && (
+            {unifiedEmail ? (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{contact.email}</span>
+                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{unifiedEmail}</span>
               </div>
-            )}
+            ) : null}
           </div>
 
-          {/* Connected Channels & Omnichannel Links */}
+          {/* Connected Channels: directly beneath Phone & Email */}
           <div className="mt-4 rounded-xl border border-border/80 bg-muted/20 p-3">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Link2 className="h-3.5 w-3.5 text-primary" />
-                Connected Channels
+                Connected Channels ({connectedChannels.length})
               </span>
               <Button
                 variant="ghost"
@@ -327,87 +537,111 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
               </Button>
             </div>
 
-            {/* Current contact channel pill */}
-            <div className="flex items-center justify-between p-2 rounded-lg bg-card border border-border/60 mb-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <ChannelIcon
-                  channel={contact.ig_user_id ? 'instagram' : contact.fb_page_scoped_id ? 'facebook' : 'whatsapp'}
-                  size="sm"
-                  className={contact.ig_user_id ? 'text-pink-500' : contact.fb_page_scoped_id ? 'text-blue-500' : 'text-emerald-500'}
-                />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">
-                    {contact.name || contactHandle(contact)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground truncate">
-                    {contact.ig_username ? `@${contact.ig_username}` : contact.fb_name || contactHandle(contact)} (Active)
-                  </p>
-                </div>
-              </div>
-              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                This Thread
-              </span>
-            </div>
-
-            {/* Linked contacts list */}
-            {loadingLinked ? (
-              <div className="py-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                <span className="text-[11px]">Loading connected channels...</span>
-              </div>
-            ) : linkedContacts.length > 0 ? (
-              <div className="space-y-1.5">
-                {linkedContacts.map((linked) => (
+            {/* Skeleton loader while loading connected channels */}
+            {loadingLinked && linkedContacts.length === 0 ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
                   <div
-                    key={linked.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-card/60 border border-border/50 text-xs"
+                    key={i}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-border/50 bg-card/60"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ChannelIcon
-                        channel={linked.channel}
-                        size="sm"
-                        className={linked.channel === 'instagram' ? 'text-pink-500' : linked.channel === 'facebook' ? 'text-blue-500' : 'text-emerald-500'}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">
-                          {linked.name || linked.phone || 'Contact'}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          {linked.ig_username ? `@${linked.ig_username}` : linked.fb_name || linked.phone || ''}
-                        </p>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <Skeleton className="h-3.5 w-28" />
+                        <Skeleton className="h-2.5 w-20" />
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {linked.conversation_id && onOpenConversation && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onOpenConversation(linked.conversation_id!)}
-                          title="Open conversation thread"
-                          className="h-6 w-6 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleUnlink(linked.id)}
-                        disabled={unlinkingId === linked.id}
-                        title="Unlink channel"
-                        className="h-6 w-6 p-0 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                      >
-                        <Unlink className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    <Skeleton className="h-5 w-20 rounded-full shrink-0" />
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground px-1 py-1">
-                No other channels linked yet. Auto-links when phone or email matches in chat.
-              </p>
+              <div className="space-y-1.5">
+                {connectedChannels.map((c) => {
+                  return (
+                    <div
+                      key={c.id}
+                      className={cn(
+                        "flex items-center justify-between p-2.5 rounded-lg border text-xs transition-colors",
+                        c.isActive
+                          ? "bg-card shadow-2xs"
+                          : "bg-card/70 hover:bg-card border-border/60",
+                      )}
+                      style={{
+                        borderColor: c.isActive ? `${c.brand.color}50` : undefined,
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Official brand badge circle with crisp white icon */}
+                        <div
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-xs ring-1 ring-border/40",
+                            c.brand.badgeClass,
+                          )}
+                        >
+                          <ChannelIcon
+                            channel={c.channel}
+                            size="sm"
+                            className={cn(
+                              "text-white",
+                              c.channel === "instagram" ? "stroke-[2.25]" : "fill-current",
+                            )}
+                          />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {c.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate font-mono">
+                            {c.handle}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {c.isActive ? (
+                          <span
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                            style={{
+                              backgroundColor: `${c.brand.color}15`,
+                              borderColor: `${c.brand.color}35`,
+                              color: c.brand.color,
+                            }}
+                          >
+                            Active Thread
+                          </span>
+                        ) : (
+                          <>
+                            {c.conversationId && onOpenConversation && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onOpenConversation(c.conversationId!)}
+                                title="Open conversation thread"
+                                className="h-7 w-7 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleUnlink(c.id)}
+                              disabled={unlinkingId === c.id}
+                              title="Unlink channel"
+                              className="h-7 w-7 p-0 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
@@ -421,24 +655,23 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
           {/* Divider */}
           <div className="my-4 border-t border-border" />
 
-          {/* Active Deals */}
+          {/* Active Deals (unified across customer cluster) */}
           <div>
             <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <DollarSign className="h-3 w-3" />
               {tSidebar("deals")}
             </div>
             <div className="mt-2 space-y-2">
-              {deals.length === 0 ? (
+              {loadingDetails && deals.length === 0 ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-14 w-full rounded-lg" />
+                </div>
+              ) : deals.length === 0 ? (
                 <p className="px-1 text-xs text-muted-foreground">{tSidebar("noDeals")}</p>
               ) : (
                 deals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {deal.title}
-                    </p>
+                  <div key={deal.id} className="rounded-lg bg-muted px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">{deal.title}</p>
                     <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
                       <span>
                         {deal.currency ?? "$"}
@@ -465,7 +698,7 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
           {/* Divider */}
           <div className="my-4 border-t border-border" />
 
-          {/* Notes */}
+          {/* Notes (unified across customer cluster) */}
           <div>
             <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <StickyNote className="h-3 w-3" />
@@ -491,19 +724,23 @@ export function ContactSidebar({ contact, conversation, onOpenConversation }: Co
               </div>
 
               <div className="mt-2 space-y-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">
-                      {note.note_text}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
-                    </p>
+                {loadingDetails && notes.length === 0 ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12 w-full rounded-lg" />
+                    <Skeleton className="h-12 w-full rounded-lg" />
                   </div>
-                ))}
+                ) : (
+                  notes.map((note) => (
+                    <div key={note.id} className="rounded-lg bg-muted px-3 py-2">
+                      <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+                        {note.note_text}
+                      </p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
