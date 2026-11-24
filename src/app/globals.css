@@ -352,3 +352,62 @@ html[data-theme="rose"] {
     transform: translate(calc(100cqw - 100%), 0);
   }
 }
+
+/* Spotlight / GlowCard border & halo rules */
+[data-glow]::before,
+[data-glow]::after {
+  pointer-events: none;
+  content: "";
+  position: absolute;
+  inset: calc(var(--border-size, 2px) * -1);
+  border: var(--border-size, 2px) solid transparent;
+  border-radius: calc(var(--radius, 14) * 1px);
+  background-attachment: fixed;
+  background-size: calc(100% + (2 * var(--border-size, 2px))) calc(100% + (2 * var(--border-size, 2px)));
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+  mask-clip: padding-box, border-box;
+  mask-composite: intersect;
+  -webkit-mask: linear-gradient(transparent, transparent), linear-gradient(white, white);
+  -webkit-mask-clip: padding-box, border-box;
+  -webkit-mask-composite: source-in;
+}
+
+[data-glow]::before {
+  background-image: radial-gradient(
+    calc(var(--spotlight-size, 200px) * 0.75) calc(var(--spotlight-size, 200px) * 0.75) at
+    calc(var(--x, -999) * 1px)
+    calc(var(--y, -999) * 1px),
+    hsl(var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 1)),
+    transparent 100%
+  );
+  filter: brightness(var(--border-brightness, 1.35));
+}
+
+[data-glow]::after {
+  background-image: radial-gradient(
+    calc(var(--spotlight-size, 200px) * 0.5) calc(var(--spotlight-size, 200px) * 0.5) at
+    calc(var(--x, -999) * 1px)
+    calc(var(--y, -999) * 1px),
+    hsl(var(--glow-highlight, 0 100% 100%) / var(--border-light-opacity, 0.85)),
+    transparent 100%
+  );
+}
+
+[data-glow] > [data-glow="outer"] {
+  position: absolute;
+  inset: 0;
+  will-change: filter;
+  opacity: var(--outer, 0.45);
+  border-radius: calc(var(--radius, 14) * 1px);
+  filter: blur(calc(var(--border-size, 2px) * 8));
+  background: none;
+  pointer-events: none;
+  border: none;
+}
+
+[data-glow] > [data-glow="outer"]::before {
+  inset: -8px;
+  border-width: 8px;
+}
