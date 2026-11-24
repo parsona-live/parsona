@@ -25,6 +25,7 @@ import {
   Copy,
   type LucideIcon,
   Sparkle,
+  Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReplyQuote } from "./reply-quote";
@@ -639,6 +640,21 @@ export function MessageBubble({
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
   const isSystem = (message as any).sender_type === "system";
   const time = format(new Date(message.created_at), "HH:mm");
+  const isFlowTrigger = message.content_text?.startsWith("⚡ Flow:");
+
+  if (isFlowTrigger) {
+    return (
+      <div className="my-2 flex items-center justify-center w-full">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/10 border border-purple-500/25 px-3 py-1 shadow-2xs text-xs font-medium text-purple-700 dark:text-purple-300">
+          <span>{message.content_text}</span>
+          <span className="text-[10px] text-purple-600/70 dark:text-purple-400/70 ml-1">
+            {time}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const failure = isAgent && !isSystem ? failureReason(message) : null;
   const bubbleStyles = getBubbleClasses({ channel: effectiveChannel, isAgent });
 

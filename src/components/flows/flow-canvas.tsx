@@ -355,27 +355,36 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       );
     }
 
-    case 'collect_input': {
-      const prompt = (cfg.prompt_text as string) || '';
-      const varKey = (cfg.var_key as string) || 'input';
+    case 'collect_input':
+    case 'input_flow': {
+      const isPrompt = cfg.text_mode === 'prompt' && cfg.prompt;
+      const prompt = isPrompt
+        ? `✨ Prompt: ${cfg.prompt}`
+        : ((cfg.prompt_text as string) || (cfg.text as string) || (cfg.prompt as string) || (cfg.message as string) || '');
+      const varKey = (cfg.var_key as string) || (cfg.variable_name as string) || (cfg.variable as string) || 'input';
       return (
         <>
-          <BodyText>{prompt || <Placeholder>Please enter your response…</Placeholder>}</BodyText>
-          <Chip>&#123;&#123;{varKey}&#125;&#125;</Chip>
+          {isPrompt && (
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> AI Prompt Question
+            </span>
+          )}
+          <BodyText lines={3}>{prompt || <Placeholder>Please enter your response…</Placeholder>}</BodyText>
+          <Chip>&#123;&#123;vars.{varKey}&#125;&#125;</Chip>
         </>
       );
     }
 
     case 'condition': {
-      const key = (cfg.subject_key as string) || 'var';
+      const key = (cfg.subject_key as string) || (cfg.variable_name as string) || (cfg.variable as string) || (cfg.var_key as string) || 'var';
       const op = (cfg.operator as string) || 'equals';
-      const val = (cfg.value as string) ?? '';
+      const val = (cfg.value !== undefined ? cfg.value : cfg.compare_value) ?? '';
       return (
         <p className="text-slate-800 font-mono text-[11px] leading-relaxed">
           <span className="text-slate-500">if </span>
           &#123;&#123;{key}&#125;&#125;{' '}
           <span className="text-slate-500">{op}</span>
-          {val && <> &quot;{val}&quot;</>}
+          {val !== '' && <> &quot;{val}&quot;</>}
         </p>
       );
     }
@@ -460,7 +469,8 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
     }
 
     case 'ai_decision': {
-      const prompt = (cfg.prompt as string) || '';
+      const prompt = (cfg.prompt as string) || (cfg.decision_prompt as string) || (cfg.instruction as string) || '';
+      const branches = Array.isArray(cfg.branches) ? cfg.branches : [];
       return (
         <>
           <IconLine icon={Sparkles}>Semantic Decision Router</IconLine>
@@ -468,6 +478,21 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
             <BodyText lines={3}>{prompt}</BodyText>
           ) : (
             <Placeholder>Describe classification criteria…</Placeholder>
+          )}
+          {branches.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {branches.map((b: any, bIdx: number) => {
+                const label = b.label || b.description || b.name || b.branch_key || b.key || `Branch ${bIdx + 1}`;
+                return (
+                  <span
+                    key={bIdx}
+                    className="inline-flex items-center rounded bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:text-purple-300"
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
           )}
         </>
       );
@@ -549,24 +574,6 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
             </span>
           )}
         </div>
-      );
-    }
-
-    case 'collect_input':
-    case 'input_flow': {
-      const isPrompt = cfg.text_mode === 'prompt' && cfg.prompt;
-      const p = isPrompt ? `✨ Prompt: ${cfg.prompt}` : ((cfg.prompt_text as string) || '');
-      const v = (cfg.var_key as string) || 'val';
-      return (
-        <>
-          {isPrompt && (
-            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> AI Prompt Question
-            </span>
-          )}
-          <BodyText lines={2}>{p || 'Prompt customer'}</BodyText>
-          <Chip>&#123;&#123;vars.{v}&#125;&#125;</Chip>
-        </>
       );
     }
 

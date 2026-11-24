@@ -1132,14 +1132,23 @@ async function advanceFromNodeKey(
   message?: ParsedInbound,
 ): Promise<{ outcome: "advanced" | "completed" | "handed_off" }> {
   let currentKey: string | null = startNodeKey;
+  const visitedKeys = new Set<string>();
   for (let safety = 0; safety < MAX_NODES_PER_ADVANCE; safety += 1) {
     if (!currentKey) {
-      await logEvent(db, run.id, "error", null, {
-        reason: "next_node_key was null mid-advance",
+      await logEvent(db, run.id, "completed", null, {
+        reason: "flow_completed_terminal_node",
       });
-      await endRun(db, run.id, "failed", "missing_next_node");
+      await endRun(db, run.id, "completed", "end_of_flow");
       return { outcome: "completed" };
     }
+    if (visitedKeys.has(currentKey)) {
+      await logEvent(db, run.id, "error", currentKey, {
+        reason: "cycle_detected",
+      });
+      await endRun(db, run.id, "failed", "cycle_detected");
+      return { outcome: "completed" };
+    }
+    visitedKeys.add(currentKey);
     const node: FlowNodeRow | null = nodes.get(currentKey) ?? null;
     if (!node) {
       await logEvent(db, run.id, "error", currentKey, {
@@ -3630,6 +3639,21 @@ async function startNewRun(
     trigger_type: flow.trigger_type,
     meta_message_id: input.message.meta_message_id,
   });
+
+  // Client/Agent-only internal badge for CRM Inbox:
+  if (input.conversationId) {
+    try {
+      await db.from("messages").insert({
+        conversation_id: input.conversationId,
+        sender_type: "bot",
+        content_type: "text",
+        content_text: `⚡ Flow: "${flow.name}" triggered`,
+        status: "delivered",
+      });
+    } catch (badgeErr) {
+      console.warn("[flows] Failed to log flow trigger badge message:", badgeErr);
+    }
+  }
   // Bump the flow's execution counter — used by the builder UI to
   // surface "X runs since activation" on the flow card.
   //

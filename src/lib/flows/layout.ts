@@ -23,6 +23,8 @@
  */
 
 import Dagre from "@dagrejs/dagre";
+import type { BuilderNode } from "@/components/flows/shared";
+import { deriveCanvasEdges } from "./edges";
 
 export interface LayoutNode {
   id: string;
@@ -128,4 +130,31 @@ export function autoLayout(
     });
   }
   return positions;
+}
+
+/**
+ * Automatically layout BuilderNodes into clean (x, y) coordinates
+ * based on their directional graph connections.
+ */
+export function autoLayoutNodes(
+  nodes: BuilderNode[],
+  options: LayoutOptions = {},
+): BuilderNode[] {
+  if (nodes.length === 0) return [];
+  const edges = deriveCanvasEdges(nodes);
+  const layoutNodes: LayoutNode[] = nodes.map((n) => ({
+    id: n.node_key,
+    width: options.defaultWidth ?? 260,
+    height: options.defaultHeight ?? 120,
+  }));
+  const positions = autoLayout(layoutNodes, edges, options);
+  return nodes.map((node) => {
+    const pos = positions.get(node.node_key);
+    if (!pos) return node;
+    return {
+      ...node,
+      position_x: Math.round(pos.x),
+      position_y: Math.round(pos.y),
+    };
+  });
 }

@@ -1871,9 +1871,9 @@ export function AiDecisionForm({
   currentKey: string;
   onChange: (patch: Record<string, unknown>) => void;
 }) {
-  const prompt = (config.prompt as string) || '';
+  const prompt = (config.prompt as string) || (config.decision_prompt as string) || (config.instruction as string) || '';
   const branches = Array.isArray(config.branches)
-    ? (config.branches as Array<{ key?: string; branch_key?: string; description: string; next_node_key?: string }>)
+    ? (config.branches as Array<{ key?: string; branch_key?: string; description?: string; label?: string; next_node_key?: string }>)
     : [];
 
   const handleAddBranch = () => {
@@ -1881,16 +1881,17 @@ export function AiDecisionForm({
     onChange({
       branches: [
         ...branches,
-        { branch_key: key, key, description: 'Condition description', next_node_key: '' },
+        { branch_key: key, key, description: 'Condition description', label: 'Condition description', next_node_key: '' },
       ],
     });
   };
 
-  const handleUpdateBranch = (index: number, patch: Partial<{ key?: string; branch_key?: string; description?: string; next_node_key?: string }>) => {
+  const handleUpdateBranch = (index: number, patch: Partial<{ key?: string; branch_key?: string; description?: string; label?: string; next_node_key?: string }>) => {
     const updated = [...branches];
     const prev = updated[index];
     const newKey = patch.branch_key ?? patch.key ?? prev.branch_key ?? prev.key ?? `branch_${index + 1}`;
-    updated[index] = { ...prev, ...patch, branch_key: newKey, key: newKey };
+    const desc = patch.description ?? patch.label ?? prev.description ?? prev.label ?? '';
+    updated[index] = { ...prev, ...patch, branch_key: newKey, key: newKey, description: desc, label: desc };
     onChange({ branches: updated });
   };
 
@@ -1907,7 +1908,7 @@ export function AiDecisionForm({
         </Label>
         <Textarea
           value={prompt}
-          onChange={(e) => onChange({ prompt: e.target.value })}
+          onChange={(e) => onChange({ prompt: e.target.value, decision_prompt: e.target.value })}
           placeholder="e.g. Classify whether the customer wants to schedule a product demo, request custom pricing, or speak with support."
           rows={3}
           className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
@@ -1943,8 +1944,8 @@ export function AiDecisionForm({
                 className="h-7 text-xs font-mono bg-white dark:bg-card w-28 shrink-0"
               />
               <Input
-                value={b.description}
-                onChange={(e) => handleUpdateBranch(idx, { description: e.target.value })}
+                value={b.description || b.label || ''}
+                onChange={(e) => handleUpdateBranch(idx, { description: e.target.value, label: e.target.value })}
                 placeholder="Condition description (e.g. Customer wants a live demo)"
                 className="h-7 text-xs bg-white dark:bg-card flex-1"
               />
@@ -1972,6 +1973,24 @@ export function AiDecisionForm({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Fallback Branch */}
+      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Fallback Branch (When No Branch Matches)
+        </Label>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground w-20 shrink-0">Advance to:</span>
+          <NodeKeySelect
+            value={(config.fallback_next as string) || (config.fallback_node_key as string) || null}
+            nodes={allNodes}
+            excludeKey={currentKey}
+            onChange={(v) => onChange({ fallback_next: v || '', fallback_node_key: v || '' })}
+            placeholder="(Stop flow)"
+            className="h-7 flex-1"
+          />
+        </div>
       </div>
     </div>
   );

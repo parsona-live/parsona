@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Workflow,
+  Code2,
   ChevronDown,
   AlertTriangle,
   Check,
@@ -27,6 +28,7 @@ import {
 
 import { FlowCanvas } from "./flow-canvas";
 import { FlowSidebar } from "./flow-sidebar";
+import { FlowJsonEditor } from "./flow-json-editor";
 import { FlowEditorProvider, useFlowEditor } from "./flow-editor-state";
 import { FlowChatPreview } from "./flow-chat-preview";
 import { IssueLine } from "./validation-panel";
@@ -66,6 +68,7 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
     addNode,
   } = useFlowEditor();
 
+  const [viewTab, setViewTab] = useState<"canvas" | "json">("canvas");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
@@ -110,7 +113,35 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
           )}
         </div>
 
-     
+        {/* Center: View Switcher Tabs [ Visual Canvas | Code JSON (AI) ] */}
+        <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border">
+          <button
+            type="button"
+            onClick={() => setViewTab("canvas")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all",
+              viewTab === "canvas"
+                ? "bg-card text-foreground shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground font-medium"
+            )}
+          >
+            <Workflow className="h-3.5 w-3.5" />
+            <span>Canvas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("json")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all",
+              viewTab === "json"
+                ? "bg-card text-purple-600 dark:text-purple-400 shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground font-medium"
+            )}
+          >
+            <Code2 className="h-3.5 w-3.5 text-purple-500" />
+            <span>JSON (AI)</span>
+          </button>
+        </div>
 
         {/* Right: Validation Issues, Live Preview, Theme Toggle, Go Back, Save, Publish */}
         <div className="flex items-center gap-2.5">
@@ -255,16 +286,22 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
         </div>
       </header>
 
-      {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + CHAT PREVIEW) ================= */}
+      {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + CHAT PREVIEW / JSON EDITOR) ================= */}
       <div className="flex-1 flex overflow-hidden min-h-0 bg-background relative">
-        <FlowSidebar
-          onAddNode={(type) => addNode(type)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-        />
-        <div className="flex-1 h-full min-w-0 relative flex bg-white [color-scheme:light]">
-          <FlowCanvas onTestNode={handleTestNode} />
-        </div>
+        {viewTab === "canvas" ? (
+          <>
+            <FlowSidebar
+              onAddNode={(type) => addNode(type)}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
+            />
+            <div className="flex-1 h-full min-w-0 relative flex bg-white [color-scheme:light]">
+              <FlowCanvas onTestNode={handleTestNode} />
+            </div>
+          </>
+        ) : (
+          <FlowJsonEditor onSwitchToCanvas={() => setViewTab("canvas")} />
+        )}
         {previewOpen && (
           <FlowChatPreview
             flow={{

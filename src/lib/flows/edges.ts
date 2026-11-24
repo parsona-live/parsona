@@ -92,13 +92,14 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         for (let bIdx = 0; bIdx < branches.length; bIdx++) {
           const b = branches[bIdx];
           const bKey = b.branch_key || b.key || `${bIdx + 1}`;
+          const bLabel = (b as any).label || (b as any).description || bKey;
           if (b.next_node_key && knownKeys.has(b.next_node_key)) {
             edges.push({
               id: `${node.node_key}--branch_${bKey}--${b.next_node_key}`,
               source: node.node_key,
               target: b.next_node_key,
               sourceHandle: `branch_${bKey}`,
-              label: bKey,
+              label: bLabel,
             });
           }
         }
@@ -327,16 +328,22 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
 
     case "ai_decision": {
       const dCfg = cfg as {
-        branches?: Array<{ branch_key?: string; key?: string; description?: string }>;
+        branches?: Array<{
+          branch_key?: string;
+          key?: string;
+          description?: string;
+          label?: string;
+        }>;
         fallback_next?: string;
         fallback_node_key?: string;
       };
       const branches = Array.isArray(dCfg.branches) ? dCfg.branches : [];
       const handles = branches.map((b, idx) => {
         const bKey = b.branch_key || b.key || `${idx + 1}`;
+        const label = b.label || b.description || bKey;
         return {
           id: `branch_${bKey}`,
-          label: bKey,
+          label,
         };
       });
       handles.push({ id: "fallback", label: "Fallback" });

@@ -596,10 +596,14 @@ function CollectInputForm({
 }: {
   cfg: {
     prompt_text?: string;
+    text?: string;
     var_key?: string;
+    variable_name?: string;
     validation?: string;
+    input_type?: string;
     regex?: string;
     invalid_message?: string;
+    validation_error_message?: string;
     allow_interruption?: boolean;
     next_node_key?: string;
   };
@@ -608,14 +612,16 @@ function CollectInputForm({
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const validation = cfg.validation || "any";
+  const promptText = cfg.prompt_text ?? cfg.text ?? (cfg as any).prompt ?? "";
+  const varKey = cfg.var_key ?? cfg.variable_name ?? "";
+  const validation = cfg.validation || cfg.input_type || "any";
   const allowInterruption = cfg.allow_interruption !== false; // default true
 
   return (
     <div className="space-y-4">
       <PromptOrTextInput
         mode={((cfg as any).text_mode as "static" | "prompt") || "static"}
-        text={cfg.prompt_text ?? ""}
+        text={promptText}
         prompt={(cfg as any).prompt ?? ""}
         fallbackText={(cfg as any).fallback_text ?? ""}
         label={t("promptToCustomer")}
@@ -623,7 +629,8 @@ function CollectInputForm({
         onChange={(patch) =>
           onUpdateConfig({
             text_mode: patch.text_mode,
-            prompt_text: patch.text ?? cfg.prompt_text,
+            prompt_text: patch.text ?? promptText,
+            text: patch.text ?? promptText,
             prompt: patch.prompt,
             fallback_text: patch.fallback_text,
           })
@@ -634,12 +641,14 @@ function CollectInputForm({
           {t("varKeyLabel")}
         </label>
         <Input
-          value={cfg.var_key ?? ""}
-          onChange={(e) =>
+          value={varKey}
+          onChange={(e) => {
+            const val = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
             onUpdateConfig({
-              var_key: e.target.value.replace(/[^a-zA-Z0-9_]/g, ""),
-            })
-          }
+              var_key: val,
+              variable_name: val,
+            });
+          }}
           placeholder={t("varKeyPlaceholder")}
           className="bg-muted font-mono text-xs"
         />
@@ -647,7 +656,7 @@ function CollectInputForm({
           {t("varKeyHelp")}{" "}
           <code className="rounded bg-muted px-1">
             {"{{vars."}
-            {cfg.var_key || "input"}
+            {varKey || "input"}
             {"}}"}
           </code>
           .
