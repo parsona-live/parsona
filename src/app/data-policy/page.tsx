@@ -228,8 +228,8 @@ export default function DataPolicyPage() {
     <LegalPageShell
       activePath="/data-policy"
       badgeLabel="Personal Data & Indian IT Law"
-      badgeBgClass="bg-[#FFE9A8]"
-      badgeDotClass="bg-[#F2B233]"
+      badgeBgClass="bg-white"
+      badgeDotClass="bg-[var(--brand-primary)]"
       title="Personal Data Protection & Indian IT Compliance"
       subtitle="How Parsona processes personal data, protects multi-tenant workspaces, and aligns with India’s IT Act 2000, DPDP Act 2023, CERT-In directions, and Meta’s data deletion standards."
       lastUpdated="November 2026"

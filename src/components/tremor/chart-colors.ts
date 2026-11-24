@@ -13,30 +13,51 @@
 
 export type ColorUtility = "bg" | "stroke" | "fill" | "text"
 
+export const PARSONA_CHART_SERIES = [
+  "#0B3B2E",
+  "#8066A8",
+  "#8FA99B",
+  "#CFC3FF",
+  "#D6A85C",
+  "#6688B8",
+] as const;
+
 export const chartColors = {
   blue: {
-    bg: "bg-blue-500",
-    stroke: "stroke-blue-500",
-    fill: "fill-blue-500",
-    text: "text-blue-500",
+    bg: "bg-[#6688B8]",
+    stroke: "stroke-[#6688B8]",
+    fill: "fill-[#6688B8]",
+    text: "text-[#6688B8]",
   },
   emerald: {
-    bg: "bg-emerald-500",
-    stroke: "stroke-emerald-500",
-    fill: "fill-emerald-500",
-    text: "text-emerald-500",
+    bg: "bg-[#0B3B2E]",
+    stroke: "stroke-[#0B3B2E]",
+    fill: "fill-[#0B3B2E]",
+    text: "text-[#0B3B2E]",
   },
   violet: {
-    bg: "bg-violet-500",
-    stroke: "stroke-violet-500",
-    fill: "fill-violet-500",
-    text: "text-violet-500",
+    bg: "bg-[#8066A8]",
+    stroke: "stroke-[#8066A8]",
+    fill: "fill-[#8066A8]",
+    text: "text-[#8066A8]",
+  },
+  lavender: {
+    bg: "bg-[#CFC3FF]",
+    stroke: "stroke-[#CFC3FF]",
+    fill: "fill-[#CFC3FF]",
+    text: "text-[#CFC3FF]",
+  },
+  sage: {
+    bg: "bg-[#8FA99B]",
+    stroke: "stroke-[#8FA99B]",
+    fill: "fill-[#8FA99B]",
+    text: "text-[#8FA99B]",
   },
   amber: {
-    bg: "bg-amber-500",
-    stroke: "stroke-amber-500",
-    fill: "fill-amber-500",
-    text: "text-amber-500",
+    bg: "bg-[#D6A85C]",
+    stroke: "stroke-[#D6A85C]",
+    fill: "fill-[#D6A85C]",
+    text: "text-[#D6A85C]",
   },
   gray: {
     bg: "bg-muted",

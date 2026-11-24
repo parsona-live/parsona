@@ -36,18 +36,18 @@ const FOOTER_COLUMNS = [
 
 export function Footer() {
   return (
-    <footer className="bg-[#08241C] text-white mt-[120px] max-[720px]:mt-[84px] pt-[72px] max-[720px]:pt-12 overflow-hidden">
+    <footer className="bg-[var(--footer-background)] text-white mt-[120px] max-[720px]:mt-[84px] pt-[72px] max-[720px]:pt-12 border-t border-[var(--footer-border)] overflow-hidden">
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
         <div className="grid grid-cols-[1.5fr_repeat(3,1fr)] max-[980px]:grid-cols-2 gap-10 max-[720px]:gap-x-6 max-[720px]:gap-y-9">
           <div className="min-w-0 max-[720px]:col-span-2">
             <Link
               href="/"
-              className={`inline-flex items-center gap-[10px] ${DISPLAY_FONT} text-[23px] font-bold tracking-[-0.04em] text-white`}
+              className={`inline-flex items-center gap-[10px] ${DISPLAY_FONT} text-[22px] max-[720px]:text-[20px] font-bold tracking-[-0.03em] text-white`}
             >
-              <ParsonaMark variant="green" />
+              <ParsonaMark variant="inverse" />
               Parsona
             </Link>
-            <p className="text-[#9FC2B4] mt-4 max-w-[300px] text-[15px] leading-[1.55]">
+            <p className="text-[var(--footer-text)] mt-4 max-w-[300px] text-[15px] leading-[1.55]">
               Business conversations on WhatsApp, Instagram, Facebook and soon voice — with inbox,
               CRM, campaigns and AI in one place.
             </p>
@@ -56,14 +56,14 @@ export function Footer() {
             <div className={`mt-5 flex flex-col gap-2 ${MONO_FONT} text-[13px]`}>
               <a
                 href="mailto:hello@parsona.live"
-                className="inline-flex items-center gap-2 text-[#DCEBE4] hover:text-[#1FD27A] transition-colors w-fit"
+                className="inline-flex items-center gap-2 text-[var(--footer-links)] hover:text-[var(--accent-primary)] transition-colors w-fit"
               >
                 <svg
                   width="15"
                   height="15"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#7FE5B2"
+                  stroke="#CFC3FF"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -76,14 +76,14 @@ export function Footer() {
               </a>
               <a
                 href="tel:+919111951752"
-                className="inline-flex items-center gap-2 text-[#DCEBE4] hover:text-[#1FD27A] transition-colors w-fit"
+                className="inline-flex items-center gap-2 text-[var(--footer-links)] hover:text-[var(--accent-primary)] transition-colors w-fit"
               >
                 <svg
                   width="15"
                   height="15"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#7FE5B2"
+                  stroke="#CFC3FF"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -99,7 +99,7 @@ export function Footer() {
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title} className="min-w-0">
               <h4
-                className={`${MONO_FONT} font-medium text-[12px] tracking-[0.07em] uppercase text-[#7FE5B2] mb-4 max-[720px]:mb-3`}
+                className={`${MONO_FONT} font-medium text-[12px] tracking-[0.07em] uppercase text-white mb-4 max-[720px]:mb-3`}
               >
                 {col.title}
               </h4>
@@ -109,14 +109,14 @@ export function Footer() {
                     {'external' in link && link.external ? (
                       <a
                         href={link.href}
-                        className="block text-[#DCEBE4] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[#1FD27A] transition-colors"
+                        className="block text-[var(--footer-links)] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[var(--accent-primary)] transition-colors"
                       >
                         {link.label}
                       </a>
                     ) : (
                       <Link
                         href={link.href}
-                        className="block text-[#DCEBE4] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[#1FD27A] transition-colors"
+                        className="block text-[var(--footer-links)] text-[15px] max-[720px]:text-[14.5px] py-[5px] hover:text-[var(--accent-primary)] transition-colors"
                       >
                         {link.label}
                       </Link>
@@ -129,7 +129,7 @@ export function Footer() {
         </div>
 
         <div
-          className={`flex justify-between gap-3 flex-wrap mt-14 max-[720px]:mt-10 pt-[22px] max-[720px]:pt-5 border-t border-[#1E4A3D] ${MONO_FONT} text-[12.5px] max-[720px]:text-[11.5px] leading-[1.5] text-[#8FB5A5] max-[720px]:flex-col max-[720px]:gap-2`}
+          className={`flex justify-between gap-3 flex-wrap mt-14 max-[720px]:mt-10 pt-[22px] max-[720px]:pt-5 border-t border-[var(--footer-border)] ${MONO_FONT} text-[12.5px] max-[720px]:text-[11.5px] leading-[1.5] text-[var(--footer-muted)] max-[720px]:flex-col max-[720px]:gap-2`}
         >
           <span>© 2026 Parsona. All rights reserved.</span>
           <span>WhatsApp, Instagram and Facebook are trademarks of their respective owners.</span>
@@ -138,7 +138,7 @@ export function Footer() {
 
       <div
         aria-hidden="true"
-        className={`${DISPLAY_FONT} font-extrabold tracking-[-0.06em] leading-[0.74] text-[#0F4636] mt-9 max-[720px]:mt-7 -mb-[0.06em] whitespace-nowrap text-center select-none`}
+        className={`${DISPLAY_FONT} font-extrabold tracking-[-0.06em] leading-[0.74] text-[var(--footer-surface)] mt-9 max-[720px]:mt-7 -mb-[0.06em] whitespace-nowrap text-center select-none`}
         style={{ fontSize: 'clamp(84px, 24vw, 380px)' }}
       >
         Parsona

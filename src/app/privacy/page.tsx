@@ -245,8 +245,8 @@ export default function PrivacyPolicyPage() {
     <LegalPageShell
       activePath="/privacy"
       badgeLabel="Privacy Policy"
-      badgeBgClass="bg-[#D4F5E3]"
-      badgeDotClass="bg-[#1FD27A]"
+      badgeBgClass="bg-white"
+      badgeDotClass="bg-[var(--brand-primary)]"
       title="Privacy Policy"
       subtitle="Clear, plain-English privacy commitments built for Indian startups and modern businesses — aligned with the DPDP Act, 2023 and the IT Act, 2000."
       lastUpdated="November 2026"

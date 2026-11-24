@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { BTN_GREEN, DISPLAY_FONT, MONO_FONT } from './shared'
+import { DISPLAY_FONT, MONO_FONT } from './shared'
 
 type ThreadMessage = {
   id: string
@@ -37,9 +37,9 @@ const INITIAL_CONTACTS: ContactThread[] = [
   {
     id: 'aanya',
     initials: 'AS',
-    bg: '#FFD9C2',
+    bg: '#E6F0EC',
     channel: 'WhatsApp',
-    channelDot: 'bg-[#1FD27A]',
+    channelDot: 'bg-[#25D366]',
     name: 'Aanya Sharma',
     handle: '+91 98•• ••210',
     preview: 'Can I pay on delivery?',
@@ -91,9 +91,9 @@ const INITIAL_CONTACTS: ContactThread[] = [
   {
     id: 'rohit',
     initials: 'RK',
-    bg: '#FFE9A8',
+    bg: '#F3F0FF',
     channel: 'Instagram',
-    channelDot: 'bg-[#FF8A5B]',
+    channelDot: 'bg-[#D62976]',
     name: 'Rohit Kapoor',
     handle: '@rohit.k',
     preview: 'What is the combo price?',
@@ -130,9 +130,9 @@ const INITIAL_CONTACTS: ContactThread[] = [
   {
     id: 'meera',
     initials: 'MJ',
-    bg: '#CFE3F8',
+    bg: '#EAF2FF',
     channel: 'Facebook',
-    channelDot: 'bg-[#4C8DF0]',
+    channelDot: 'bg-[#1877F2]',
     name: 'Meera Joshi',
     handle: 'Messenger',
     preview: 'Can I move my slot to Monday?',
@@ -168,9 +168,9 @@ const INITIAL_CONTACTS: ContactThread[] = [
   {
     id: 'dev',
     initials: 'DP',
-    bg: '#DCE7DF',
+    bg: '#F5F6F8',
     channel: 'WhatsApp',
-    channelDot: 'bg-[#1FD27A]',
+    channelDot: 'bg-[#25D366]',
     name: 'Dev Patel',
     handle: '+91 97•• ••841',
     preview: 'Invoice received, thank you',
@@ -199,9 +199,9 @@ const INITIAL_CONTACTS: ContactThread[] = [
   {
     id: 'isha',
     initials: 'IV',
-    bg: '#E3DCFA',
+    bg: '#E5DEFF',
     channel: 'Instagram',
-    channelDot: 'bg-[#FF8A5B]',
+    channelDot: 'bg-[#D62976]',
     name: 'Isha Verma',
     handle: '@isha.v',
     preview: 'AI: It ships in 2 to 3 days',
@@ -415,22 +415,22 @@ export function InboxConsoleDemo() {
   return (
     <div className="relative mt-9 max-[720px]:mt-7">
       <div
-        className="bg-white border-[1.5px] border-[#0E1512] rounded-[22px] overflow-hidden shadow-[10px_10px_0_#0B3B2E] max-[720px]:shadow-[6px_6px_0_#0B3B2E]"
+        className="bg-white border border-[var(--border)] rounded-[20px] overflow-hidden shadow-[var(--shadow-card)]"
         aria-label="Interactive preview of the Parsona team inbox"
       >
         {/* Browser Bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#D9E1DB] bg-[#FAFBF9]">
-          <i className="w-[11px] h-[11px] rounded-full bg-[#D9E1DB]" />
-          <i className="w-[11px] h-[11px] rounded-full bg-[#D9E1DB]" />
-          <i className="w-[11px] h-[11px] rounded-full bg-[#D9E1DB]" />
-          <span className={`mx-auto ${MONO_FONT} text-[12px] text-[#52625A]`}>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)] bg-[var(--surface-secondary)]">
+          <i className="w-[10px] h-[10px] rounded-full bg-[var(--border-strong)]" />
+          <i className="w-[10px] h-[10px] rounded-full bg-[var(--border-strong)]" />
+          <i className="w-[10px] h-[10px] rounded-full bg-[var(--border-strong)]" />
+          <span className={`mx-auto ${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
             app.parsona.com/inbox
           </span>
           <button
             type="button"
             onClick={handleReset}
             title="Reset entire inbox demo"
-            className={`inline-flex items-center gap-1.5 ${MONO_FONT} text-[11px] font-medium text-[#0B3B2E] hover:text-[#0E1512] px-2.5 py-1 rounded-md border border-[#D9E1DB] bg-white hover:bg-[#E6F7EE] transition-colors cursor-pointer shrink-0`}
+            className={`inline-flex items-center gap-1.5 ${MONO_FONT} text-[11px] font-medium text-[var(--brand-primary)] hover:text-[var(--text-primary)] px-2.5 py-1 rounded-md border border-[var(--border)] bg-white hover:bg-[var(--surface-green)] transition-colors cursor-pointer shrink-0`}
           >
             <IconReset className="w-3 h-3" />
             <span>Reset</span>
@@ -439,21 +439,21 @@ export function InboxConsoleDemo() {
 
         <div className="grid grid-cols-[310px_minmax(0,1fr)_290px] min-h-[580px] max-[1100px]:grid-cols-[280px_minmax(0,1fr)] max-[720px]:grid-cols-1">
           {/* Left Conversation List (Desktop / Tablet) */}
-          <aside className="border-r border-[#D9E1DB] max-[720px]:hidden">
+          <aside className="border-r border-[var(--border)] max-[720px]:hidden">
             <div className="flex items-center justify-between px-[18px] pt-4 pb-3">
-              <b className={`${DISPLAY_FONT} text-[20px] tracking-[-0.02em]`}>Inbox</b>
+              <b className={`${DISPLAY_FONT} text-[19px] font-semibold tracking-[-0.02em] text-[var(--text-heading)]`}>Inbox</b>
               <span
-                className={`min-w-[20px] h-5 rounded-[10px] bg-[#D92D20] text-white ${MONO_FONT} font-medium text-[11px] inline-grid place-items-center px-[6px]`}
+                className={`min-w-[20px] h-5 rounded-full bg-[var(--error)] text-white ${MONO_FONT} font-medium text-[11px] inline-grid place-items-center px-[6px]`}
               >
                 11
               </span>
             </div>
             <div className={`flex gap-[6px] px-[18px] pb-3 ${MONO_FONT} font-medium text-[12px]`}>
-              <span className="px-[9px] py-[5px] rounded-[7px] bg-[#0E1512] text-white">Mine 3</span>
-              <span className="px-[9px] py-[5px] rounded-[7px] bg-[#F1F4F0] text-[#52625A]">
+              <span className="px-[9px] py-[5px] rounded-[8px] bg-[var(--brand-primary)] text-white">Mine 3</span>
+              <span className="px-[9px] py-[5px] rounded-[8px] bg-[var(--surface-secondary)] text-[var(--text-secondary)]">
                 Open 8
               </span>
-              <span className="px-[9px] py-[5px] rounded-[7px] bg-[#F1F4F0] text-[#52625A]">
+              <span className="px-[9px] py-[5px] rounded-[8px] bg-[var(--surface-lavender)] text-[var(--accent-text)]">
                 AI 41
               </span>
             </div>
@@ -465,12 +465,12 @@ export function InboxConsoleDemo() {
                   key={c.id}
                   type="button"
                   onClick={() => setActiveId(c.id)}
-                  className={`w-full text-left flex gap-3 px-[18px] py-[13px] border-t border-[#EDF1EC] items-center transition-colors cursor-pointer ${
-                    isSelected ? 'bg-[#E6F7EE]' : 'bg-white hover:bg-[#F6F8F5]'
+                  className={`w-full text-left flex gap-3 px-[18px] py-[13px] border-t border-[var(--border)] items-center transition-colors cursor-pointer ${
+                    isSelected ? 'bg-[var(--surface-green)]' : 'bg-white hover:bg-[var(--surface-secondary)]'
                   }`}
                 >
                   <div
-                    className="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 text-[#0E1512]"
+                    className="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 text-[var(--text-heading)]"
                     style={{ background: c.bg }}
                   >
                     {c.initials}
@@ -479,17 +479,17 @@ export function InboxConsoleDemo() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <b className="block text-[14.5px] leading-[1.25] text-[#0E1512]">{c.name}</b>
-                    <span className="block text-[13px] text-[#52625A] whitespace-nowrap overflow-hidden text-ellipsis">
+                    <b className="block text-[14.5px] leading-[1.25] text-[var(--text-heading)]">{c.name}</b>
+                    <span className="block text-[13px] text-[var(--text-secondary)] whitespace-nowrap overflow-hidden text-ellipsis">
                       {c.preview}
                     </span>
                   </div>
                   <div
-                    className={`grid justify-items-end gap-[5px] ${MONO_FONT} text-[11.5px] text-[#52625A]`}
+                    className={`grid justify-items-end gap-[5px] ${MONO_FONT} text-[11.5px] text-[var(--text-secondary)]`}
                   >
                     <span>{c.time}</span>
                     {c.unread && !isSelected && (
-                      <span className="min-w-[20px] h-5 rounded-[10px] bg-[#D92D20] text-white font-medium text-[11px] inline-grid place-items-center px-[6px]">
+                      <span className="min-w-[20px] h-5 rounded-full bg-[var(--error)] text-white font-medium text-[11px] inline-grid place-items-center px-[6px]">
                         {c.unread}
                       </span>
                     )}
@@ -500,12 +500,12 @@ export function InboxConsoleDemo() {
           </aside>
 
           {/* Center Interactive Thread */}
-          <div className="flex flex-col bg-[#F6F8F5] min-w-0">
+          <div className="flex flex-col bg-[var(--surface-secondary)] min-w-0">
             {/* Thread Header */}
-            <div className="flex items-center justify-between gap-3 px-5 max-[720px]:px-4 py-[14px] bg-white border-b border-[#D9E1DB]">
+            <div className="flex items-center justify-between gap-3 px-5 max-[720px]:px-4 py-[14px] bg-white border-b border-[var(--border)]">
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 text-[#0E1512]"
+                  className="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 text-[var(--text-heading)]"
                   style={{ background: contact.bg }}
                 >
                   {contact.initials}
@@ -514,10 +514,10 @@ export function InboxConsoleDemo() {
                   />
                 </div>
                 <div className="min-w-0">
-                  <b className="block text-[15.5px] leading-[1.2] text-[#0E1512] truncate">
+                  <b className="block text-[15.5px] leading-[1.2] text-[var(--text-heading)] truncate">
                     {contact.name}
                   </b>
-                  <small className={`block ${MONO_FONT} text-[12px] text-[#52625A] whitespace-nowrap truncate`}>
+                  <small className={`block ${MONO_FONT} text-[12px] text-[var(--text-secondary)] whitespace-nowrap truncate`}>
                     {contact.channel} · {contact.handle}
                   </small>
                 </div>
@@ -525,12 +525,12 @@ export function InboxConsoleDemo() {
 
               <div className="flex gap-1.5 flex-wrap justify-end shrink-0 max-[720px]:flex-col max-[720px]:items-end">
                 <span
-                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2 py-[3px] rounded-[6px] tracking-[0.02em] bg-[#0B3B2E] text-white whitespace-nowrap`}
+                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2.5 py-[3px] rounded-full tracking-[0.02em] bg-[var(--accent-primary)] text-[#30245A] whitespace-nowrap`}
                 >
                   {isTyping ? 'AI typing…' : 'AI active'}
                 </span>
                 <span
-                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2 py-[3px] rounded-[6px] tracking-[0.02em] bg-[#D4F5E3] text-[#0B5F37] whitespace-nowrap`}
+                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2.5 py-[3px] rounded-full tracking-[0.02em] bg-[var(--surface-green)] text-[var(--brand-primary)] whitespace-nowrap`}
                 >
                   Assigned: {contact.assignedTo}
                 </span>
@@ -547,7 +547,7 @@ export function InboxConsoleDemo() {
                   return (
                     <div
                       key={msg.id}
-                      className={`self-center text-center ${MONO_FONT} text-[11.5px] text-[#52625A] border border-dashed border-[#B3C1B8] rounded-lg px-[11px] py-[5px] bg-white`}
+                      className={`self-center text-center ${MONO_FONT} text-[11.5px] text-[var(--text-secondary)] border border-dashed border-[var(--border-strong)] rounded-lg px-[11px] py-[5px] bg-white`}
                     >
                       {msg.text}
                     </div>
@@ -558,20 +558,20 @@ export function InboxConsoleDemo() {
                   return (
                     <div
                       key={msg.id}
-                      className="max-w-[84%] max-[720px]:max-w-[94%] self-end bg-[#E6F7EE] border-[1.5px] border-[#1FD27A] rounded-[16px] rounded-tr-[4px] px-4 py-3 text-[14px]"
+                      className="max-w-[84%] max-[720px]:max-w-[94%] self-end bg-[var(--success-bg)] border border-[var(--success)]/30 rounded-[14px] rounded-tr-[4px] px-4 py-3 text-[14px]"
                     >
                       <span
-                        className={`flex items-center gap-1.5 ${MONO_FONT} font-semibold text-[11px] uppercase tracking-[0.05em] text-[#0B5F37] mb-1`}
+                        className={`flex items-center gap-1.5 ${MONO_FONT} font-semibold text-[11px] uppercase tracking-[0.05em] text-[var(--success)] mb-1`}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#1FD27A" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--success)" aria-hidden="true">
                           <circle cx="12" cy="12" r="10" />
-                          <path d="M8 12l3 3 5-6" stroke="#0E1512" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M8 12l3 3 5-6" stroke="#FFFFFF" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         {msg.who}
                       </span>
-                      <div className="font-semibold text-[#0E1512]">{msg.text}</div>
+                      <div className="font-semibold text-[var(--text-heading)]">{msg.text}</div>
                       {msg.meta && (
-                        <div className={`mt-1.5 pt-1.5 border-t border-[#1FD27A]/35 ${MONO_FONT} text-[11px] text-[#11503F]`}>
+                        <div className={`mt-1.5 pt-1.5 border-t border-[var(--success)]/20 ${MONO_FONT} text-[11px] text-[var(--brand-primary)]`}>
                           {msg.meta}
                         </div>
                       )}
@@ -583,7 +583,7 @@ export function InboxConsoleDemo() {
                   return (
                     <div
                       key={msg.id}
-                      className="max-w-[80%] max-[720px]:max-w-[90%] px-[15px] py-[11px] rounded-[16px] rounded-tl-[4px] text-[14.5px] leading-[1.45] bg-white border border-[#D9E1DB] self-start text-[#0E1512]"
+                      className="max-w-[80%] max-[720px]:max-w-[90%] px-[15px] py-[11px] rounded-[14px] rounded-tl-[4px] text-[14.5px] leading-[1.45] bg-white border border-[var(--border)] self-start text-[var(--text-body)]"
                     >
                       {msg.text}
                     </div>
@@ -593,11 +593,11 @@ export function InboxConsoleDemo() {
                 return (
                   <div
                     key={msg.id}
-                    className="max-w-[80%] max-[720px]:max-w-[90%] px-[15px] py-[11px] rounded-[16px] rounded-tr-[4px] text-[14.5px] leading-[1.45] bg-[#D4F5E3] border border-[#AEE8C9] self-end text-[#0E1512]"
+                    className="max-w-[80%] max-[720px]:max-w-[90%] px-[15px] py-[11px] rounded-[14px] rounded-tr-[4px] text-[14.5px] leading-[1.45] bg-[var(--surface-green)] border border-[var(--brand-primary)]/15 self-end text-[var(--text-primary)]"
                   >
                     {msg.who && (
                       <span
-                        className={`block ${MONO_FONT} font-medium text-[10.5px] tracking-[0.05em] uppercase text-[#0B3B2E] mb-1`}
+                        className={`block ${MONO_FONT} font-medium text-[10.5px] tracking-[0.05em] uppercase text-[var(--brand-primary)] mb-1`}
                       >
                         {msg.who}
                       </span>
@@ -609,15 +609,15 @@ export function InboxConsoleDemo() {
 
               {/* Interactive Order Confirm Step (Aanya flow) */}
               {contact.id === 'aanya' && aanyaOrderStep === 'ready' && !isTyping && (
-                <div className="max-w-[84%] max-[720px]:max-w-[94%] self-end bg-white border-[1.5px] border-[#0B3B2E] rounded-[16px] rounded-tr-[4px] p-3.5 shadow-[4px_4px_0_#D4F5E3]">
+                <div className="max-w-[84%] max-[720px]:max-w-[94%] self-end bg-white border border-[var(--border)] rounded-[14px] rounded-tr-[4px] p-3.5 shadow-[var(--shadow-card)]">
                   <div className="flex items-center justify-between gap-3 text-[13.5px] mb-2.5">
-                    <b className="text-[#0E1512]">Cotton Kurta Set (Size M)</b>
-                    <span className={`${MONO_FONT} font-semibold text-[#0B5F37]`}>₹2,490 · COD</span>
+                    <b className="text-[var(--text-heading)]">Cotton Kurta Set (Size M)</b>
+                    <span className={`${MONO_FONT} font-semibold text-[var(--brand-primary)]`}>₹2,490 · COD</span>
                   </div>
                   <button
                     type="button"
                     onClick={handleConfirmOrder}
-                    className={`${BTN_GREEN} w-full !h-9 !text-[13px] !rounded-[10px] cursor-pointer`}
+                    className="w-full h-9 text-[13px] rounded-[10px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] text-white font-semibold transition-colors cursor-pointer"
                   >
                     Confirm COD Order &amp; Send Tracking
                   </button>
@@ -627,17 +627,17 @@ export function InboxConsoleDemo() {
               {/* Typing Indicator */}
               {isTyping && (
                 <div
-                  className="self-start flex gap-1 px-[14px] py-3 bg-white border border-[#D9E1DB] rounded-[16px] rounded-tl-[4px]"
+                  className="self-start flex gap-1 px-[14px] py-3 bg-white border border-[var(--border)] rounded-[14px] rounded-tl-[4px]"
                   role="status"
                   aria-label="Parsona AI is typing"
                 >
-                  <i className="w-[6px] h-[6px] rounded-full bg-[#98A89F] animate-[landing-blink_1.2s_infinite]" />
+                  <i className="w-[6px] h-[6px] rounded-full bg-[var(--text-muted)] animate-[landing-blink_1.2s_infinite]" />
                   <i
-                    className="w-[6px] h-[6px] rounded-full bg-[#98A89F] animate-[landing-blink_1.2s_infinite]"
+                    className="w-[6px] h-[6px] rounded-full bg-[var(--text-muted)] animate-[landing-blink_1.2s_infinite]"
                     style={{ animationDelay: '0.15s' }}
                   />
                   <i
-                    className="w-[6px] h-[6px] rounded-full bg-[#98A89F] animate-[landing-blink_1.2s_infinite]"
+                    className="w-[6px] h-[6px] rounded-full bg-[var(--text-muted)] animate-[landing-blink_1.2s_infinite]"
                     style={{ animationDelay: '0.3s' }}
                   />
                 </div>
@@ -645,9 +645,9 @@ export function InboxConsoleDemo() {
             </div>
 
             {/* Quick Q&A Chips + Interactive Input Bar */}
-            <div className="bg-white border-t border-[#D9E1DB] px-5 max-[720px]:px-4 pt-2.5 pb-3.5 space-y-2.5">
+            <div className="bg-white border-t border-[var(--border)] px-5 max-[720px]:px-4 pt-2.5 pb-3.5 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className={`${MONO_FONT} text-[10.5px] uppercase tracking-[0.05em] text-[#52625A]`}>
+                <span className={`${MONO_FONT} text-[10.5px] uppercase tracking-[0.05em] text-[var(--text-secondary)]`}>
                   Try asking:
                 </span>
                 <button
@@ -655,8 +655,8 @@ export function InboxConsoleDemo() {
                   onClick={handleResetConversation}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full border ${MONO_FONT} text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
                     hasConversationChanged
-                      ? 'bg-[#E6F7EE] border-[#1FD27A] text-[#0B3B2E] hover:bg-[#D4F5E3]'
-                      : 'bg-[#F3F5F0] border-[#D9E1DB] text-[#52625A] hover:bg-[#DCE7DF] hover:text-[#0B3B2E]'
+                      ? 'bg-[var(--surface-green)] border-[var(--brand-primary)]/30 text-[var(--brand-primary)] hover:bg-[var(--surface-green)]'
+                      : 'bg-[var(--surface-secondary)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-green)] hover:text-[var(--brand-primary)]'
                   }`}
                 >
                   <IconReset className="w-3 h-3" />
@@ -671,7 +671,7 @@ export function InboxConsoleDemo() {
                     type="button"
                     disabled={isTyping}
                     onClick={() => handleAskQuestion(q)}
-                    className={`whitespace-nowrap px-2.5 py-1 rounded-full bg-[#F3F5F0] hover:bg-[#DCE7DF] border border-[#D9E1DB] ${MONO_FONT} text-[11.5px] font-medium text-[#0B3B2E] transition-colors cursor-pointer disabled:opacity-50`}
+                    className={`whitespace-nowrap px-2.5 py-1 rounded-full bg-[var(--surface-secondary)] hover:bg-[var(--surface-green)] border border-[var(--border)] ${MONO_FONT} text-[11.5px] font-medium text-[var(--brand-primary)] transition-colors cursor-pointer disabled:opacity-50`}
                   >
                     {q}
                   </button>
@@ -692,12 +692,12 @@ export function InboxConsoleDemo() {
                   maxLength={260}
                   placeholder="Ask a customer question to test Parsona AI…"
                   aria-label="Ask Parsona AI a question"
-                  className="flex-1 min-w-0 h-10 rounded-[10px] border-[1.5px] border-[#D9E1DB] focus:border-[#0B3B2E] bg-[#FAFBF9] focus:bg-white px-3.5 text-[14px] text-[#0E1512] placeholder:text-[#7B8A82] focus:outline-none transition-colors"
+                  className="flex-1 min-w-0 h-10 rounded-[10px] border border-[var(--border)] focus:border-[var(--brand-primary)] bg-white px-3.5 text-[14px] text-[var(--text-body)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:ring-3 focus:ring-[var(--focus-ring)]/15 transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={isTyping || !inputValue.trim()}
-                  className="inline-flex items-center justify-center h-10 px-4 rounded-[10px] bg-[#0E1512] hover:bg-[#11503F] text-white font-semibold text-[13.5px] transition-colors cursor-pointer disabled:opacity-45 shrink-0"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-[10px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[13.5px] transition-colors cursor-pointer disabled:opacity-45 shrink-0"
                 >
                   Ask AI
                 </button>
@@ -706,19 +706,19 @@ export function InboxConsoleDemo() {
           </div>
 
           {/* Right Customer Profile (Desktop) */}
-          <aside className="border-l border-[#D9E1DB] px-5 py-[22px] flex flex-col gap-[18px] max-[1100px]:hidden">
+          <aside className="border-l border-[var(--border)] px-5 py-[22px] flex flex-col gap-[18px] max-[1100px]:hidden">
             <div className="flex items-center gap-3">
               <div
-                className="w-12 h-12 rounded-full grid place-items-center font-bold text-[15px] shrink-0 text-[#0E1512]"
+                className="w-12 h-12 rounded-full grid place-items-center font-bold text-[15px] shrink-0 text-[var(--text-heading)]"
                 style={{ background: contact.bg }}
               >
                 {contact.initials}
               </div>
               <div>
-                <b className={`block ${DISPLAY_FONT} text-[18px] tracking-[-0.02em] leading-[1.15]`}>
+                <b className={`block ${DISPLAY_FONT} text-[17px] font-semibold tracking-[-0.02em] leading-[1.15] text-[var(--text-heading)]`}>
                   {contact.name}
                 </b>
-                <small className={`${MONO_FONT} text-[12px] text-[#52625A]`}>
+                <small className={`${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
                   Customer since {contact.since}
                 </small>
               </div>
@@ -728,8 +728,8 @@ export function InboxConsoleDemo() {
               {contact.tags.map((tag) => (
                 <span
                   key={tag.label}
-                  className={`${MONO_FONT} font-medium text-[12px] px-[9px] py-1 rounded-[7px] ${
-                    tag.hot ? 'bg-[#FFE1D6] text-[#8A3A12]' : 'bg-[#DCE7DF] text-[#0B3B2E]'
+                  className={`${MONO_FONT} font-medium text-[12px] px-[9px] py-1 rounded-full ${
+                    tag.hot ? 'bg-[var(--surface-lavender)] text-[var(--accent-text)]' : 'bg-[var(--surface-green)] text-[var(--brand-primary)]'
                   }`}
                 >
                   {tag.label}
@@ -738,34 +738,34 @@ export function InboxConsoleDemo() {
             </div>
 
             <div className="grid grid-cols-2 gap-[10px]">
-              <div className="bg-[#F4F7F3] rounded-[12px] px-3 py-[11px]">
-                <small className={`block ${MONO_FONT} text-[11px] text-[#52625A]`}>
+              <div className="bg-[var(--surface-secondary)] rounded-[12px] px-3 py-[11px]">
+                <small className={`block ${MONO_FONT} text-[11px] text-[var(--text-secondary)]`}>
                   Lifetime value
                 </small>
-                <b className={`${DISPLAY_FONT} text-[20px] tracking-[-0.03em]`}>{displayLtv}</b>
+                <b className={`${DISPLAY_FONT} text-[19px] font-semibold tracking-[-0.03em] text-[var(--text-heading)]`}>{displayLtv}</b>
               </div>
-              <div className="bg-[#F4F7F3] rounded-[12px] px-3 py-[11px]">
-                <small className={`block ${MONO_FONT} text-[11px] text-[#52625A]`}>Orders</small>
-                <b className={`${DISPLAY_FONT} text-[20px] tracking-[-0.03em]`}>{displayOrders}</b>
+              <div className="bg-[var(--surface-secondary)] rounded-[12px] px-3 py-[11px]">
+                <small className={`block ${MONO_FONT} text-[11px] text-[var(--text-secondary)]`}>Orders</small>
+                <b className={`${DISPLAY_FONT} text-[19px] font-semibold tracking-[-0.03em] text-[var(--text-heading)]`}>{displayOrders}</b>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-[10px]">
-              <div className="bg-[#F4F7F3] rounded-[12px] px-3 py-[11px]">
-                <small className={`block ${MONO_FONT} text-[11px] text-[#52625A]`}>Stage</small>
-                <b className={`${DISPLAY_FONT} text-[16px] tracking-[-0.03em]`}>{displayStage}</b>
+              <div className="bg-[var(--surface-secondary)] rounded-[12px] px-3 py-[11px]">
+                <small className={`block ${MONO_FONT} text-[11px] text-[var(--text-secondary)]`}>Stage</small>
+                <b className={`${DISPLAY_FONT} text-[15px] font-semibold tracking-[-0.02em] text-[var(--text-heading)]`}>{displayStage}</b>
               </div>
-              <div className="bg-[#F4F7F3] rounded-[12px] px-3 py-[11px]">
-                <small className={`block ${MONO_FONT} text-[11px] text-[#52625A]`}>Returns</small>
-                <b className={`${DISPLAY_FONT} text-[20px] tracking-[-0.03em]`}>
+              <div className="bg-[var(--surface-secondary)] rounded-[12px] px-3 py-[11px]">
+                <small className={`block ${MONO_FONT} text-[11px] text-[var(--text-secondary)]`}>Returns</small>
+                <b className={`${DISPLAY_FONT} text-[19px] font-semibold tracking-[-0.03em] text-[var(--text-heading)]`}>
                   {contact.returns}
                 </b>
               </div>
             </div>
 
-            <div className="text-[13.5px] leading-[1.5] text-[#2A3731] border-t border-[#D9E1DB] pt-[14px]">
+            <div className="text-[13.5px] leading-[1.5] text-[var(--text-body)] border-t border-[var(--border)] pt-[14px]">
               <small
-                className={`block ${MONO_FONT} font-medium text-[10.5px] tracking-[0.06em] uppercase text-[#0B3B2E] mb-[6px]`}
+                className={`block ${MONO_FONT} font-medium text-[10.5px] tracking-[0.06em] uppercase text-[var(--brand-primary)] mb-[6px]`}
               >
                 AI summary
               </small>

@@ -216,8 +216,8 @@ export default function TermsPage() {
     <LegalPageShell
       activePath="/terms"
       badgeLabel="Terms & Conditions"
-      badgeBgClass="bg-[#E5DEFF]"
-      badgeDotClass="bg-[#7C5CFF]"
+      badgeBgClass="bg-white"
+      badgeDotClass="bg-[var(--brand-primary)]"
       title="Terms & Conditions"
       subtitle="Clear, fair software terms for startups and businesses using Parsona — covering pre-launch waitlist access, Meta & TRAI messaging rules, INR/GST billing, and Indian law."
       lastUpdated="November 2026"

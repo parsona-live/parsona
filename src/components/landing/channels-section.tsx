@@ -15,7 +15,7 @@ const iconProps = {
   height: 22,
   viewBox: '0 0 24 24',
   fill: 'none',
-  stroke: '#0E1512',
+  stroke: '#0B3B2E',
   strokeWidth: 2,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
@@ -34,8 +34,8 @@ const CHANNELS: {
     name: 'WhatsApp',
     description:
       'Official Business API with approved templates, appointment reminders, service lists and click-to-chat links.',
-    borderClass: 'border-l-[5px] border-l-[#1FD27A]',
-    iconBg: 'bg-[#D4F5E3]',
+    borderClass: 'border-l-[4px] border-l-[var(--brand-primary)]',
+    iconBg: 'bg-[var(--surface-green)]',
     icon: (
       <svg {...iconProps}>
         <path d="M21 11.5a8.4 8.4 0 01-12.3 7.4L3 20.5l1.7-5.5A8.4 8.4 0 1121 11.5z" />
@@ -46,13 +46,13 @@ const CHANNELS: {
     name: 'Instagram',
     description:
       'DMs, story replies and comment-to-DM flows that start the moment someone types a keyword.',
-    borderClass: 'border-l-[5px] border-l-[#FF8A5B]',
-    iconBg: 'bg-[#FFE1D6]',
+    borderClass: 'border-l-[4px] border-l-[var(--border-dark)]',
+    iconBg: 'bg-[var(--surface-secondary)]',
     icon: (
-      <svg {...iconProps}>
+      <svg {...iconProps} stroke="#080808">
         <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
         <circle cx="12" cy="12" r="4" />
-        <circle cx="17" cy="7" r="1" fill="#0E1512" />
+        <circle cx="17" cy="7" r="1" fill="#080808" />
       </svg>
     ),
   },
@@ -60,10 +60,10 @@ const CHANNELS: {
     name: 'Facebook',
     description:
       'Messenger, page comments and click-to-Messenger ad replies, routed to the right teammate.',
-    borderClass: 'border-l-[5px] border-l-[#4C8DF0]',
-    iconBg: 'bg-[#D9E6FB]',
+    borderClass: 'border-l-[4px] border-l-[var(--text-secondary)]',
+    iconBg: 'bg-[var(--surface-secondary)]',
     icon: (
-      <svg {...iconProps}>
+      <svg {...iconProps} stroke="#080808">
         <path d="M12 3C6.8 3 3 6.6 3 11.2c0 2.6 1.3 4.8 3.3 6.3V21l3.2-1.8c.8.2 1.6.3 2.5.3 5.2 0 9-3.6 9-8.2S17.2 3 12 3z" />
       </svg>
     ),
@@ -72,11 +72,11 @@ const CHANNELS: {
     name: 'Voice',
     description:
       'A voice AI agent that answers calls, books and reschedules, then hands off to your team. Every call is saved on the same customer record.',
-    borderClass: 'border-l-[5px] border-l-[#F4A7C8]',
-    iconBg: 'bg-[#FBD9E8]',
+    borderClass: 'border-l-[4px] border-l-[var(--accent-primary)]',
+    iconBg: 'bg-[var(--surface-lavender)]',
     soon: true,
     icon: (
-      <svg {...iconProps}>
+      <svg {...iconProps} stroke="#43336F">
         <path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z" />
       </svg>
     ),
@@ -84,10 +84,10 @@ const CHANNELS: {
 ]
 
 const TAGS: Record<ChannelName, { dot: string; tag: string }> = {
-  Instagram: { dot: 'bg-[#FF8A5B]', tag: 'bg-[#FFE1D6] text-[#8A3A12]' },
-  WhatsApp: { dot: 'bg-[#1FD27A]', tag: 'bg-[#D4F5E3] text-[#0B5F37]' },
-  Facebook: { dot: 'bg-[#4C8DF0]', tag: 'bg-[#D9E6FB] text-[#1F4F94]' },
-  Voice: { dot: 'bg-[#F4A7C8]', tag: 'bg-[#FBD9E8] text-[#8A2A5B]' },
+  Instagram: { dot: 'bg-[#080808]', tag: 'bg-[var(--surface-secondary)] text-[var(--text-body)]' },
+  WhatsApp: { dot: 'bg-[#25D366]', tag: 'bg-[var(--surface-green)] text-[var(--brand-primary)]' },
+  Facebook: { dot: 'bg-[#1877F2]', tag: 'bg-[var(--info-bg)] text-[var(--info)]' },
+  Voice: { dot: 'bg-[var(--accent-primary)]', tag: 'bg-[var(--surface-lavender)] text-[var(--accent-text)]' },
 }
 
 const TIMELINE_EVENTS: {
@@ -191,21 +191,21 @@ export function ChannelsSection() {
     <section id="channels" className="pt-[120px] max-[980px]:pt-[88px]">
       <style>{KEYFRAMES}</style>
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
-        <SectionPill label="Channels" count={CHANNELS.length} bgClass="bg-[#D4F5E3]" dotClass="bg-[#1FD27A]" />
+        <SectionPill label="Channels" count={CHANNELS.length} />
 
         <div>
           <div className="max-w-[820px] mx-auto text-center">
             <h2
-              className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
+              className={`${DISPLAY_FONT} text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-balance text-[var(--text-heading)]`}
             >
               <TextReveal text="One customer. Three apps and a phone line." />
               <br />
-              <HighlightBubble bgClass="bg-[#1FD27A]" delay={0.28}>
+              <HighlightBubble bgClass="bg-[var(--surface-green)] text-[var(--brand-primary)]" delay={0.28}>
                 One timeline.
               </HighlightBubble>
             </h2>
             <FadeUp delay={0.18} distance={14}>
-              <p className="mt-5 text-[19px] max-[720px]:text-[17px] text-[#52625A] max-w-[560px] mx-auto">
+              <p className="mt-5 text-[18px] max-[720px]:text-[17px] text-[var(--text-body)] max-w-[560px] mx-auto leading-[1.6]">
                 People do not stay on one channel, so your records should not either. Parsona merges
                 every message, comment, order and, soon, every call into a single history per customer.
               </p>
@@ -215,13 +215,13 @@ export function ChannelsSection() {
           <div className="grid grid-cols-[1fr_1.05fr] gap-14 max-[980px]:gap-8 mt-14 max-[720px]:mt-8 items-start max-[980px]:grid-cols-1">
             {/* Channel list */}
             <div>
-              <ul ref={listRef} className="grid gap-0 border-t-[1.5px] border-[#0E1512]">
+              <ul ref={listRef} className="grid gap-3">
                 {CHANNELS.map((ch, i) => {
                   const pressed = focus === ch.name
                   return (
                     <li
                       key={ch.name}
-                      className={`border-b border-[#D9E1DB] ${ch.borderClass} ${rise(listIn)}`}
+                      className={`rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)] overflow-hidden ${ch.borderClass} ${rise(listIn)}`}
                       style={{ animationDelay: `${i * 100}ms` }}
                     >
                       <button
@@ -232,38 +232,38 @@ export function ChannelsSection() {
                         onMouseLeave={() => setFocus(null)}
                         onFocus={() => setFocus(ch.name)}
                         onBlur={() => setFocus(null)}
-                        className={`w-full text-left py-5 pl-4 pr-3 max-[720px]:py-4 grid grid-cols-[44px_1fr] gap-4 cursor-pointer transition-colors duration-200 focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:-outline-offset-2 ${
-                          pressed ? 'bg-[#F6F8F5]' : 'hover:bg-[#F6F8F5]'
+                        className={`w-full text-left py-4 px-4 grid grid-cols-[44px_1fr] gap-4 cursor-pointer transition-colors duration-200 focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:-outline-offset-2 ${
+                          pressed ? 'bg-[var(--surface-secondary)]' : 'hover:bg-[var(--surface-secondary)]'
                         }`}
                       >
                         <span className={`relative w-11 h-11 rounded-[12px] grid place-items-center ${ch.iconBg}`}>
                           {ch.soon && (
                             <span
                               aria-hidden="true"
-                              className="absolute inset-0 rounded-[12px] bg-[#F4A7C8] animate-[channels-ping_2s_ease-out_infinite] motion-reduce:animate-none"
+                              className="absolute inset-0 rounded-[12px] bg-[var(--accent-primary)] animate-[channels-ping_2s_ease-out_infinite] motion-reduce:animate-none"
                             />
                           )}
                           <span className="relative">{ch.icon}</span>
                         </span>
                         <span className="block">
-                          <b className={`block ${DISPLAY_FONT} text-[21px] tracking-[-0.02em] leading-[1.2]`}>
+                          <b className={`block ${DISPLAY_FONT} text-[20px] tracking-[-0.02em] leading-[1.2] text-[var(--text-heading)]`}>
                             {ch.name}
                             {ch.soon && (
                               <em
-                                className={`ml-2 align-middle not-italic ${MONO_FONT} font-medium text-[10px] tracking-[0.05em] uppercase px-[7px] py-[2px] rounded-[6px] bg-[#E5DEFF] text-[#3B2A8C]`}
+                                className={`ml-2 align-middle not-italic ${MONO_FONT} font-medium text-[10px] tracking-[0.05em] uppercase px-[8px] py-[2px] rounded-full bg-[var(--surface-lavender)] text-[var(--accent-text)]`}
                               >
                                 Coming soon
                               </em>
                             )}
                           </b>
-                          <span className="block text-[15px] text-[#52625A]">{ch.description}</span>
+                          <span className="block text-[15px] text-[var(--text-secondary)] mt-1">{ch.description}</span>
                         </span>
                       </button>
                     </li>
                   )
                 })}
               </ul>
-              <p className={`mt-3 ${MONO_FONT} text-[12px] text-[#52625A]`}>
+              <p className={`mt-3 ${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
                 Hover or tap a channel to highlight its activity in the timeline.
               </p>
             </div>
@@ -271,12 +271,12 @@ export function ChannelsSection() {
             {/* Customer timeline */}
             <div
               ref={tlRef}
-              className="bg-white border-[1.5px] border-[#0E1512] rounded-[22px] pt-7 px-7 pb-2 max-[720px]:pt-[22px] max-[720px]:px-5 max-[720px]:pb-1 shadow-[8px_8px_0_#DCE7DF] max-[720px]:shadow-[5px_5px_0_#DCE7DF]"
+              className="bg-white border border-[var(--border)] rounded-[20px] pt-7 px-7 pb-2 max-[720px]:pt-[22px] max-[720px]:px-5 max-[720px]:pb-1 shadow-[var(--shadow-card)]"
             >
-              <div className="flex justify-between items-center gap-3 flex-wrap pb-[18px] border-b border-[#D9E1DB]">
-                <b className={`${DISPLAY_FONT} text-[22px] tracking-[-0.025em]`}>Aanya Sharma</b>
+              <div className="flex justify-between items-center gap-3 flex-wrap pb-[18px] border-b border-[var(--border)]">
+                <b className={`${DISPLAY_FONT} text-[22px] tracking-[-0.025em] text-[var(--text-heading)]`}>Aanya Sharma</b>
                 <span
-                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2 py-[3px] rounded-[6px] tracking-[0.02em] bg-[#0B3B2E] text-white`}
+                  className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2.5 py-[3px] rounded-full tracking-[0.02em] bg-[var(--brand-primary)] text-white`}
                 >
                   3 apps + voice · 1 history
                 </span>
@@ -286,7 +286,7 @@ export function ChannelsSection() {
                 {/* The vertical line draws itself downward */}
                 <span
                   aria-hidden="true"
-                  className={`absolute left-[11px] top-[22px] bottom-[22px] w-[2px] bg-[#D9E1DB] origin-top ${
+                  className={`absolute left-[11px] top-[22px] bottom-[22px] w-[2px] bg-[var(--border)] origin-top ${
                     tlIn
                       ? 'animate-[channels-line_1.1s_ease-out_both] motion-reduce:animate-none'
                       : 'scale-y-0 motion-reduce:scale-y-100'
@@ -307,7 +307,7 @@ export function ChannelsSection() {
                         }`}
                       >
                         <span
-                          className={`absolute left-[3px] top-5 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1.5px_#0E1512] ${t.dot} ${
+                          className={`absolute left-[3px] top-5 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1px_var(--border-strong)] ${t.dot} ${
                             ev.preview ? 'border-dashed' : ''
                           } ${
                             tlIn
@@ -317,13 +317,13 @@ export function ChannelsSection() {
                           style={{ animationDelay: `${150 + idx * 140}ms` }}
                           aria-hidden="true"
                         />
-                        <time className={`${MONO_FONT} text-[12px] text-[#52625A]`}>
+                        <time className={`${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
                           {ev.time}
                           {ev.preview && ' · Preview'}
                         </time>
-                        <p className="text-[15px] mt-[2px]">
+                        <p className="text-[15px] text-[var(--text-body)] mt-[2px]">
                           <span
-                            className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2 py-[3px] rounded-[6px] mr-[6px] tracking-[0.02em] ${t.tag}`}
+                            className={`inline-block ${MONO_FONT} font-medium text-[11px] px-2 py-[2px] rounded-full mr-[6px] tracking-[0.02em] ${t.tag}`}
                           >
                             {ev.channel}
                           </span>

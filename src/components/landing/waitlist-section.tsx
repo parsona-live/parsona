@@ -152,33 +152,33 @@ export function WaitlistSection() {
   }
 
   const inputBase =
-    'w-full h-[52px] border-[1.5px] rounded-[12px] px-4 font-medium text-[16px] bg-[#F8FAF7] text-[#0E1512] focus:outline-[3px] focus:outline-[#1B6A55] focus:outline-offset-[2px] focus:bg-white disabled:opacity-60'
+    'w-full h-[46px] border rounded-[10px] px-4 font-normal text-[16px] max-[720px]:text-[15px] bg-white text-[var(--text-body)] placeholder:text-[var(--text-placeholder)] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-3 focus:ring-[var(--focus-ring)]/15 disabled:opacity-60 transition-colors'
 
   return (
     <section id="waitlist" className="pt-[120px] max-[980px]:pt-[88px]">
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
-        <SectionPill label="Waitlist" bgClass="bg-[#FFE1D6]" dotClass="bg-[#FF8A5B]" />
+        <SectionPill label="Waitlist" />
 
         <div>
           <div className="max-w-[820px] mx-auto text-center">
             <h2
-              className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
+              className={`${DISPLAY_FONT} text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-balance text-[var(--text-heading)]`}
             >
               <TextReveal text="Get early access." />
               <br />
-              <HighlightBubble bgClass="bg-[#FFB99A]" delay={0.18}>
+              <HighlightBubble bgClass="bg-[var(--accent-primary)] text-[#30245A]" delay={0.18}>
                 Join the waitlist.
               </HighlightBubble>
             </h2>
             <FadeUp delay={0.16} distance={14}>
-              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+              <p className="mt-5 text-[18px] max-[720px]:text-[17px] text-[var(--text-body)] max-w-[560px] mx-auto leading-[1.6]">
                 Leave your details and we will email you as soon as your invite is ready.
               </p>
             </FadeUp>
           </div>
 
           <FadeUp delay={0.14} distance={24}>
-            <div className="mt-12 mx-auto max-w-[640px] bg-white border-[1.5px] border-[#0E1512] rounded-[24px] p-8 max-[720px]:px-5 max-[720px]:py-6 shadow-[8px_8px_0_#1FD27A] max-[720px]:shadow-[5px_5px_0_#1FD27A]">
+            <div className="mt-12 mx-auto max-w-[640px] bg-white border border-[var(--border)] rounded-[20px] p-8 max-[720px]:px-5 max-[720px]:py-6 shadow-[var(--shadow-card)]">
               {!wlSubmitted ? (
                 <form id="wl-form" noValidate onSubmit={handleWaitlistSubmit}>
                   {/* Hidden honeypot field to filter automated bots */}
@@ -196,7 +196,7 @@ export function WaitlistSection() {
                   <div className="mb-[18px]">
                     <label
                       htmlFor="wl-name"
-                      className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2`}
+                      className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[var(--text-secondary)] mb-2`}
                     >
                       Full name
                     </label>
@@ -221,12 +221,12 @@ export function WaitlistSection() {
                         }
                       }}
                       aria-invalid={!!wlErrors.name}
-                      className={`${inputBase} ${wlErrors.name ? 'border-[#D92D20]' : 'border-[#0E1512]'}`}
+                      className={`${inputBase} ${wlErrors.name ? 'border-[var(--error)]' : 'border-[var(--border)]'}`}
                     />
                     <div
                       id="wl-name-e"
                       aria-live="polite"
-                      className={`text-[#D92D20] ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
+                      className={`text-[var(--error)] ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
                     >
                       {wlErrors.name}
                     </div>
@@ -236,7 +236,7 @@ export function WaitlistSection() {
                     <div className="mb-[18px]">
                       <label
                         htmlFor="wl-email"
-                        className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2`}
+                        className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[var(--text-secondary)] mb-2`}
                       >
                         Email
                       </label>
@@ -264,15 +264,15 @@ export function WaitlistSection() {
                         className={`${inputBase} ${
                           wlErrors.email
                             ? wlErrors.duplicate
-                              ? 'border-[#D97706]'
-                              : 'border-[#D92D20]'
-                            : 'border-[#0E1512]'
+                              ? 'border-[var(--warning)]'
+                              : 'border-[var(--error)]'
+                            : 'border-[var(--border)]'
                         }`}
                       />
                       <div
                         id="wl-email-e"
                         aria-live="polite"
-                        className={`${wlErrors.duplicate ? 'text-[#B45309]' : 'text-[#D92D20]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
+                        className={`${wlErrors.duplicate ? 'text-[var(--warning)]' : 'text-[var(--error)]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
                       >
                         {wlErrors.email}
                       </div>
@@ -281,7 +281,7 @@ export function WaitlistSection() {
                     <div className="mb-[18px]">
                       <label
                         htmlFor="wl-phone"
-                        className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2`}
+                        className={`block ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase text-[var(--text-secondary)] mb-2`}
                       >
                         WhatsApp number
                       </label>
@@ -309,15 +309,15 @@ export function WaitlistSection() {
                         className={`${inputBase} ${
                           wlErrors.phone
                             ? wlErrors.duplicate
-                              ? 'border-[#D97706]'
-                              : 'border-[#D92D20]'
-                            : 'border-[#0E1512]'
+                              ? 'border-[var(--warning)]'
+                              : 'border-[var(--error)]'
+                            : 'border-[var(--border)]'
                         }`}
                       />
                       <div
                         id="wl-phone-e"
                         aria-live="polite"
-                        className={`${wlErrors.duplicate ? 'text-[#B45309]' : 'text-[#D92D20]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
+                        className={`${wlErrors.duplicate ? 'text-[var(--warning)]' : 'text-[var(--error)]'} ${MONO_FONT} text-[12px] mt-[6px] min-h-[16px]`}
                       >
                         {wlErrors.phone}
                       </div>
@@ -329,8 +329,8 @@ export function WaitlistSection() {
                       role="alert"
                       className={`mb-4 rounded-[12px] border px-4 py-3 text-[13.5px] leading-[1.45] ${
                         wlErrors.duplicate
-                          ? 'border-[#F59E0B]/50 bg-[#FFFBEB] text-[#92400E]'
-                          : 'border-[#D92D20]/40 bg-[#FEF3F2] text-[#B42318]'
+                          ? 'border-[var(--warning)]/35 bg-[var(--warning-bg)] text-[var(--warning)]'
+                          : 'border-[var(--error)]/35 bg-[var(--error-bg)] text-[var(--error)]'
                       }`}
                     >
                       {wlErrors.form}
@@ -340,7 +340,7 @@ export function WaitlistSection() {
                   <button
                     type="submit"
                     disabled={wlSubmitting}
-                    className={`${BTN_DARK} w-full !h-[54px] !text-[16px] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed`}
+                    className={`${BTN_DARK} w-full !h-[48px] !text-[15px] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed`}
                   >
                     {wlSubmitting ? (
                       <>
@@ -355,20 +355,20 @@ export function WaitlistSection() {
                     )}
                   </button>
                   <p
-                    className={`${MONO_FONT} text-[12px] text-[#52625A] text-center mt-[14px] leading-[1.6]`}
+                    className={`${MONO_FONT} text-[12px] text-[var(--text-secondary)] text-center mt-[14px] leading-[1.6]`}
                   >
                     No spam. Only your invite and product updates. By joining, you agree to our{' '}
-                    <Link href="/terms" className="underline text-[#0B3B2E] hover:text-[#11503F]">
+                    <Link href="/terms" className="underline text-[var(--brand-primary)] hover:text-[var(--brand-hover)]">
                       Terms
                     </Link>
                     ,{' '}
-                    <Link href="/privacy" className="underline text-[#0B3B2E] hover:text-[#11503F]">
+                    <Link href="/privacy" className="underline text-[var(--brand-primary)] hover:text-[var(--brand-hover)]">
                       Privacy Policy
                     </Link>{' '}
                     &amp;{' '}
                     <Link
                       href="/data-policy"
-                      className="underline text-[#0B3B2E] hover:text-[#11503F]"
+                      className="underline text-[var(--brand-primary)] hover:text-[var(--brand-hover)]"
                     >
                       Data Policy
                     </Link>
@@ -383,13 +383,13 @@ export function WaitlistSection() {
                   transition={{ duration: 0.42, ease: EASE }}
                   className="text-center py-5"
                 >
-                  <div className="w-16 h-16 rounded-full bg-[#1FD27A] grid place-items-center mx-auto mb-[18px] border-[1.5px] border-[#0E1512]">
+                  <div className="w-14 h-14 rounded-full bg-[var(--success-bg)] grid place-items-center mx-auto mb-[18px] border border-[var(--success)]/25">
                     <svg
-                      width="28"
-                      height="28"
+                      width="26"
+                      height="26"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#0E1512"
+                      stroke="var(--success)"
                       strokeWidth="2.6"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -399,11 +399,11 @@ export function WaitlistSection() {
                     </svg>
                   </div>
                   <h3
-                    className={`${DISPLAY_FONT} text-[30px] font-bold tracking-[-0.035em] leading-[1.02]`}
+                    className={`${DISPLAY_FONT} text-[28px] font-semibold tracking-[-0.03em] leading-[1.1] text-[var(--text-heading)]`}
                   >
                     You’re on the list, <span id="wl-first">{wlFirstName}</span>.
                   </h3>
-                  <p className="text-[#52625A] mt-[10px]">
+                  <p className="text-[var(--text-secondary)] mt-[10px]">
                     We’ve saved your spot and will email you when your invite is ready.
                   </p>
                 </motion.div>

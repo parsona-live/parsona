@@ -45,41 +45,39 @@ export function FaqSection() {
         <SectionPill
           label="Questions"
           count={FAQ_ITEMS.length}
-          bgClass="bg-[#FFE9A8]"
-          dotClass="bg-[#F2B233]"
         />
 
         <div>
           <div className="max-w-[820px] mx-auto text-center mb-10">
             <h2
-              className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
+              className={`${DISPLAY_FONT} text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-balance text-[var(--text-heading)]`}
             >
               <TextReveal text="Before you" />
               <br />
-              <HighlightBubble bgClass="bg-[#FFD97A]" delay={0.18}>
+              <HighlightBubble bgClass="bg-[var(--surface-green)] text-[var(--brand-primary)]" delay={0.18}>
                 join the waitlist.
               </HighlightBubble>
             </h2>
           </div>
 
-          <StaggerGroup className="border-t-[1.5px] border-[#0E1512]" stagger={0.06}>
+          <StaggerGroup className="bg-white border border-[var(--border)] rounded-[18px] px-8 max-[720px]:px-5 shadow-[var(--shadow-card)]" stagger={0.06}>
             {FAQ_ITEMS.map((item, idx) => {
               const isOpen = openIndex === idx
               return (
                 <StaggerItem key={item.q}>
-                  <div className="border-b border-[#D9E1DB] py-6">
+                  <div className={`${idx > 0 ? 'border-t border-[var(--border)]' : ''} py-6`}>
                     <button
                       type="button"
                       aria-expanded={isOpen}
                       onClick={() => setOpenIndex(isOpen ? null : idx)}
-                      className={`w-full text-left cursor-pointer flex justify-between gap-5 items-center ${DISPLAY_FONT} text-[23px] max-[720px]:text-[19px] tracking-[-0.025em] font-semibold leading-[1.2] text-[#0E1512] focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px] focus-visible:rounded-lg`}
+                      className={`w-full text-left cursor-pointer flex justify-between gap-5 items-center ${DISPLAY_FONT} text-[20px] max-[720px]:text-[18px] tracking-[-0.02em] font-semibold leading-[1.3] text-[var(--text-heading)] focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px] focus-visible:rounded-lg`}
                     >
                       <span>{item.q}</span>
                       <motion.span
                         animate={{ rotate: isOpen ? 45 : 0 }}
                         transition={{ duration: 0.24, ease: EASE }}
                         aria-hidden="true"
-                        className="shrink-0 w-8 h-8 rounded-full border border-[#D9E1DB] bg-white grid place-items-center text-[22px] font-normal leading-none text-[#0E1512]"
+                        className="shrink-0 w-8 h-8 rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] grid place-items-center text-[20px] font-normal leading-none text-[var(--text-primary)]"
                       >
                         +
                       </motion.span>
@@ -94,7 +92,7 @@ export function FaqSection() {
                           transition={{ duration: 0.3, ease: EASE }}
                           className="overflow-hidden"
                         >
-                          <p className="pt-[14px] text-[#52625A] text-[17px] max-[720px]:text-[15.5px] max-w-[700px] leading-[1.6]">
+                          <p className="pt-[14px] text-[var(--text-body)] text-[16px] max-[720px]:text-[15px] max-w-[700px] leading-[1.6]">
                             {item.a}
                           </p>
                         </motion.div>

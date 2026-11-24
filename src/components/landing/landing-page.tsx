@@ -25,7 +25,7 @@ interface LandingPageViewProps {
 export const LandingPageView: React.FC<LandingPageViewProps> = () => {
   return (
     <MotionConfig reducedMotion="user">
-      <div className="landing-page-root w-full min-h-screen bg-[#F3F5F0] text-[#0E1512] [font-family:var(--font-body)] text-[16px] leading-[1.55] antialiased overflow-x-hidden">
+      <div className="landing-page-root w-full min-h-screen bg-[var(--background)] text-[var(--text-primary)] [font-family:var(--font-body)] text-[16px] leading-[1.55] antialiased overflow-x-hidden">
         <Navbar />
 
         <main id="top">

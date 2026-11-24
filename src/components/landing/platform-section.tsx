@@ -9,11 +9,11 @@ import { FadeUp, TextReveal } from './motion'
 /* ------------------------------------------------------------------ */
 
 const iconProps = {
-  width: 22,
-  height: 22,
+  width: 20,
+  height: 20,
   viewBox: '0 0 24 24',
   fill: 'none',
-  stroke: '#0E1512',
+  stroke: 'currentColor',
   strokeWidth: 2,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
@@ -26,7 +26,8 @@ type Tab = {
   title: string
   subtitle: string
   accent: string
-  tint: string
+  iconBg: string
+  iconColor: string
   soon?: boolean
   icon: React.ReactNode
 }
@@ -37,8 +38,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-0',
     title: 'Team inbox',
     subtitle: 'Assign, note and reply together',
-    accent: '#1FD27A',
-    tint: '#E6F7EE',
+    accent: '#0B3B2E',
+    iconBg: '#0B3B2E',
+    iconColor: '#FFFFFF',
     icon: (
       <svg {...iconProps}>
         <path d="M3 13l3-8h12l3 8v6H3z" />
@@ -51,8 +53,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-1',
     title: 'Broadcasts',
     subtitle: 'Segmented campaigns on approved templates',
-    accent: '#FFD97A',
-    tint: '#FFF6DD',
+    accent: '#0B3B2E',
+    iconBg: '#E6F0EC',
+    iconColor: '#0B3B2E',
     icon: (
       <svg {...iconProps}>
         <path d="M4 10v4l12 5V5L4 10z" />
@@ -65,8 +68,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-2',
     title: 'CRM',
     subtitle: 'Profiles that build themselves',
-    accent: '#B9A6FF',
-    tint: '#F3EFFF',
+    accent: '#0B3B2E',
+    iconBg: '#F5F6F8',
+    iconColor: '#080808',
     icon: (
       <svg {...iconProps}>
         <rect x="3" y="4" width="5" height="16" rx="1.5" />
@@ -80,8 +84,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-3',
     title: 'Flow builder',
     subtitle: 'Triggers, logic and delays',
-    accent: '#FF9E7A',
-    tint: '#FFF0E9',
+    accent: '#0B3B2E',
+    iconBg: '#E6F0EC',
+    iconColor: '#0B3B2E',
     icon: (
       <svg {...iconProps}>
         <circle cx="5.5" cy="12" r="2.5" />
@@ -96,8 +101,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-4',
     title: 'AI agents',
     subtitle: 'Answers from your own content',
-    accent: '#8FBBFF',
-    tint: '#EAF2FF',
+    accent: '#CFC3FF',
+    iconBg: '#CFC3FF',
+    iconColor: '#30245A',
     icon: (
       <svg {...iconProps}>
         <rect x="5" y="8" width="14" height="11" rx="3" />
@@ -110,8 +116,9 @@ const PLATFORM_TABS: Tab[] = [
     paneId: 'pane-5',
     title: 'Voice agent',
     subtitle: 'Answers calls, books and hands off',
-    accent: '#F4A7C8',
-    tint: '#FFEEF6',
+    accent: '#CFC3FF',
+    iconBg: '#F3F0FF',
+    iconColor: '#43336F',
     soon: true,
     icon: (
       <svg {...iconProps}>
@@ -145,16 +152,16 @@ const delay = (i: number, step = 90) => ({ animationDelay: `${i * step}ms` })
 /* ------------------------------------------------------------------ */
 
 const PILL_TONES = {
-  gray: 'bg-[#EEF2EE] text-[#2A3731]',
-  warn: 'bg-[#FFF1CC] text-[#7A5400]',
-  ok: 'bg-[#D4F5E3] text-[#0B5F37]',
-  soon: 'bg-[#E5DEFF] text-[#3B2A8C]',
+  gray: 'bg-[var(--surface-secondary)] text-[var(--text-body)]',
+  warn: 'bg-[var(--warning-bg)] text-[var(--warning)]',
+  ok: 'bg-[var(--success-bg)] text-[var(--success)]',
+  soon: 'bg-[var(--surface-lavender)] text-[var(--accent-text)]',
 }
 
 function Pill({ tone = 'gray', children }: { tone?: keyof typeof PILL_TONES; children: React.ReactNode }) {
   return (
     <span
-      className={`${MONO_FONT} font-medium text-[11.5px] px-[9px] py-1 rounded-[7px] whitespace-nowrap ${PILL_TONES[tone]}`}
+      className={`${MONO_FONT} font-medium text-[11.5px] px-[9px] py-1 rounded-full whitespace-nowrap ${PILL_TONES[tone]}`}
     >
       {children}
     </span>
@@ -163,7 +170,7 @@ function Pill({ tone = 'gray', children }: { tone?: keyof typeof PILL_TONES; chi
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${MONO_FONT} font-medium text-[11px] tracking-[0.06em] uppercase text-[#52625A] mb-2`}>
+    <div className={`${MONO_FONT} font-medium text-[11px] tracking-[0.06em] uppercase text-[var(--text-secondary)] mb-2`}>
       {children}
     </div>
   )
@@ -172,8 +179,9 @@ function Label({ children }: { children: React.ReactNode }) {
 function Bubble({ tone = 'in', children }: { tone?: 'in' | 'out'; children: React.ReactNode }) {
   return (
     <div
-      className={`border border-[#D9E1DB] text-[#0E1512] rounded-[14px_14px_14px_4px] px-[14px] py-3 text-[14px] max-w-[340px] ${tone === 'out' ? 'bg-[#D4F5E3]' : 'bg-[#F6F8F5]'
-        }`}
+      className={`border border-[var(--border)] text-[var(--text-primary)] rounded-[14px_14px_14px_4px] px-[14px] py-3 text-[14px] max-w-[340px] ${
+        tone === 'out' ? 'bg-[var(--surface-green)]' : 'bg-[var(--surface-secondary)]'
+      }`}
     >
       {children}
     </div>
@@ -191,33 +199,37 @@ function PaneHead({
   accent: string
   children: React.ReactNode
 }) {
+  const isLavender = accent === '#CFC3FF'
   return (
     <>
       <span
-        className={`inline-block ${MONO_FONT} font-medium text-[11.5px] tracking-[0.07em] px-[11px] py-[5px] rounded-full border-[1.5px] border-[#0E1512] mb-4`}
-        style={{ backgroundColor: accent }}
+        className={`inline-block ${MONO_FONT} font-medium text-[11px] tracking-[0.07em] px-[11px] py-[4px] rounded-full mb-4 ${
+          isLavender
+            ? 'bg-[var(--surface-lavender)] text-[var(--accent-text)]'
+            : 'bg-[var(--surface-green)] text-[var(--brand-primary)]'
+        }`}
       >
         {kicker}
       </span>
       <h3
-        className={`${DISPLAY_FONT} text-[clamp(24px,2.6vw,34px)] font-bold max-w-[600px] leading-[1.08] tracking-[-0.035em]`}
+        className={`${DISPLAY_FONT} text-[clamp(24px,2.6vw,30px)] font-semibold max-w-[600px] leading-[1.15] tracking-[-0.03em] text-[var(--text-heading)]`}
       >
         {title}
       </h3>
-      <p className="mt-3 text-[#52625A] max-w-[560px] text-[16.5px] max-[720px]:text-[15.5px]">{children}</p>
+      <p className="mt-3 text-[var(--text-secondary)] max-w-[560px] text-[16px] max-[720px]:text-[15px]">{children}</p>
     </>
   )
 }
 
 function PaneFooter({ items, accent }: { items: string[]; accent: string }) {
   return (
-    <div className="flex gap-[10px] flex-wrap mt-[26px] pt-5 max-[720px]:mt-5 max-[720px]:pt-4 border-t border-dashed border-[#C9D4CD]">
+    <div className="flex gap-[10px] flex-wrap mt-[26px] pt-5 max-[720px]:mt-5 max-[720px]:pt-4 border-t border-[var(--border)]">
       {items.map((item) => (
         <span
           key={item}
-          className={`inline-flex items-center gap-2 ${MONO_FONT} font-medium text-[12.5px] text-[#2A3731] bg-white border border-[#D9E1DB] rounded-full px-3 py-[6px]`}
+          className={`inline-flex items-center gap-2 ${MONO_FONT} font-medium text-[12px] text-[var(--text-body)] bg-[var(--surface-secondary)] border border-[var(--border)] rounded-full px-3 py-[5px]`}
         >
-          <i className="w-2 h-2 rounded-full border border-[#0E1512] shrink-0" style={{ backgroundColor: accent }} />
+          <i className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: accent }} />
           {item}
         </span>
       ))}
@@ -228,7 +240,7 @@ function PaneFooter({ items, accent }: { items: string[]; accent: string }) {
 function NextButton({ index, onNext }: { index: number; onNext: () => void }) {
   const last = PLATFORM_TABS.length - 1
   const cls =
-    'hidden max-[720px]:flex items-center justify-center w-full h-12 mt-[18px] rounded-[12px] border-[1.5px] border-[#0E1512] bg-[#0E1512] text-white font-semibold text-[15px] active:translate-y-px'
+    'hidden max-[720px]:flex items-center justify-center w-full h-11 mt-[18px] rounded-[12px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[14px]'
   if (index === last) {
     return (
       <a href="#waitlist" className={cls}>
@@ -294,7 +306,7 @@ export function PlatformSection() {
 
   const cardStyle = { borderLeftColor: current.accent }
   const card =
-    'bg-white border-[1.5px] border-[#D9E1DB] border-l-4 rounded-[14px] text-[#0E1512] px-4 py-[14px]'
+    'bg-white border border-[var(--border)] border-l-[3px] rounded-[14px] text-[var(--text-primary)] px-4 py-[14px] shadow-[var(--shadow-card)]'
   // Row cards: on phones the pills wrap under the text instead of squeezing it.
   const rowCard = `${card} flex items-center gap-[14px] text-[14.5px] max-[720px]:flex-wrap max-[720px]:gap-y-2`
   const rowText = 'flex-1 min-w-0 max-[720px]:basis-full'
@@ -303,21 +315,21 @@ export function PlatformSection() {
     <section id="platform" className="pt-[120px] max-[980px]:pt-[88px]">
       <style>{KEYFRAMES}</style>
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
-        <SectionPill label="Platform" count={PLATFORM_TABS.length} bgClass="bg-[#E5DEFF]" dotClass="bg-[#7C5CFF]" />
+        <SectionPill label="Platform" count={PLATFORM_TABS.length} />
 
         <div>
           <div className="max-w-[820px] mx-auto text-center">
             <h2
-              className={`${DISPLAY_FONT} text-[clamp(30px,3.7vw,46px)] font-bold tracking-[-0.035em] leading-[1.1] text-balance`}
+              className={`${DISPLAY_FONT} text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-balance text-[var(--text-heading)]`}
             >
               <TextReveal text="Everything a conversation touches, in" />
               <br />
-              <HighlightBubble bgClass="bg-[#CFC3FF]" delay={0.26}>
+              <HighlightBubble bgClass="bg-[var(--accent-primary)] text-[#30245A]" delay={0.26}>
                 one workbench.
               </HighlightBubble>
             </h2>
             <FadeUp delay={0.18} distance={14}>
-              <p className="mt-5 text-[19px] text-[#52625A] max-w-[560px] mx-auto">
+              <p className="mt-5 text-[18px] max-[720px]:text-[17px] text-[var(--text-body)] max-w-[560px] mx-auto leading-[1.6]">
                 Inbox, campaigns, CRM, automation, AI and soon voice read from the same customer
                 record, so nothing is copied between tools.
               </p>
@@ -326,13 +338,12 @@ export function PlatformSection() {
 
           <div
             ref={boxRef}
-            className="mt-14 max-[720px]:mt-8 scroll-mt-[84px] grid grid-cols-[300px_minmax(0,1fr)] max-[1100px]:grid-cols-1 bg-white border-[1.5px] border-[#0E1512] rounded-[24px] max-[720px]:rounded-[20px] overflow-hidden transition-shadow duration-250"
-            style={{ boxShadow: `8px 8px 0 ${current.accent}` }}
+            className="mt-14 max-[720px]:mt-8 scroll-mt-[84px] grid grid-cols-[300px_minmax(0,1fr)] max-[1100px]:grid-cols-1 bg-white border border-[var(--border)] rounded-[20px] overflow-hidden shadow-[var(--shadow-card)]"
           >
             {/* Left / top tab navigation */}
             <div
               ref={navRef}
-              className="flex flex-col max-[1100px]:flex-row max-[1100px]:overflow-x-auto max-[720px]:snap-x max-[720px]:gap-2 max-[720px]:px-3 max-[720px]:pt-3 max-[720px]:pb-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-[6px] p-[14px] bg-[#FAFBF9] border-r-[1.5px] max-[1100px]:border-r-0 max-[1100px]:border-b-[1.5px] border-[#0E1512] relative"
+              className="flex flex-col max-[1100px]:flex-row max-[1100px]:overflow-x-auto max-[720px]:snap-x max-[720px]:gap-2 max-[720px]:px-3 max-[720px]:pt-3 max-[720px]:pb-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden gap-[6px] p-[14px] bg-[var(--surface-secondary)] border-r max-[1100px]:border-r-0 max-[1100px]:border-b border-[var(--border)] relative"
               role="tablist"
               aria-label="Platform modules"
             >
@@ -352,32 +363,32 @@ export function PlatformSection() {
                     tabIndex={selected ? 0 : -1}
                     onClick={() => setActiveTab(i)}
                     onKeyDown={(e) => handleTabKeyDown(e, i)}
-                    style={{ ['--sh' as string]: tab.accent } as React.CSSProperties}
-                    className={`flex gap-[14px] items-center text-left border-[1.5px] rounded-[16px] px-[14px] py-3 text-[#0E1512] shrink-0 min-[721px]:max-[1100px]:min-w-[250px] max-[720px]:flex-col max-[720px]:w-[88px] max-[720px]:gap-[7px] max-[720px]:px-[6px] max-[720px]:pt-[10px] max-[720px]:pb-[9px] max-[720px]:text-center max-[720px]:rounded-[14px] max-[720px]:snap-center transition-[background-color,border-color,box-shadow] duration-200 cursor-pointer focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px] ${selected
-                        ? 'bg-white border-[#0E1512] shadow-[4px_4px_0_var(--sh)] max-[720px]:shadow-[0_4px_0_var(--sh)]'
-                        : 'bg-transparent border-transparent hover:bg-white hover:border-[#D9E1DB]'
-                      }`}
+                    className={`flex gap-[14px] items-center text-left border rounded-[14px] px-[14px] py-3 text-[var(--text-primary)] shrink-0 min-[721px]:max-[1100px]:min-w-[250px] max-[720px]:flex-col max-[720px]:w-[88px] max-[720px]:gap-[7px] max-[720px]:px-[6px] max-[720px]:pt-[10px] max-[720px]:pb-[9px] max-[720px]:text-center max-[720px]:rounded-[12px] max-[720px]:snap-center transition-[background-color,border-color,box-shadow] duration-200 cursor-pointer focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px] ${
+                      selected
+                        ? 'bg-white border-[var(--brand-primary)] shadow-[var(--shadow-card)]'
+                        : 'bg-transparent border-transparent hover:bg-white hover:border-[var(--border)]'
+                    }`}
                   >
                     <i
-                      className="w-11 h-11 max-[720px]:w-10 max-[720px]:h-10 rounded-[12px] grid place-items-center shrink-0 border-[1.5px] border-[#0E1512]"
-                      style={{ backgroundColor: tab.accent }}
+                      className="w-10 h-10 rounded-[10px] grid place-items-center shrink-0"
+                      style={{ backgroundColor: tab.iconBg, color: tab.iconColor }}
                     >
                       {tab.icon}
                     </i>
                     <div>
                       <b
-                        className={`block ${DISPLAY_FONT} text-[18px] max-[720px]:text-[13px] tracking-[-0.02em] leading-[1.15]`}
+                        className={`block ${DISPLAY_FONT} text-[16px] max-[720px]:text-[13px] font-semibold tracking-[-0.02em] leading-[1.2] text-[var(--text-heading)]`}
                       >
                         {tab.title}
                         {tab.soon && (
                           <em
-                            className={`ml-2 max-[720px]:ml-0 max-[720px]:mt-[5px] max-[720px]:block max-[720px]:w-max max-[720px]:mx-auto align-middle not-italic ${MONO_FONT} font-medium text-[10px] tracking-[0.05em] uppercase px-[7px] py-[2px] rounded-[6px] bg-[#E5DEFF] text-[#3B2A8C]`}
+                            className={`ml-2 max-[720px]:ml-0 max-[720px]:mt-[5px] max-[720px]:block max-[720px]:w-max max-[720px]:mx-auto align-middle not-italic ${MONO_FONT} font-medium text-[10px] tracking-[0.05em] uppercase px-[7px] py-[2px] rounded-full bg-[var(--surface-lavender)] text-[var(--accent-text)]`}
                           >
                             Soon
                           </em>
                         )}
                       </b>
-                      <span className="block max-[720px]:hidden text-[13px] leading-[1.35] text-[#52625A] mt-[2px]">
+                      <span className="block max-[720px]:hidden text-[13px] leading-[1.35] text-[var(--text-secondary)] mt-[2px]">
                         {tab.subtitle}
                       </span>
                     </div>
@@ -389,8 +400,7 @@ export function PlatformSection() {
 
             {/* Right tab panel */}
             <div
-              className="px-10 py-9 max-[720px]:px-4 max-[720px]:py-6 min-h-[560px] max-[720px]:min-h-0 text-[#0E1512] transition-[background] duration-300"
-              style={{ background: `linear-gradient(180deg, ${current.tint}, #ffffff 260px)` }}
+              className="px-10 py-9 max-[720px]:px-4 max-[720px]:py-6 min-h-[560px] max-[720px]:min-h-0 bg-white text-[var(--text-primary)]"
               onTouchStart={onTouchStart}
               onTouchEnd={onTouchEnd}
             >
@@ -497,11 +507,11 @@ export function PlatformSection() {
                       {col.deals.map(([name, meta], di) => (
                         <div
                           key={name}
-                          className={`bg-[#F6F8F5] border border-[#D9E1DB] rounded-[10px] px-[11px] py-[9px] mt-2 text-[14px] text-[#0E1512] ${RISE}`}
+                          className={`bg-[var(--surface-secondary)] border border-[var(--border)] rounded-[10px] px-[11px] py-[9px] mt-2 text-[14px] text-[var(--text-primary)] ${RISE}`}
                           style={delay(ci * 2 + di + 2, 90)}
                         >
                           {name}
-                          <small className={`block ${MONO_FONT} text-[11.5px] text-[#52625A]`}>{meta}</small>
+                          <small className={`block ${MONO_FONT} text-[11.5px] text-[var(--text-secondary)]`}>{meta}</small>
                         </div>
                       ))}
                     </div>
@@ -534,7 +544,7 @@ export function PlatformSection() {
                       <Pill tone={flow.live ? 'ok' : 'gray'}>
                         {flow.live && (
                           <i
-                            className="inline-block w-[6px] h-[6px] rounded-full bg-[#1FD27A] mr-[6px] align-middle animate-[platform-dot_1.6s_ease-in-out_infinite] motion-reduce:animate-none"
+                            className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--success)] mr-[6px] align-middle animate-[platform-dot_1.6s_ease-in-out_infinite] motion-reduce:animate-none"
                             aria-hidden="true"
                           />
                         )}
@@ -598,13 +608,12 @@ export function PlatformSection() {
                   {/* Live call preview */}
                   <div className={`${card} ${RISE}`} style={cardStyle}>
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="relative grid place-items-center w-9 h-9 rounded-full border-[1.5px] border-[#0E1512] shrink-0" style={{ backgroundColor: current.accent }}>
+                      <span className="relative grid place-items-center w-9 h-9 rounded-full shrink-0 bg-[var(--accent-primary)] text-[#30245A]">
                         <span
-                          className="absolute inset-0 rounded-full animate-[platform-ping_1.8s_ease-out_infinite] motion-reduce:animate-none"
-                          style={{ backgroundColor: current.accent }}
+                          className="absolute inset-0 rounded-full animate-[platform-ping_1.8s_ease-out_infinite] motion-reduce:animate-none bg-[var(--accent-primary)]"
                           aria-hidden="true"
                         />
-                        <svg className="relative" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1512" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <svg className="relative" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#30245A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z" />
                         </svg>
                       </span>

@@ -16,19 +16,19 @@ export function HeroSection() {
             <div className="relative">
               <FadeUp trigger="mount" delay={0.04} distance={14}>
                 <div
-                  className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[13px] tracking-[0.04em] text-[#0B3B2E] bg-[#DCE7DF] rounded-lg px-3 py-[7px] mb-5`}
+                  className={`inline-flex items-center gap-[10px] ${MONO_FONT} font-medium text-[12px] tracking-[0.04em] text-[var(--brand-primary)] bg-white border border-[var(--border)] rounded-full px-3.5 py-[6px] mb-5 shadow-[var(--shadow-card)]`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#1FD27A] shadow-[0_0_0_3px_rgba(31,210,122,0.25)]" />
+                  <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
                   WhatsApp · Instagram · Facebook · Calling
                 </div>
               </FadeUp>
               <h1
-                className={`${DISPLAY_FONT} text-[clamp(34px,3.7vw,54px)] font-bold tracking-[-0.045em] leading-[1.1] text-balance text-[#0E1512]`}
+                className={`${DISPLAY_FONT} text-[clamp(40px,4.8vw,64px)] font-bold tracking-[-0.045em] leading-[1.1] text-balance text-[var(--text-heading)]`}
               >
                 <TextReveal text="Every message answered." trigger="mount" delay={0.08} />
                 <br />
                 <TextReveal text="Every lead" trigger="mount" delay={0.22} />{' '}
-                <HighlightBubble trigger="mount" delay={0.34}>
+                <HighlightBubble bgClass="bg-[var(--accent-primary)] text-[#30245A]" trigger="mount" delay={0.34}>
                   followed up.
                 </HighlightBubble>
               </h1>
@@ -36,7 +36,7 @@ export function HeroSection() {
 
             <div className="mt-6">
               <FadeUp trigger="mount" delay={0.36} distance={16}>
-                <p className="text-[19px] text-[#52625A] max-w-[540px]">
+                <p className="text-[18px] max-[720px]:text-[17px] text-[var(--text-body)] max-w-[540px] leading-[1.6]">
                   Parsona puts WhatsApp, Instagram, Facebook and soon voice calls into one team inbox,
                   then takes over the repetitive work with broadcasts, a built-in CRM, a flow builder
                   and AI agents that know your catalogue.
@@ -63,7 +63,7 @@ export function HeroSection() {
                 </div>
               </FadeUp>
               <FadeUp trigger="mount" delay={0.54} distance={12}>
-                <p className={`mt-4 ${MONO_FONT} text-[13px] text-[#52625A]`}>
+                <p className={`mt-4 ${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
                   Early access opening soon · Priority onboarding for founding teams.
                 </p>
               </FadeUp>
@@ -75,7 +75,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.65, delay: 0.18, ease: EASE }}
-            className="w-full max-w-[460px] ml-auto max-[980px]:mx-auto bg-white [background-image:radial-gradient(#D3DCD6_1px,transparent_1.2px)] [background-size:16px_16px] border-[1.5px] border-[#0E1512] rounded-[22px] shadow-[8px_8px_0_#0B3B2E] overflow-hidden"
+            className="w-full max-w-[460px] ml-auto max-[980px]:mx-auto bg-white [background-image:radial-gradient(#D4D8DF_1px,transparent_1.2px)] [background-size:16px_16px] border border-[var(--border)] rounded-[20px] shadow-[var(--shadow-card)] overflow-hidden"
             role="img"
             aria-label="Diagram: WhatsApp, Instagram, Facebook and upcoming Voice calls flow into the Parsona inbox, CRM, flows and AI agent"
           >
@@ -96,14 +96,14 @@ export function HeroSection() {
               <text x="24" y="30" className="text-[10.5px] tracking-[0.07em] fill-[#52625A]">
                 INCOMING MESSAGES + CALLS
               </text>
-              <circle cx="366" cy="26" r="4" fill="#1FD27A" className="animate-[landing-fblink_1.6s_ease-in-out_infinite]" />
+              <circle cx="366" cy="26" r="4" fill="#18794E" className="animate-[landing-fblink_1.6s_ease-in-out_infinite]" />
               <text x="376" y="30" className="text-[10.5px] tracking-[0.07em] fill-[#52625A]">
                 LIVE
               </text>
 
               {/* Channel Badges */}
               <g transform="translate(52 44)">
-                <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
+                <rect width="54" height="54" rx="12" fill="#F5F6F8" stroke="#D4D8DF" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="24" fill="#25D366" />
                   <path
@@ -114,7 +114,7 @@ export function HeroSection() {
                 </svg>
               </g>
               <g transform="translate(146 44)">
-                <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
+                <rect width="54" height="54" rx="12" fill="#F5F6F8" stroke="#D4D8DF" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <rect width="48" height="48" rx="13" fill="url(#igg)" />
                   <rect x="11" y="11" width="26" height="26" rx="8" fill="none" stroke="#fff" strokeWidth="3" />
@@ -123,7 +123,7 @@ export function HeroSection() {
                 </svg>
               </g>
               <g transform="translate(240 44)">
-                <rect width="54" height="54" rx="12" fill="#F1F4F0" stroke="#D9E1DB" />
+                <rect width="54" height="54" rx="12" fill="#F5F6F8" stroke="#D4D8DF" />
                 <svg x="10" y="10" width="34" height="34" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="24" fill="#1877F2" />
                   <path
@@ -138,12 +138,12 @@ export function HeroSection() {
                   width="54"
                   height="54"
                   rx="12"
-                  fill="#F7F4FF"
-                  stroke="#B9A6FF"
+                  fill="#F3F0FF"
+                  stroke="#CFC3FF"
                   strokeWidth="1.5"
                   strokeDasharray="4 3"
                 />
-                <circle cx="27" cy="27" r="17" fill="#F4A7C8" />
+                <circle cx="27" cy="27" r="17" fill="#CFC3FF" />
                 <svg
                   x="18"
                   y="18"
@@ -151,7 +151,7 @@ export function HeroSection() {
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#0E1512"
+                  stroke="#0B3B2E"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -171,13 +171,13 @@ export function HeroSection() {
               </text>
               <text x="361" y="114" textAnchor="middle" className="text-[9.5px] tracking-[0.06em] fill-[#52625A]">
                 <tspan x="361" dy="0">CALLING</tspan>
-                <tspan x="361" dy="11" className="text-[8px] tracking-[0.05em] font-semibold fill-[#7C5CFF]">
+                <tspan x="361" dy="11" className="text-[8px] tracking-[0.05em] font-semibold fill-[#43336F]">
                   (COMING NEXT)
                 </tspan>
               </text>
 
               {/* Animated Connectors */}
-              <path d="M79 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M79 126V150H140" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M79 126V150H140"
@@ -189,7 +189,7 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '0s' }}
               />
-              <path d="M173 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M173 126V150H140" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M173 126V150H140"
@@ -201,7 +201,7 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-0.5s' }}
               />
-              <path d="M267 126V150H140" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M267 126V150H140" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M267 126V150H140"
@@ -213,24 +213,24 @@ export function HeroSection() {
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-1s' }}
               />
-              <path d="M361 131V150H140" fill="none" stroke="#B9A6FF" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M361 131V150H140" fill="none" stroke="#CFC3FF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M361 131V150H140"
                 fill="none"
-                stroke="#F4A7C8"
+                stroke="#CFC3FF"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="14 86"
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '-1.5s' }}
               />
-              <path d="M140 150V202" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M140 150V202" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M140 150V202"
                 fill="none"
-                stroke="#1FD27A"
+                stroke="#0B3B2E"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="14 86"
@@ -238,43 +238,43 @@ export function HeroSection() {
                 style={{ animationDelay: '1s' }}
               />
 
-              <circle cx="140" cy="150" r="3.5" fill="#fff" stroke="#B3C1B8" strokeWidth="1.5" />
-              <rect x="40" y="176" width="360" height="268" rx="8" fill="none" stroke="#C9D4CD" strokeWidth="1.5" />
+              <circle cx="140" cy="150" r="3.5" fill="#fff" stroke="#ACADB1" strokeWidth="1.5" />
+              <rect x="40" y="176" width="360" height="268" rx="12" fill="none" stroke="#D4D8DF" strokeWidth="1.5" />
               <rect x="52" y="169" width="78" height="15" fill="#fff" />
-              <text x="60" y="181" className="text-[11.5px] tracking-[0.06em] fill-[#0E1512]">
+              <text x="60" y="181" className="text-[11.5px] tracking-[0.06em] fill-[#080808]">
                 PARSONA
               </text>
 
-              <path d="M140 246V262" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M140 246V262" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M140 246V262"
                 fill="none"
-                stroke="#1FD27A"
+                stroke="#0B3B2E"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="14 86"
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '1.6s' }}
               />
-              <path d="M140 306V322" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M140 306V322" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M140 306V322"
                 fill="none"
-                stroke="#1FD27A"
+                stroke="#0B3B2E"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="14 86"
                 className="animate-[landing-fdash_2.6s_linear_infinite]"
                 style={{ animationDelay: '2.2s' }}
               />
-              <path d="M140 366V382" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M140 366V382" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M140 366V382"
                 fill="none"
-                stroke="#1FD27A"
+                stroke="#8066A8"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="14 86"
@@ -291,18 +291,18 @@ export function HeroSection() {
                   height="52"
                   rx="14"
                   fill="none"
-                  stroke="#1FD27A"
+                  stroke="#0B3B2E"
                   strokeWidth="2"
                   className="opacity-0 animate-[landing-fring_4s_ease-in-out_infinite]"
                   style={{ animationDelay: '0s' }}
                 />
-                <rect width="44" height="44" rx="11" fill="#1FD27A" stroke="#0E1512" strokeWidth="1.5" />
-                <g transform="translate(10 10)" fill="none" stroke="#0E1512" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="44" height="44" rx="11" fill="#0B3B2E" />
+                <g transform="translate(10 10)" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 13l3-8h12l3 8v6H3z" />
                   <path d="M3 13h5l1 3h6l1-3h5" />
                 </g>
               </g>
-              <text x="178" y="221" className="text-[12px] tracking-[0.06em] fill-[#0E1512] font-medium">
+              <text x="178" y="221" className="text-[12px] tracking-[0.06em] fill-[#080808] font-medium">
                 INBOX
               </text>
               <text x="178" y="237" className="text-[10.5px] fill-[#52625A]">
@@ -317,19 +317,19 @@ export function HeroSection() {
                   height="52"
                   rx="14"
                   fill="none"
-                  stroke="#B9A6FF"
+                  stroke="#0B3B2E"
                   strokeWidth="2"
                   className="opacity-0 animate-[landing-fring_4s_ease-in-out_infinite]"
                   style={{ animationDelay: '1s' }}
                 />
-                <rect width="44" height="44" rx="11" fill="#B9A6FF" stroke="#0E1512" strokeWidth="1.5" />
-                <g transform="translate(10 10)" fill="none" stroke="#0E1512" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="44" height="44" rx="11" fill="#E6F0EC" stroke="#0B3B2E" strokeWidth="1" />
+                <g transform="translate(10 10)" fill="none" stroke="#0B3B2E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="5" height="16" rx="1.5" />
                   <rect x="10" y="4" width="5" height="10" rx="1.5" />
                   <rect x="17" y="4" width="4" height="13" rx="1.5" />
                 </g>
               </g>
-              <text x="178" y="281" className="text-[12px] tracking-[0.06em] fill-[#0E1512] font-medium">
+              <text x="178" y="281" className="text-[12px] tracking-[0.06em] fill-[#080808] font-medium">
                 CRM
               </text>
               <text x="178" y="297" className="text-[10.5px] fill-[#52625A]">
@@ -344,20 +344,20 @@ export function HeroSection() {
                   height="52"
                   rx="14"
                   fill="none"
-                  stroke="#FF9E7A"
+                  stroke="#0B3B2E"
                   strokeWidth="2"
                   className="opacity-0 animate-[landing-fring_4s_ease-in-out_infinite]"
                   style={{ animationDelay: '2s' }}
                 />
-                <rect width="44" height="44" rx="11" fill="#FF9E7A" stroke="#0E1512" strokeWidth="1.5" />
-                <g transform="translate(10 10)" fill="none" stroke="#0E1512" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="44" height="44" rx="11" fill="#F5F6F8" stroke="#D4D8DF" strokeWidth="1" />
+                <g transform="translate(10 10)" fill="none" stroke="#080808" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="5.5" cy="12" r="2.5" />
                   <circle cx="18.5" cy="5.5" r="2.5" />
                   <circle cx="18.5" cy="18.5" r="2.5" />
                   <path d="M8 11l8.2-4.3M8 13l8.2 4.3" />
                 </g>
               </g>
-              <text x="178" y="341" className="text-[12px] tracking-[0.06em] fill-[#0E1512] font-medium">
+              <text x="178" y="341" className="text-[12px] tracking-[0.06em] fill-[#080808] font-medium">
                 FLOWS
               </text>
               <text x="178" y="357" className="text-[10.5px] fill-[#52625A]">
@@ -372,38 +372,38 @@ export function HeroSection() {
                   height="52"
                   rx="14"
                   fill="none"
-                  stroke="#8FBBFF"
+                  stroke="#CFC3FF"
                   strokeWidth="2"
                   className="opacity-0 animate-[landing-fring_4s_ease-in-out_infinite]"
                   style={{ animationDelay: '3s' }}
                 />
-                <rect width="44" height="44" rx="11" fill="#8FBBFF" stroke="#0E1512" strokeWidth="1.5" />
-                <g transform="translate(10 10)" fill="none" stroke="#0E1512" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="44" height="44" rx="11" fill="#CFC3FF" />
+                <g transform="translate(10 10)" fill="none" stroke="#30245A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="5" y="8" width="14" height="11" rx="3" />
                   <path d="M12 4v4M9.5 13v1.5M14.5 13v1.5" />
-                  <circle cx="12" cy="3.5" r="1" fill="#0E1512" />
+                  <circle cx="12" cy="3.5" r="1" fill="#30245A" />
                 </g>
               </g>
-              <text x="178" y="401" className="text-[12px] tracking-[0.06em] fill-[#0E1512] font-medium">
+              <text x="178" y="401" className="text-[12px] tracking-[0.06em] fill-[#080808] font-medium">
                 AI AGENT
               </text>
               <text x="178" y="417" className="text-[10.5px] fill-[#52625A]">
                 Replies + handoff
               </text>
 
-              <path d="M312 404H335V224H312" fill="none" stroke="#B3C1B8" strokeWidth="1.5" strokeDasharray="3 4" />
+              <path d="M312 404H335V224H312" fill="none" stroke="#D4D8DF" strokeWidth="1.5" strokeDasharray="3 4" />
               <path
                 pathLength={100}
                 d="M312 404H335V224H312"
                 fill="none"
-                stroke="#4C8DF0"
+                stroke="#0B3B2E"
                 strokeWidth="3.2"
                 strokeLinecap="round"
                 strokeDasharray="10 90"
                 className="animate-[landing-fdash_3.6s_linear_infinite]"
                 style={{ animationDelay: '3.2s' }}
               />
-              <polygon points="304,224 313,219 313,229" fill="#8FBBFF" />
+              <polygon points="304,224 313,219 313,229" fill="#0B3B2E" />
               <text
                 transform="translate(358 314) rotate(90)"
                 textAnchor="middle"
@@ -426,16 +426,16 @@ export function HeroSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={VIEWPORT}
           transition={{ duration: 0.52, ease: EASE }}
-          className="mt-[72px] max-[720px]:mt-12 flex items-center justify-between gap-5 flex-wrap py-[22px] max-[720px]:py-6 border-y border-[#D9E1DB] max-[720px]:flex-col max-[720px]:items-center max-[720px]:text-center max-[720px]:gap-4"
+          className="mt-[72px] max-[720px]:mt-12 flex items-center justify-between gap-5 flex-wrap py-[22px] max-[720px]:py-6 border-y border-[var(--border)] max-[720px]:flex-col max-[720px]:items-center max-[720px]:text-center max-[720px]:gap-4"
         >
           <div className="flex items-center gap-4 flex-wrap max-[720px]:flex-col max-[720px]:items-center max-[720px]:gap-3">
             <div className="flex items-center -space-x-[10px]" aria-hidden="true">
               {[
-                { initials: 'AS', bg: '#FFD9C2' },
-                { initials: 'MJ', bg: '#CFE3F8' },
-                { initials: 'RK', bg: '#FFE9A8' },
-                { initials: 'IV', bg: '#E3DCFA' },
-                { initials: 'DP', bg: '#D4F5E3' },
+                { initials: 'AS', bg: '#E6F0EC', text: '#0B3B2E' },
+                { initials: 'MJ', bg: '#F3F0FF', text: '#43336F' },
+                { initials: 'RK', bg: '#F5F6F8', text: '#080808' },
+                { initials: 'IV', bg: '#CFC3FF', text: '#30245A' },
+                { initials: 'DP', bg: '#0B3B2E', text: '#FFFFFF' },
               ].map((avatar, i) => (
                 <motion.span
                   key={avatar.initials}
@@ -443,15 +443,15 @@ export function HeroSection() {
                   whileInView={{ opacity: 1, scale: 1, x: 0 }}
                   viewport={VIEWPORT}
                   transition={{ duration: 0.38, delay: 0.06 * i, ease: EASE }}
-                  className={`w-10 h-10 max-[720px]:w-9 max-[720px]:h-9 rounded-full border-[1.5px] border-[#0E1512] grid place-items-center ${MONO_FONT} font-semibold text-[11.5px] text-[#0E1512]`}
-                  style={{ backgroundColor: avatar.bg }}
+                  className={`w-10 h-10 max-[720px]:w-9 max-[720px]:h-9 rounded-full border-2 border-white grid place-items-center ${MONO_FONT} font-semibold text-[11.5px]`}
+                  style={{ backgroundColor: avatar.bg, color: avatar.text }}
                 >
                   {avatar.initials}
                 </motion.span>
               ))}
             </div>
-            <p className="text-[15.5px] max-[720px]:text-[15px] text-[#52625A]">
-              <strong className="font-semibold text-[#0E1512]">100+ teams</strong> have already
+            <p className="text-[15.5px] max-[720px]:text-[15px] text-[var(--text-secondary)]">
+              <strong className="font-semibold text-[var(--text-heading)]">100+ teams</strong> have already
               joined the waitlist
             </p>
           </div>
@@ -460,7 +460,7 @@ export function HeroSection() {
             href="#waitlist"
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
-            className={`inline-flex items-center justify-center gap-1.5 h-10 px-[18px] max-[720px]:w-full max-[720px]:h-11 rounded-[12px] bg-white border-[1.5px] border-[#0E1512] ${MONO_FONT} font-medium text-[13px] text-[#0E1512] hover:bg-[#0E1512] hover:text-white transition-colors whitespace-nowrap focus-visible:outline-[3px] focus-visible:outline-[#1B6A55] focus-visible:outline-offset-[3px]`}
+            className={`${BTN_OUTLINE} !h-10 !px-[18px] max-[720px]:w-full max-[720px]:!h-11 ${MONO_FONT} !font-medium !text-[13px]`}
           >
             <span>Join them</span>
             <span aria-hidden="true">→</span>
