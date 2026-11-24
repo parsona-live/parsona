@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_PRIMARY } from './shared'
 import { FadeUp, TextReveal } from './motion'
+import { ShimmerButton, ShimmerLink } from '@/components/ui/shimmer-button'
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -239,19 +240,19 @@ function PaneFooter({ items, accent }: { items: string[]; accent: string }) {
 
 function NextButton({ index, onNext }: { index: number; onNext: () => void }) {
   const last = PLATFORM_TABS.length - 1
-  const cls =
-    'hidden max-[720px]:flex items-center justify-center w-full h-11 mt-[18px] rounded-[12px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[14px]'
-  if (index === last) {
-    return (
-      <a href="#waitlist" className={cls}>
-        Get voice early access →
-      </a>
-    )
-  }
+  const cls = `${SHIMMER_PRIMARY.className} w-full h-11 px-5 text-[14px]`
   return (
-    <button type="button" onClick={onNext} className={cls}>
-      Next: {PLATFORM_TABS[index + 1].title} →
-    </button>
+    <div className="hidden max-[720px]:block mt-[18px]">
+      {index === last ? (
+        <ShimmerLink href="#waitlist" {...SHIMMER_PRIMARY} className={cls}>
+          Get voice early access →
+        </ShimmerLink>
+      ) : (
+        <ShimmerButton type="button" onClick={onNext} {...SHIMMER_PRIMARY} className={cls}>
+          Next: {PLATFORM_TABS[index + 1].title} →
+        </ShimmerButton>
+      )}
+    </div>
   )
 }
 

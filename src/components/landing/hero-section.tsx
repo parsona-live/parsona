@@ -2,9 +2,10 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { BTN_OUTLINE, DISPLAY_FONT, HighlightBubble, MONO_FONT } from './shared'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
 import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
 import { InboxConsoleDemo } from './inbox-console-demo'
+import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 export function HeroSection() {
   return (
@@ -94,11 +95,11 @@ export function HeroSection() {
 
           <FadeUp trigger="mount" delay={0.42} distance={16}>
             <div className="flex items-center justify-center gap-3.5 flex-wrap mt-8">
-              <motion.a
+              <ShimmerLink
                 href="#waitlist"
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center justify-center gap-3 h-[50px] pl-6 pr-2.5 rounded-full bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] active:bg-[var(--brand-active)] text-white font-semibold text-[15px] transition-colors duration-200 whitespace-nowrap shadow-[var(--shadow-brand)] focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px]"
+                {...SHIMMER_PRIMARY}
+                borderRadius="9999px"
+                className="h-[50px] pl-6 pr-2.5 gap-3 font-semibold text-[15px] shadow-[var(--shadow-brand)]"
               >
                 <span>Join the waitlist</span>
                 <span
@@ -107,15 +108,15 @@ export function HeroSection() {
                 >
                   →
                 </span>
-              </motion.a>
-              <motion.a
+              </ShimmerLink>
+              <ShimmerLink
                 href="#inbox-demo"
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className={`${BTN_OUTLINE} !rounded-full !h-[50px] !px-6`}
+                {...SHIMMER_OUTLINE}
+                borderRadius="9999px"
+                className={`${SHIMMER_OUTLINE.className} !h-[50px] !px-6`}
               >
                 Try the interactive demo
-              </motion.a>
+              </ShimmerLink>
             </div>
           </FadeUp>
 
@@ -172,15 +173,14 @@ export function HeroSection() {
             </p>
           </div>
 
-          <motion.a
+          <ShimmerLink
             href="#waitlist"
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            className={`${BTN_OUTLINE} !h-10 !px-[18px] max-[720px]:w-full max-[720px]:!h-11 ${MONO_FONT} !font-medium !text-[13px]`}
+            {...SHIMMER_OUTLINE}
+            className={`${SHIMMER_OUTLINE.className} !h-10 !px-[18px] max-[720px]:w-full max-[720px]:!h-11 ${MONO_FONT} !font-medium !text-[13px]`}
           >
             <span>Join them</span>
             <span aria-hidden="true">→</span>
-          </motion.a>
+          </ShimmerLink>
         </motion.div>
       </div>
     </section>

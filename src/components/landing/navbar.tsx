@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { DISPLAY_FONT, ParsonaMark } from './shared'
+import { DISPLAY_FONT, ParsonaMark, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
+import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 const NAV_LINKS = [
   { href: '#channels', id: 'channels', label: 'Channels' },
@@ -90,12 +91,16 @@ export function Navbar() {
         </nav>
 
         {/* Right: Desktop Join waitlist -> #waitlist */}
-        <a
-          href="#waitlist"
-          className="hidden min-[981px]:inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-[10px] bg-white border border-[var(--border)] hover:border-[var(--brand-primary)] hover:bg-[var(--surface-green)] text-[var(--text-primary)] font-medium text-[14px] transition-colors duration-200 whitespace-nowrap shadow-[var(--shadow-card)] shrink-0 focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px]"
-        >
-          <span>Join waitlist</span>
-        </a>
+        <div className="hidden min-[981px]:block shrink-0">
+          <ShimmerLink
+            href="#waitlist"
+            {...SHIMMER_OUTLINE}
+            borderRadius="10px"
+            className="h-10 px-5 !text-[var(--text-primary)] !border-[var(--border)] hover:!border-[var(--brand-primary)] font-medium text-[14px] shadow-[var(--shadow-card)]"
+          >
+            <span>Join waitlist</span>
+          </ShimmerLink>
+        </div>
 
         {/* Right: Mobile Minimal 2-Line Menu Toggle */}
         <button
@@ -152,14 +157,15 @@ export function Navbar() {
               )
             })}
           </div>
-          <a
+          <ShimmerLink
             href="#waitlist"
             onClick={() => setMobileMenuOpen(false)}
-            className="mt-6 w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-[12px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] text-white font-semibold text-[15px] transition-colors"
+            {...SHIMMER_PRIMARY}
+            className={`${SHIMMER_PRIMARY.className} mt-6 w-full h-11 gap-1.5`}
           >
             <span>Join waitlist</span>
             <span aria-hidden="true">→</span>
-          </a>
+          </ShimmerLink>
         </nav>
       )}
     </header>

@@ -4,8 +4,9 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { validateWaitlistInput } from '@/lib/waitlist-validation'
-import { BTN_DARK, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_PRIMARY } from './shared'
 import { EASE, FadeUp, TextReveal } from './motion'
+import { ShimmerButton } from '@/components/ui/shimmer-button'
 
 const LOCAL_STORAGE_KEY = 'parsona_waitlist_entries_v1'
 
@@ -337,10 +338,11 @@ export function WaitlistSection() {
                     </div>
                   )}
 
-                  <button
+                  <ShimmerButton
                     type="submit"
                     disabled={wlSubmitting}
-                    className={`${BTN_DARK} w-full !h-[48px] !text-[15px] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed`}
+                    {...SHIMMER_PRIMARY}
+                    className={`${SHIMMER_PRIMARY.className} w-full !h-[48px] !text-[15px] cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed`}
                   >
                     {wlSubmitting ? (
                       <>
@@ -353,7 +355,7 @@ export function WaitlistSection() {
                     ) : (
                       'Join waitlist'
                     )}
-                  </button>
+                  </ShimmerButton>
                   <p
                     className={`${MONO_FONT} text-[12px] text-[var(--text-secondary)] text-center mt-[14px] leading-[1.6]`}
                   >

@@ -48,14 +48,62 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  shimmer = true,
+  children,
+  style,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    shimmer?: boolean
+  }) {
+  const showShimmer =
+    shimmer &&
+    variant !== "ghost" &&
+    variant !== "link" &&
+    !String(size).startsWith("icon")
+
+  const isLightSurface = variant === "outline" || variant === "secondary"
+
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      style={style}
       {...props}
-    />
+    >
+      {showShimmer && (
+        <span
+          aria-hidden="true"
+          style={{ "--spread": "90deg", "--speed": "3s" } as React.CSSProperties}
+          className="pointer-events-none block absolute inset-0 rounded-[inherit] p-[1px] opacity-85 [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [mask-composite:exclude] [-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [-webkit-mask-composite:xor]"
+        >
+          <span className="block absolute inset-0 overflow-visible [container-type:size]">
+            <span className="block absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1]">
+              <span
+                className={cn(
+                  "block animate-spin-around absolute -inset-full w-auto rotate-0",
+                  isLightSurface
+                    ? "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,rgba(11,59,46,0.55)_var(--spread),transparent_var(--spread))]"
+                    : "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,rgba(207,195,255,0.85)_var(--spread),transparent_var(--spread))]"
+                )}
+              />
+            </span>
+          </span>
+        </span>
+      )}
+      {children}
+      {showShimmer && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none block inset-0 absolute size-full rounded-[inherit] transition-all duration-300",
+            isLightSurface
+              ? "shadow-[inset_0_-4px_8px_rgba(11,59,46,0.06)] group-hover/button:shadow-[inset_0_-4px_8px_rgba(11,59,46,0.12)]"
+              : "shadow-[inset_0_-6px_10px_#ffffff1f] group-hover/button:shadow-[inset_0_-5px_10px_#ffffff38]"
+          )}
+        />
+      )}
+    </ButtonPrimitive>
   )
 }
 

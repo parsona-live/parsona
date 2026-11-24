@@ -2,9 +2,9 @@
 
 import React from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { BTN_GREEN, DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
-import { EASE, FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_ACCENT } from './shared'
+import { FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
+import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 const ROW_TWO_CARDS = [
   {
@@ -214,15 +214,13 @@ export function UseCasesSection() {
                   </div>
                 </div>
 
-                <motion.a
+                <ShimmerLink
                   href="#waitlist"
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2, ease: EASE }}
-                  className={`${BTN_GREEN} shrink-0 max-[720px]:w-full`}
+                  {...SHIMMER_ACCENT}
+                  className={`${SHIMMER_ACCENT.className} shrink-0 max-[720px]:w-full`}
                 >
                   Join the waitlist →
-                </motion.a>
+                </ShimmerLink>
               </article>
             </StaggerItem>
           </StaggerGroup>

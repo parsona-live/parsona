@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
 import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
+import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 interface PricingTier {
   name: string
@@ -353,18 +354,13 @@ export function PricingSection() {
                     }}
                     className="mt-7 pt-1"
                   >
-                    <motion.a
+                    <ShimmerLink
                       href={tier.ctaHref}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`w-full inline-flex items-center justify-center h-[44px] px-5 rounded-[12px] font-semibold text-[15px] transition-colors duration-200 focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px] ${
-                        tier.popular
-                          ? 'bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-hover)]'
-                          : 'bg-white text-[var(--brand-primary)] border border-[var(--border)] hover:bg-[var(--surface-green)] hover:border-[var(--brand-primary)]'
-                      }`}
+                      {...(tier.popular ? SHIMMER_PRIMARY : SHIMMER_OUTLINE)}
+                      className={`${tier.popular ? SHIMMER_PRIMARY.className : SHIMMER_OUTLINE.className} w-full`}
                     >
                       {tier.ctaLabel}
-                    </motion.a>
+                    </ShimmerLink>
                   </motion.div>
                 </motion.article>
               )

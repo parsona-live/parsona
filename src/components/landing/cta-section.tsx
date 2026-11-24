@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
-import { BTN_DARK, BTN_OUTLINE, DISPLAY_FONT, HighlightBubble, MONO_FONT } from './shared'
+import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
 import { FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
+import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 const ONBOARDING_STEPS = [
   {
@@ -92,12 +93,12 @@ export function CtaSection() {
               </p>
             </FadeUp>
             <div className="flex gap-3 flex-wrap mt-[30px]">
-              <a href="#waitlist" className={BTN_DARK}>
+              <ShimmerLink href="#waitlist" {...SHIMMER_PRIMARY}>
                 Join the waitlist →
-              </a>
-              <a href="#pricing" className={BTN_OUTLINE}>
+              </ShimmerLink>
+              <ShimmerLink href="#pricing" {...SHIMMER_OUTLINE}>
                 View plans
-              </a>
+              </ShimmerLink>
             </div>
             <div className="flex gap-[10px] flex-wrap mt-6">
               {['Early access soon', 'Priority onboarding', 'Official WhatsApp API'].map((item) => (

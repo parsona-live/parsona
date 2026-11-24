@@ -16,6 +16,35 @@ export const BTN_GREEN = `${BTN_BASE} bg-[var(--accent-primary)] text-[#30245A] 
 export const BTN_OUTLINE = `${BTN_BASE} bg-white text-[var(--brand-primary)] border-[var(--border)] hover:bg-[var(--surface-green)] hover:border-[var(--brand-primary)]`
 export const BTN_SM = '!h-10 !px-4 !text-[14px]'
 
+export const SHIMMER_PRIMARY = {
+  background: 'var(--brand-primary)',
+  hoverBackground: 'var(--brand-hover)',
+  shimmerColor: '#CFC3FF',
+  borderRadius: '12px',
+  className: 'h-[44px] px-[22px] font-semibold text-[15px] max-[720px]:text-[14px] text-white border-[var(--brand-primary)]',
+} as const
+
+export const SHIMMER_OUTLINE = {
+  background: '#FFFFFF',
+  hoverBackground: 'var(--surface-green)',
+  shimmerColor: '#0B3B2E',
+  borderRadius: '12px',
+  className:
+    'h-[44px] px-[22px] font-semibold text-[15px] max-[720px]:text-[14px] !text-[var(--brand-primary)] !border-[var(--border)] hover:!border-[var(--brand-primary)] shadow-[var(--shadow-card)]',
+  highlightClassName:
+    'shadow-[inset_0_-6px_10px_rgba(11,59,46,0.05)] group-hover:shadow-[inset_0_-6px_10px_rgba(11,59,46,0.11)] group-active:shadow-[inset_0_-8px_10px_rgba(11,59,46,0.14)]',
+} as const
+
+export const SHIMMER_ACCENT = {
+  background: 'var(--accent-primary)',
+  hoverBackground: 'var(--accent-hover)',
+  shimmerColor: '#FFFFFF',
+  borderRadius: '12px',
+  className: 'h-[44px] px-[22px] font-semibold text-[15px] max-[720px]:text-[14px] !text-[#30245A] border-[var(--accent-primary)]',
+  highlightClassName:
+    'shadow-[inset_0_-6px_10px_rgba(48,36,90,0.08)] group-hover:shadow-[inset_0_-6px_10px_rgba(48,36,90,0.14)]',
+} as const
+
 export function ParsonaMark({ variant = 'dark' }: { variant?: 'dark' | 'green' | 'inverse' }) {
   const isInverse = variant === 'green' || variant === 'inverse'
   return <ParsonaLogoMark variant={isInverse ? 'inverse' : 'primary'} size={36} />
