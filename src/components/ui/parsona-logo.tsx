@@ -13,9 +13,8 @@ export interface ParsonaLogoMarkProps {
 }
 
 /**
- * Official Parsona Logo Mark.
- * Primary (light backgrounds): #0B3B2E container, #CFC3FF symbol.
- * Inverse (dark backgrounds): #CFC3FF container, #0B3B2E symbol.
+ * Official Parsona Logo Mark from `public/logo/parsona-updated logo.svg`.
+ * Uses #080808 container with #CFC3FF symbol, with a subtle border on dark surfaces.
  */
 export function ParsonaLogoMark({
   variant = "primary",
@@ -23,16 +22,15 @@ export function ParsonaLogoMark({
   className = "",
 }: ParsonaLogoMarkProps) {
   const isInverse = variant === "inverse";
-  const containerBg = isInverse ? "#CFC3FF" : "#0B3B2E";
-  const symbolFill = isInverse ? "#0B3B2E" : "#CFC3FF";
 
   return (
     <span
-      className={`inline-grid place-items-center shrink-0 rounded-[10px] overflow-hidden ${className}`}
+      className={`inline-grid place-items-center shrink-0 rounded-[10px] overflow-hidden bg-[#080808] ${
+        isInverse ? "border border-white/15" : ""
+      } ${className}`}
       style={{
         width: size,
         height: size,
-        backgroundColor: containerBg,
       }}
     >
       <svg
@@ -42,8 +40,8 @@ export function ParsonaLogoMark({
         fill="none"
         aria-hidden="true"
       >
-        <path d={PARSONA_LOGO_PATH_OUTER} fill={symbolFill} />
-        <path d={PARSONA_LOGO_PATH_INNER} fill={symbolFill} />
+        <path d={PARSONA_LOGO_PATH_OUTER} fill="#CFC3FF" />
+        <path d={PARSONA_LOGO_PATH_INNER} fill="#CFC3FF" />
       </svg>
     </span>
   );
