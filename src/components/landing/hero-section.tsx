@@ -6,78 +6,103 @@ import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SHIMMER_OUTLINE, SHIMMER_PRIM
 import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
 import { InboxConsoleDemo } from './inbox-console-demo'
 import { ShimmerLink } from '@/components/ui/shimmer-button'
+import { RibbonFieldGradient } from '@/components/ui/ribbon-field-gradient'
 
 export function HeroSection() {
   return (
-    <section className="relative pt-16 pb-10 max-[720px]:pt-12 overflow-hidden bg-gradient-to-b from-white via-[#F5F6F8] to-[var(--background)]">
-      {/* Subtle SaaS Atmospheric & Architectural Background Graphics */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* Masked architectural grid */}
+    <section className="relative pt-14 pb-10 max-[720px]:pt-10 overflow-hidden bg-[var(--background)]">
+      {/* Animated Parsona Ribbon Field Gradient + Architectural Grid (Hero header only, fades clean before dashboard preview) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-0 inset-x-0 h-[650px] max-[720px]:h-[580px] overflow-hidden"
+      >
+        <RibbonFieldGradient />
+
+        {/* Soft Forest Green & Lavender ambient corner accents inside hero stage */}
         <div
-          className="absolute inset-0 opacity-65"
+          className="absolute top-[190px] -left-[120px] w-[480px] h-[440px] rounded-full blur-[110px] opacity-22 max-[720px]:opacity-14"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(11,59,46,0.9) 0%, rgba(24,121,78,0.35) 48%, transparent 74%)',
+          }}
+        />
+        <div
+          className="absolute top-[110px] -right-[110px] w-[500px] h-[440px] rounded-full blur-[110px] opacity-45 max-[720px]:opacity-25"
+          style={{
+            background:
+              'radial-gradient(circle, #CFC3FF 0%, rgba(185,166,245,0.45) 48%, transparent 74%)',
+          }}
+        />
+
+        {/* Masked architectural hairline grid */}
+        <div
+          className="absolute inset-0 opacity-60"
           style={{
             backgroundImage:
-              'linear-gradient(to right, rgba(212,216,223,0.45) 1px, transparent 1px), linear-gradient(to bottom, rgba(212,216,223,0.45) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-            maskImage: 'radial-gradient(ellipse 85% 60% at 50% 18%, #000 18%, transparent 100%)',
+              'linear-gradient(to right, rgba(11,59,46,0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(11,59,46,0.045) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+            maskImage: 'radial-gradient(ellipse 80% 65% at 50% 24%, #000 18%, transparent 100%)',
             WebkitMaskImage:
-              'radial-gradient(ellipse 85% 60% at 50% 18%, #000 18%, transparent 100%)',
+              'radial-gradient(ellipse 80% 65% at 50% 24%, #000 18%, transparent 100%)',
           }}
         />
 
-        {/* Atmospheric side glows framing the centered console bezel */}
-        <div
-          className="absolute top-[220px] -left-[120px] w-[520px] h-[680px] rounded-full blur-[120px] opacity-30 max-[720px]:opacity-20"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(11,59,46,0.9) 0%, rgba(24,121,78,0.45) 45%, transparent 72%)',
-          }}
-        />
-        <div
-          className="absolute top-[200px] -right-[120px] w-[540px] h-[680px] rounded-full blur-[120px] opacity-55 max-[720px]:opacity-35"
-          style={{
-            background:
-              'radial-gradient(circle, #CFC3FF 0%, rgba(185,166,245,0.55) 45%, transparent 72%)',
-          }}
-        />
-
-        {/* Minimal geometric orbital arcs & crosshairs */}
+        {/* Minimal geometric orbital arcs & alignment ticks */}
         <svg
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[1360px] h-[640px] opacity-60 max-[980px]:opacity-30"
-          viewBox="0 0 1360 640"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[1360px] h-[560px] opacity-55 max-[980px]:opacity-25"
+          viewBox="0 0 1360 560"
           fill="none"
         >
-          <circle cx="680" cy="300" r="320" stroke="#D4D8DF" strokeWidth="1" strokeDasharray="4 6" />
-          <circle cx="680" cy="300" r="460" stroke="#D4D8DF" strokeWidth="1" />
-          <path d="M210 120h12M216 114v12" stroke="#ACADB1" strokeWidth="1.2" />
-          <path d="M1138 140h12M1144 134v12" stroke="#ACADB1" strokeWidth="1.2" />
-          <circle cx="1000" cy="300" r="3.5" fill="#CFC3FF" stroke="#43336F" strokeWidth="1" />
-          <circle cx="360" cy="300" r="3" fill="#FFFFFF" stroke="#0B3B2E" strokeWidth="1.2" />
+          <circle cx="680" cy="270" r="290" stroke="#D4D8DF" strokeWidth="1" strokeDasharray="4 6" />
+          <circle cx="680" cy="270" r="430" stroke="#D4D8DF" strokeWidth="1" />
+          <path d="M230 120h12M236 114v12" stroke="#9FC2B4" strokeWidth="1.2" />
+          <path d="M1118 140h12M1124 134v12" stroke="#B9A6F5" strokeWidth="1.2" />
+          <circle cx="970" cy="270" r="3.5" fill="#CFC3FF" stroke="#43336F" strokeWidth="1" />
+          <circle cx="390" cy="270" r="3" fill="#FFFFFF" stroke="#0B3B2E" strokeWidth="1.2" />
         </svg>
+
+        {/* Smooth top highlight & bottom transition into solid #EBEDF1 above dashboard console */}
+        <div
+          className="absolute inset-x-0 top-0 h-20"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%)',
+          }}
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-48"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(235,237,241,0) 0%, rgba(235,237,241,0.78) 58%, #EBEDF1 100%)',
+          }}
+        />
       </div>
 
       <div className="relative z-10 max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
         {/* Centered Hero Copy Stack */}
-        <div className="max-w-[820px] mx-auto text-center">
+        <div className="max-w-[860px] mx-auto text-center">
           <FadeUp trigger="mount" delay={0.04} distance={14}>
             <div
-              className={`inline-flex items-center gap-2.5 ${MONO_FONT} font-medium text-[12px] tracking-[0.04em] text-[var(--brand-primary)] bg-white/90 border border-[var(--border)] rounded-full pl-3 pr-4 py-[6px] mb-6 shadow-[var(--shadow-card)]`}
+              className={`inline-flex items-center gap-2.5 ${MONO_FONT} font-medium text-[12px] tracking-[0.03em] text-[var(--brand-primary)] bg-white/92 backdrop-blur-sm border border-[var(--border)] rounded-full pl-2 pr-3.5 py-[5px] mb-6 shadow-[var(--shadow-card)]`}
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-60" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]" />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-lavender)] text-[var(--accent-text)] px-2 py-[2px] text-[10.5px] font-semibold tracking-[0.05em]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-65" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--success)]" />
+                </span>
+                LIVE
               </span>
               <span>WhatsApp · Instagram · Facebook · Voice AI</span>
             </div>
           </FadeUp>
 
           <h1
-            className={`${DISPLAY_FONT} text-[clamp(36px,4.5vw,58px)] font-bold tracking-[-0.042em] leading-[1.1] text-[var(--text-heading)]`}
+            className={`${DISPLAY_FONT} text-[clamp(38px,4.8vw,62px)] font-bold tracking-[-0.045em] leading-[1.09] text-[var(--text-heading)]`}
           >
             <TextReveal text="The AI communication layer" trigger="mount" delay={0.08} />
             <br />
             <HighlightBubble
-              bgClass="bg-[var(--accent-primary)]/75 text-[#30245A]"
+              bgClass="bg-[var(--accent-primary)]/85 border border-[var(--accent-hover)]/50 text-[#261A4D] shadow-[0_10px_28px_-10px_rgba(185,166,245,0.65)]"
               trigger="mount"
               delay={0.22}
             >
@@ -86,7 +111,7 @@ export function HeroSection() {
           </h1>
 
           <FadeUp trigger="mount" delay={0.32} distance={16}>
-            <p className="mt-6 text-[18px] max-[720px]:text-[16.5px] text-[var(--text-body)] max-w-[660px] mx-auto leading-[1.6]">
+            <p className="mt-6 text-[18px] max-[720px]:text-[16.5px] text-[var(--text-body)] max-w-[695px] mx-auto leading-[1.6] text-pretty">
               Parsona brings WhatsApp, Instagram, Facebook and phone calls into one shared team
               inbox. AI agents handle customer messages and calls, while your team can manage
               leads, collaborate and automate follow-ups using built-in CRM and workflow
@@ -99,7 +124,7 @@ export function HeroSection() {
                 href="#waitlist"
                 {...SHIMMER_PRIMARY}
                 borderRadius="9999px"
-                className="h-[50px] pl-6 pr-2.5 gap-3 font-semibold text-[15px] shadow-[var(--shadow-brand)]"
+                className="h-[52px] pl-6 pr-2.5 gap-3 font-semibold text-[15px] shadow-[var(--shadow-brand)]"
               >
                 <span>Join the waitlist</span>
                 <span
@@ -113,25 +138,36 @@ export function HeroSection() {
                 href="#inbox-demo"
                 {...SHIMMER_OUTLINE}
                 borderRadius="9999px"
-                className={`${SHIMMER_OUTLINE.className} !h-[50px] !px-6`}
+                className={`${SHIMMER_OUTLINE.className} !h-[52px] !pl-3.5 !pr-6 !gap-2.5`}
               >
-                Try the interactive demo
+                <span
+                  aria-hidden="true"
+                  className="w-6 h-6 rounded-full bg-[var(--surface-green)] text-[var(--brand-primary)] grid place-items-center"
+                >
+                  <svg width="9" height="10" viewBox="0 0 10 12" fill="currentColor">
+                    <path d="M1.5 1.2L9 6l-7.5 4.8V1.2z" />
+                  </svg>
+                </span>
+                <span>Try the interactive demo</span>
               </ShimmerLink>
             </div>
           </FadeUp>
 
           <FadeUp trigger="mount" delay={0.5} distance={12}>
-            <p className={`mt-5 ${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>
-              Early access opening soon · Priority onboarding for founding teams.
+            <p
+              className={`mt-5 inline-flex items-center justify-center gap-2 flex-wrap ${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}
+            >
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--success)]" aria-hidden="true" />
+              <span>Early access opening soon · Priority onboarding for founding teams.</span>
             </p>
           </FadeUp>
         </div>
 
-        {/* Centered Frosted Outer Bezel + Interactive Product Console */}
+        {/* Centered Studio Glass Bezel + Interactive Product Console */}
         <FadeUp delay={0.18} distance={28}>
           <div
             id="inbox-demo"
-            className="scroll-mt-[88px] mt-12 max-[720px]:mt-9 p-2.5 max-[720px]:p-1.5 rounded-[26px] bg-white/65 backdrop-blur-md border border-white/90 shadow-[0_24px_64px_-16px_rgba(8,8,8,0.14)]"
+            className="scroll-mt-[88px] mt-11 max-[720px]:mt-8 p-3 max-[720px]:p-1.5 rounded-[28px] bg-white/80 backdrop-blur-xl border border-white ring-1 ring-[#0B3B2E]/10 shadow-[0_32px_80px_-20px_rgba(11,59,46,0.14),0_10px_28px_-10px_rgba(8,8,8,0.06)]"
           >
             <InboxConsoleDemo embedded />
           </div>
