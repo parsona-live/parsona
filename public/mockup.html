@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parsona — Landing Page Design Mockup (HTML + Tailwind)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style>
+      :root {
+        /* Brand colors */
+        --brand-primary: #0B3B2E;
+        --brand-hover: #11503F;
+        --brand-active: #082A21;
+        --brand-dark: #08241C;
+
+        /* Lavender accents */
+        --accent-primary: #CFC3FF;
+        --accent-hover: #B9A6F5;
+        --accent-light: #E5DEFF;
+        --accent-tint: #F3F0FF;
+        --accent-text: #43336F;
+
+        /* Backgrounds and surfaces */
+        --background: #EBEDF1;
+        --surface: #FFFFFF;
+        --surface-secondary: #F5F6F8;
+        --surface-subtle: #D4D8DF;
+        --surface-green: #E6F0EC;
+        --surface-lavender: #F3F0FF;
+
+        /* Typography */
+        --black: #080808;
+        --text-primary: #080808;
+        --text-heading: #080808;
+        --text-body: #353536;
+        --text-secondary: #52625A;
+        --text-muted: #626B65;
+        --text-placeholder: #626B65;
+
+        /* Borders */
+        --border: #D4D8DF;
+        --border-strong: #ACADB1;
+
+        /* Footer */
+        --footer-background: #08241C;
+        --footer-surface: #0B3B2E;
+        --footer-border: #1E4A3D;
+        --footer-text: #B6D6C8;
+        --footer-links: #DCEBE4;
+        --footer-muted: #9FC2B4;
+
+        /* Semantic */
+        --success: #18794E;
+        --success-bg: #E8F5ED;
+        --warning: #9A5B13;
+        --warning-bg: #FFF4E5;
+        --error: #B42318;
+        --error-bg: #FDEDEB;
+        --info: #275D9B;
+        --info-bg: #EAF2FF;
+
+        /* Shadows */
+        --shadow-card: 0 1px 2px rgba(8, 8, 8, 0.04), 0 4px 12px rgba(8, 8, 8, 0.04);
+        --shadow-dropdown: 0 12px 32px rgba(8, 8, 8, 0.12);
+        --shadow-brand: 0 8px 24px rgba(11, 59, 46, 0.18);
+      }
+
+      html {
+        scroll-padding-top: 84px;
+        font-family: 'Geist', system-ui, -apple-system, sans-serif;
+      }
+
+      body {
+        background: var(--background);
+        color: var(--text-primary);
+        overflow-x: hidden;
+      }
+
+      .font-mono-tech {
+        font-family: 'Geist Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+
+      .no-scrollbar {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      @keyframes fdash {
+        from { stroke-dashoffset: 0; }
+        to { stroke-dashoffset: -100; }
+      }
+      @keyframes blink-dot {
+        0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+        40% { opacity: 1; transform: translateY(-3px); }
+      }
+      @keyframes pulse-live {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+      }
+      .anim-dash {
+        animation: fdash 2.6s linear infinite;
+      }
+      .anim-live {
+        animation: pulse-live 1.6s ease-in-out infinite;
+      }
+    </style>
+  </head>
+
+  <body class="antialiased selection:bg-[#CFC3FF] selection:text-[#30245A]">
+    <!-- ================================================================ -->
+    <!-- MOCKUP BANNER (Not part of production — safe preview indicator)  -->
+    <!-- ================================================================ -->
+    <div class="bg-[#080808] text-white text-[12px] font-mono-tech px-4 py-2 text-center flex items-center justify-center gap-3 flex-wrap">
+      <span class="inline-flex items-center gap-1.5 text-[#CFC3FF]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#CFC3FF]"></span>
+        MOCKUP WORKSPACE
+      </span>
+      <span class="text-[#ACADB1]">Edit <code class="text-white">public/mockup.html</code> to test changes before syncing to React components.</span>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SECTION 1: NAVBAR                                                -->
+    <!-- ================================================================ -->
+    <header class="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[#D4D8DF]/80">
+      <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 flex items-center justify-between h-[74px] gap-4">
+        <!-- Brand Logo -->
+        <a href="#top" class="flex items-center gap-2.5 text-[21px] font-bold tracking-[-0.03em] text-[#080808] shrink-0">
+          <span class="inline-grid place-items-center w-9 h-9 rounded-[10px] bg-[#080808] overflow-hidden">
+            <svg width="36" height="36" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+              <path d="M62.0004 71V68C62.0004 67.606 61.9228 67.2159 61.7721 66.8518C61.6213 66.488 61.4004 66.1573 61.1218 65.8785C60.8431 65.6 60.5123 65.379 60.1485 65.2283C59.7845 65.0776 59.3943 64.9999 59.0004 64.9999H46.9994C43.0211 64.9999 39.2057 63.4196 36.3926 60.6065C33.5795 57.7935 31.9991 53.9783 31.999 50C31.999 48.0302 32.387 46.0796 33.1409 44.2597C33.8947 42.4398 34.9996 40.7863 36.3925 39.3934C37.7855 38.0005 39.4391 36.8956 41.259 36.1418C43.0789 35.388 45.0295 35 46.9994 35.0001H58.9995C59.3934 35.0002 59.7838 34.9227 60.1478 34.772C60.5119 34.6212 60.8428 34.4003 61.1214 34.1217C61.4002 33.8431 61.6211 33.5123 61.7721 33.1483C61.9228 32.7843 62.0004 32.3941 62.0004 32V29H47.0001C44.2423 29 41.5115 29.5432 38.9636 30.5985C36.4158 31.6539 34.1007 33.2007 32.1507 35.1508C30.2007 37.1008 28.6538 39.4158 27.5985 41.9637C26.5431 44.5115 26 47.2423 26 50C26 55.5694 28.2125 60.9109 32.1508 64.8492C36.089 68.7874 41.4305 71 47.0001 71H62.0004Z" fill="#CFC3FF" />
+              <path d="M37.9987 50C37.9987 52.3869 38.9469 54.676 40.6347 56.3637C42.3224 58.0515 44.6116 58.9996 46.9984 58.9996H61.9999C63.5913 58.9996 65.1172 59.6319 66.2424 60.7571C67.3676 61.8822 67.9999 63.4083 67.9999 64.9997V70.9998H74V64.9999C74 61.8174 72.7358 58.7652 70.4854 56.5146C68.2347 54.2643 65.1825 53 61.9999 53H46.9989C46.2032 53 45.4401 52.6839 44.8775 52.1214C44.3149 51.5587 43.9988 50.7957 43.9988 50C43.9988 49.2043 44.3149 48.4413 44.8775 47.8786C45.4401 47.316 46.2032 47 46.9989 47H61.7721C64.9546 47 68.2347 45.7357 70.4854 43.4853C72.7358 41.2349 74 38.1826 74 35.0001V29H67.999V35.0001C67.999 36.5912 67.3669 38.1171 66.242 39.2423C65.117 40.3674 63.5911 40.9997 61.9999 40.9999H46.9989C45.8169 40.9998 44.6466 41.2326 43.5546 41.6849C42.4626 42.1371 41.4704 42.8001 40.6347 43.6358C39.7989 44.4716 39.1359 45.4638 38.6837 46.5557C38.2314 47.6477 37.9986 48.8181 37.9987 50Z" fill="#CFC3FF" />
+            </svg>
+          </span>
+          <span>Parsona</span>
+        </a>
+
+        <!-- Center Pill Navigation -->
+        <nav aria-label="Main" class="hidden min-[981px]:flex items-center gap-1 rounded-full bg-[#F5F6F8] border border-[#D4D8DF] p-1 shadow-[var(--shadow-card)]">
+          <a href="#channels" class="rounded-full px-4 py-1.5 text-[14px] font-semibold bg-white text-[#0B3B2E] shadow-xs">Channels</a>
+          <a href="#use-cases" class="rounded-full px-4 py-1.5 text-[14px] font-medium text-[#52625A] hover:text-[#080808]">Use cases</a>
+          <a href="#platform" class="rounded-full px-4 py-1.5 text-[14px] font-medium text-[#52625A] hover:text-[#080808]">Product</a>
+          <a href="#automation" class="rounded-full px-4 py-1.5 text-[14px] font-medium text-[#52625A] hover:text-[#080808]">Workflows</a>
+          <a href="#pricing" class="rounded-full px-4 py-1.5 text-[14px] font-medium text-[#52625A] hover:text-[#080808]">Pricing</a>
+          <a href="#faq" class="rounded-full px-4 py-1.5 text-[14px] font-medium text-[#52625A] hover:text-[#080808]">FAQ</a>
+        </nav>
+
+        <!-- Right CTA -->
+        <a
+          href="#waitlist"
+          class="hidden min-[981px]:inline-flex items-center justify-center h-10 px-5 rounded-[10px] bg-white border border-[#D4D8DF] hover:border-[#0B3B2E] hover:bg-[#E6F0EC] text-[#080808] font-medium text-[14px] transition-colors shadow-[var(--shadow-card)]"
+        >
+          Join waitlist
+        </a>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- ================================================================ -->
+      <!-- SECTION 2: CENTERED HERO WITH ATMOSPHERIC GLOWS & INBOX PREVIEW  -->
+      <!-- (Reference layout style + Parsona Forest Green & Lavender theme) -->
+      <!-- ================================================================ -->
+      <section class="relative pt-16 pb-10 max-[720px]:pt-12 overflow-hidden bg-gradient-to-b from-white via-[#F5F6F8] to-[#EBEDF1]">
+        <!-- Atmospheric Side Glows (Forest Green Left + Lavender Right) -->
+        <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">
+          <!-- Subtle Top-Centered Grid -->
+          <div
+            class="absolute inset-0 opacity-55"
+            style="
+              background-image: linear-gradient(to right, rgba(212,216,223,0.45) 1px, transparent 1px), linear-gradient(to bottom, rgba(212,216,223,0.45) 1px, transparent 1px);
+              background-size: 48px 48px;
+              mask-image: radial-gradient(ellipse 75% 55% at 50% 18%, #000 10%, transparent 100%);
+              -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 18%, #000 10%, transparent 100%);
+            "
+          ></div>
+
+          <!-- Left Forest Green Atmospheric Glow -->
+          <div
+            class="absolute -bottom-24 -left-24 w-[620px] h-[540px] rounded-full blur-[120px] opacity-40 max-[720px]:opacity-25"
+            style="background: radial-gradient(circle, #0B3B2E 0%, #18794E 40%, transparent 75%);"
+          ></div>
+
+          <!-- Right Lavender Atmospheric Glow -->
+          <div
+            class="absolute -bottom-20 -right-24 w-[640px] h-[560px] rounded-full blur-[120px] opacity-85 max-[720px]:opacity-50"
+            style="background: radial-gradient(circle, #CFC3FF 0%, #B9A6F5 42%, transparent 75%);"
+          ></div>
+
+          <!-- Subtle Architectural Orbital Lines -->
+          <svg class="absolute top-6 left-1/2 -translate-x-1/2 w-[1240px] h-[460px] opacity-50 max-[980px]:opacity-25" viewBox="0 0 1240 460" fill="none">
+            <circle cx="620" cy="420" r="390" stroke="#D4D8DF" stroke-width="1" stroke-dasharray="4 6" />
+            <circle cx="620" cy="420" r="510" stroke="#D4D8DF" stroke-width="1" />
+            <path d="M164 116h12M170 110v12" stroke="#ACADB1" stroke-width="1.2" />
+            <path d="M1064 136h12M1070 130v12" stroke="#ACADB1" stroke-width="1.2" />
+          </svg>
+        </div>
+
+        <div class="relative max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
+          <!-- Centered Hero Copy -->
+          <div class="max-w-[820px] mx-auto text-center">
+            <!-- Eyebrow Pill -->
+            <div class="inline-flex items-center gap-2.5 font-mono-tech font-medium text-[12px] tracking-[0.04em] text-[#0B3B2E] bg-white border border-[#D4D8DF] rounded-full px-3.5 py-1.5 mb-7 shadow-[var(--shadow-card)]">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#18794E] opacity-60"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-[#18794E]"></span>
+              </span>
+              <span>WhatsApp · Instagram · Facebook · Voice AI</span>
+            </div>
+
+            <!-- H1 -->
+            <h1 class="text-[clamp(40px,4.8vw,62px)] font-bold tracking-[-0.045em] leading-[1.08] text-[#080808] text-balance">
+              The AI communication layer
+              <br class="max-[640px]:hidden" />
+              <span class="inline-block bg-[#CFC3FF]/75 text-[#080808] px-3 pb-1 rounded-[12px] mt-1">
+                for your business
+              </span>
+            </h1>
+
+            <!-- Description -->
+            <p class="mt-6 text-[18px] max-[720px]:text-[16.5px] text-[#353536] max-w-[660px] mx-auto leading-[1.6]">
+              Parsona brings WhatsApp, Instagram, Facebook and phone calls into one shared team inbox.
+              AI agents handle customer messages and calls, while your team can manage leads,
+              collaborate and automate follow-ups using built-in CRM and workflow
+            </p>
+
+            <!-- CTA Buttons (Floating Pill CTA with Circular Arrow Badge like reference) -->
+            <div class="mt-8 flex items-center justify-center gap-3.5 flex-wrap">
+              <a
+                href="#waitlist"
+                class="group inline-flex items-center gap-3 h-[50px] pl-6 pr-2.5 rounded-full bg-[#0B3B2E] hover:bg-[#11503F] active:bg-[#082A21] text-white font-semibold text-[15px] shadow-[0_14px_30px_-6px_rgba(11,59,46,0.42)] transition-all duration-200 hover:-translate-y-0.5"
+              >
+                <span>Join the waitlist</span>
+                <span class="w-8 h-8 rounded-full bg-[#CFC3FF] text-[#080808] grid place-items-center transition-transform duration-200 group-hover:translate-x-0.5">
+                  →
+                </span>
+              </a>
+              <a
+                href="#inbox-demo"
+                class="inline-flex items-center justify-center h-[50px] px-6 rounded-full bg-white/90 hover:bg-white border border-[#D4D8DF] hover:border-[#0B3B2E] text-[#080808] font-semibold text-[15px] shadow-[var(--shadow-card)] transition-colors"
+              >
+                Try the interactive demo
+              </a>
+            </div>
+
+            <p class="mt-4 font-mono-tech text-[12px] text-[#52625A]">
+              Early access opening soon · Priority onboarding for founding teams.
+            </p>
+          </div>
+
+          <!-- Frosted Bezel + Interactive Team Inbox Console Frame (like reference dashboard showcase) -->
+          <div id="inbox-demo" class="mt-12 max-[720px]:mt-9 scroll-mt-[88px] p-2.5 max-[720px]:p-1.5 rounded-[26px] bg-white/65 backdrop-blur-md border border-white/90 shadow-[0_24px_64px_-16px_rgba(8,8,8,0.14)]">
+            <div class="bg-white border border-[#D4D8DF] rounded-[18px] overflow-hidden shadow-[var(--shadow-card)]">
+              <!-- Browser Bar -->
+              <div class="flex items-center gap-2 px-4 py-3 border-b border-[#D4D8DF] bg-[#F5F6F8]">
+                <i class="w-2.5 h-2.5 rounded-full bg-[#ACADB1]"></i>
+                <i class="w-2.5 h-2.5 rounded-full bg-[#ACADB1]"></i>
+                <i class="w-2.5 h-2.5 rounded-full bg-[#ACADB1]"></i>
+                <span class="mx-auto font-mono-tech text-[12px] text-[#52625A]">app.parsona.com/inbox</span>
+                <button
+                  type="button"
+                  id="demo-reset-all"
+                  class="inline-flex items-center gap-1.5 font-mono-tech text-[11px] font-medium text-[#0B3B2E] px-2.5 py-1 rounded-md border border-[#D4D8DF] bg-white hover:bg-[#E6F0EC] cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div class="grid grid-cols-[290px_minmax(0,1fr)_270px] min-h-[540px] max-[1100px]:grid-cols-[260px_minmax(0,1fr)] max-[720px]:grid-cols-1">
+                <!-- Left Conversation List -->
+                <aside class="border-r border-[#D4D8DF] max-[720px]:hidden">
+                  <div class="flex items-center justify-between px-[18px] pt-4 pb-3">
+                    <b class="text-[19px] font-semibold tracking-[-0.02em] text-[#080808]">Inbox</b>
+                    <span class="min-w-[20px] h-5 rounded-full bg-[#B42318] text-white font-mono-tech font-medium text-[11px] inline-grid place-items-center px-[6px]">11</span>
+                  </div>
+                  <div class="flex gap-[6px] px-[18px] pb-3 font-mono-tech font-medium text-[12px]">
+                    <span class="px-[9px] py-[5px] rounded-[8px] bg-[#0B3B2E] text-white">Mine 3</span>
+                    <span class="px-[9px] py-[5px] rounded-[8px] bg-[#F5F6F8] text-[#52625A]">Open 8</span>
+                    <span class="px-[9px] py-[5px] rounded-[8px] bg-[#F3F0FF] text-[#43336F]">AI 41</span>
+                  </div>
+                  <div id="demo-contact-list"></div>
+                </aside>
+
+                <!-- Center Thread -->
+                <div class="flex flex-col bg-[#F5F6F8] min-w-0">
+                  <div class="flex items-center justify-between gap-3 px-5 py-[14px] bg-white border-b border-[#D4D8DF]">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div id="demo-active-avatar" class="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 bg-[#E6F0EC] text-[#080808]">
+                        AS
+                      </div>
+                      <div class="min-w-0">
+                        <b id="demo-active-name" class="block text-[15.5px] leading-[1.2] text-[#080808] truncate">Aanya Sharma</b>
+                        <small id="demo-active-meta" class="block font-mono-tech text-[12px] text-[#52625A] truncate">WhatsApp · +91 98•• ••210</small>
+                      </div>
+                    </div>
+                    <div class="flex gap-1.5 flex-wrap justify-end shrink-0">
+                      <span id="demo-ai-status" class="font-mono-tech font-medium text-[11px] px-2.5 py-[3px] rounded-full bg-[#CFC3FF] text-[#30245A]">AI active</span>
+                      <span id="demo-assigned" class="font-mono-tech font-medium text-[11px] px-2.5 py-[3px] rounded-full bg-[#E6F0EC] text-[#0B3B2E]">Assigned: Rohan</span>
+                    </div>
+                  </div>
+
+                  <div id="demo-messages" class="flex-1 h-[340px] overflow-y-auto no-scrollbar px-5 py-5 flex flex-col gap-[11px]"></div>
+
+                  <div class="bg-white border-t border-[#D4D8DF] px-5 pt-2.5 pb-3.5 space-y-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-mono-tech text-[10.5px] uppercase tracking-[0.05em] text-[#52625A]">Try asking:</span>
+                      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <button type="button" class="demo-chip whitespace-nowrap px-2.5 py-1 rounded-full bg-[#F5F6F8] hover:bg-[#E6F0EC] border border-[#D4D8DF] font-mono-tech text-[11.5px] font-medium text-[#0B3B2E] cursor-pointer">Delivery to Pune?</button>
+                        <button type="button" class="demo-chip whitespace-nowrap px-2.5 py-1 rounded-full bg-[#F5F6F8] hover:bg-[#E6F0EC] border border-[#D4D8DF] font-mono-tech text-[11.5px] font-medium text-[#0B3B2E] cursor-pointer">Return policy?</button>
+                        <button type="button" class="demo-chip whitespace-nowrap px-2.5 py-1 rounded-full bg-[#F5F6F8] hover:bg-[#E6F0EC] border border-[#D4D8DF] font-mono-tech text-[11.5px] font-medium text-[#0B3B2E] cursor-pointer">Combo price?</button>
+                        <button type="button" class="demo-chip whitespace-nowrap px-2.5 py-1 rounded-full bg-[#F5F6F8] hover:bg-[#E6F0EC] border border-[#D4D8DF] font-mono-tech text-[11.5px] font-medium text-[#0B3B2E] cursor-pointer">Talk to human</button>
+                      </div>
+                    </div>
+                    <form id="demo-ask-form" class="flex items-center gap-2">
+                      <input
+                        id="demo-ask-input"
+                        type="text"
+                        placeholder="Ask a customer question to test Parsona AI…"
+                        class="flex-1 min-w-0 h-10 rounded-[10px] border border-[#D4D8DF] focus:border-[#0B3B2E] bg-white px-3.5 text-[14px] text-[#353536] placeholder:text-[#626B65] focus:outline-none"
+                      />
+                      <button type="submit" class="h-10 px-4 rounded-[10px] bg-[#0B3B2E] hover:bg-[#11503F] text-white font-semibold text-[13.5px] cursor-pointer shrink-0">
+                        Ask AI
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Right Customer CRM Profile -->
+                <aside class="border-l border-[#D4D8DF] px-5 py-[22px] flex flex-col gap-[16px] max-[1100px]:hidden">
+                  <div class="flex items-center gap-3">
+                    <div id="demo-crm-avatar" class="w-11 h-11 rounded-full grid place-items-center font-bold text-[14px] bg-[#E6F0EC] text-[#080808]">AS</div>
+                    <div>
+                      <b id="demo-crm-name" class="block text-[16.5px] font-semibold text-[#080808]">Aanya Sharma</b>
+                      <small id="demo-crm-since" class="font-mono-tech text-[12px] text-[#52625A]">Customer since Mar 2025</small>
+                    </div>
+                  </div>
+                  <div id="demo-crm-tags" class="flex gap-1.5 flex-wrap"></div>
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div class="bg-[#F5F6F8] rounded-[12px] px-3 py-2.5">
+                      <small class="block font-mono-tech text-[11px] text-[#52625A]">Lifetime value</small>
+                      <b id="demo-crm-ltv" class="text-[18px] font-semibold text-[#080808]">₹18,240</b>
+                    </div>
+                    <div class="bg-[#F5F6F8] rounded-[12px] px-3 py-2.5">
+                      <small class="block font-mono-tech text-[11px] text-[#52625A]">Orders</small>
+                      <b id="demo-crm-orders" class="text-[18px] font-semibold text-[#080808]">6</b>
+                    </div>
+                    <div class="bg-[#F5F6F8] rounded-[12px] px-3 py-2.5">
+                      <small class="block font-mono-tech text-[11px] text-[#52625A]">Stage</small>
+                      <b id="demo-crm-stage" class="text-[15px] font-semibold text-[#080808]">Negotiation</b>
+                    </div>
+                    <div class="bg-[#F5F6F8] rounded-[12px] px-3 py-2.5">
+                      <small class="block font-mono-tech text-[11px] text-[#52625A]">Returns</small>
+                      <b class="text-[18px] font-semibold text-[#080808]">0</b>
+                    </div>
+                  </div>
+                  <div class="text-[13px] leading-[1.5] text-[#353536] border-t border-[#D4D8DF] pt-3">
+                    <small class="block font-mono-tech font-medium text-[10.5px] tracking-[0.06em] uppercase text-[#0B3B2E] mb-1.5">AI summary</small>
+                    <span id="demo-crm-summary">Repeat buyer asking about cash on delivery for kurta set (M). Low return risk.</span>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </div>
+
+          <!-- Waitlist Social Proof Bar -->
+          <div class="mt-10 flex items-center justify-between gap-5 flex-wrap px-6 py-4 bg-white border border-[#D4D8DF] rounded-[16px] shadow-[var(--shadow-card)] max-[720px]:flex-col max-[720px]:text-center">
+            <div class="flex items-center gap-4 flex-wrap max-[720px]:justify-center">
+              <div class="flex items-center -space-x-2.5" aria-hidden="true">
+                <span class="w-10 h-10 rounded-full border-2 border-white grid place-items-center font-mono-tech font-semibold text-[11.5px] bg-[#E6F0EC] text-[#0B3B2E]">AS</span>
+                <span class="w-10 h-10 rounded-full border-2 border-white grid place-items-center font-mono-tech font-semibold text-[11.5px] bg-[#F3F0FF] text-[#43336F]">MJ</span>
+                <span class="w-10 h-10 rounded-full border-2 border-white grid place-items-center font-mono-tech font-semibold text-[11.5px] bg-[#F5F6F8] text-[#080808]">RK</span>
+                <span class="w-10 h-10 rounded-full border-2 border-white grid place-items-center font-mono-tech font-semibold text-[11.5px] bg-[#CFC3FF] text-[#30245A]">IV</span>
+                <span class="w-10 h-10 rounded-full border-2 border-white grid place-items-center font-mono-tech font-semibold text-[11.5px] bg-[#0B3B2E] text-white">DP</span>
+              </div>
+              <p class="text-[15.5px] text-[#52625A]">
+                <strong class="font-semibold text-[#080808]">100+ teams</strong> have already joined the waitlist
+              </p>
+            </div>
+            <a href="#waitlist" class="inline-flex items-center justify-center gap-1.5 h-10 px-[18px] rounded-[12px] bg-white border border-[#D4D8DF] hover:bg-[#E6F0EC] hover:border-[#0B3B2E] font-mono-tech font-medium text-[13px] text-[#0B3B2E] transition-colors">
+              Join them →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 3: CHANNELS + MONOCHROME ROUTING ENGINE                  -->
+      <!-- ================================================================ -->
+      <section id="channels" class="pt-[110px] max-[980px]:pt-[80px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Channels</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">4</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              One customer. Three apps and a phone line.
+              <br />
+              <span class="inline-block bg-[#E6F0EC] text-[#0B3B2E] px-2.5 pb-0.5 rounded-[8px]">One timeline.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              People do not stay on one channel, so your records should not either. Parsona merges
+              every message, comment, order and, soon, every call into a single history per customer.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-[1fr_1.05fr] gap-12 max-[980px]:grid-cols-1 mt-14 items-start">
+            <!-- Left Channel List -->
+            <ul class="grid gap-3">
+              <li class="rounded-[16px] border border-[#D4D8DF] border-l-[4px] border-l-[#0B3B2E] bg-white p-4 shadow-[var(--shadow-card)] grid grid-cols-[44px_1fr] gap-4">
+                <span class="w-11 h-11 rounded-[12px] bg-[#E6F0EC] text-[#0B3B2E] grid place-items-center font-bold">WA</span>
+                <div>
+                  <b class="block text-[20px] font-semibold tracking-[-0.02em] text-[#080808]">WhatsApp</b>
+                  <span class="block text-[15px] text-[#52625A] mt-1">Official Business API with approved templates, appointment reminders, service lists and click-to-chat links.</span>
+                </div>
+              </li>
+              <li class="rounded-[16px] border border-[#D4D8DF] border-l-[4px] border-l-[#353536] bg-white p-4 shadow-[var(--shadow-card)] grid grid-cols-[44px_1fr] gap-4">
+                <span class="w-11 h-11 rounded-[12px] bg-[#F5F6F8] text-[#080808] grid place-items-center font-bold">IG</span>
+                <div>
+                  <b class="block text-[20px] font-semibold tracking-[-0.02em] text-[#080808]">Instagram</b>
+                  <span class="block text-[15px] text-[#52625A] mt-1">DMs, story replies and comment-to-DM flows that start the moment someone types a keyword.</span>
+                </div>
+              </li>
+              <li class="rounded-[16px] border border-[#D4D8DF] border-l-[4px] border-l-[#52625A] bg-white p-4 shadow-[var(--shadow-card)] grid grid-cols-[44px_1fr] gap-4">
+                <span class="w-11 h-11 rounded-[12px] bg-[#F5F6F8] text-[#080808] grid place-items-center font-bold">FB</span>
+                <div>
+                  <b class="block text-[20px] font-semibold tracking-[-0.02em] text-[#080808]">Facebook</b>
+                  <span class="block text-[15px] text-[#52625A] mt-1">Messenger, page comments and click-to-Messenger ad replies, routed to the right teammate.</span>
+                </div>
+              </li>
+              <li class="rounded-[16px] border border-[#D4D8DF] border-l-[4px] border-l-[#CFC3FF] bg-white p-4 shadow-[var(--shadow-card)] grid grid-cols-[44px_1fr] gap-4">
+                <span class="w-11 h-11 rounded-[12px] bg-[#F3F0FF] text-[#43336F] grid place-items-center font-bold">AI</span>
+                <div>
+                  <b class="block text-[20px] font-semibold tracking-[-0.02em] text-[#080808]">
+                    Voice
+                    <em class="ml-2 not-italic font-mono-tech font-medium text-[10px] tracking-[0.05em] uppercase px-2 py-0.5 rounded-full bg-[#F3F0FF] text-[#43336F]">Coming soon</em>
+                  </b>
+                  <span class="block text-[15px] text-[#52625A] mt-1">A voice AI agent that answers calls, books and reschedules, then hands off to your team. Every call is saved on the same customer record.</span>
+                </div>
+              </li>
+            </ul>
+
+            <!-- Right Customer Timeline -->
+            <div class="bg-white border border-[#D4D8DF] rounded-[20px] pt-7 px-7 pb-4 shadow-[var(--shadow-card)]">
+              <div class="flex justify-between items-center gap-3 flex-wrap pb-4 border-b border-[#D4D8DF]">
+                <b class="text-[22px] font-semibold tracking-[-0.025em] text-[#080808]">Aanya Sharma</b>
+                <span class="font-mono-tech font-medium text-[11px] px-2.5 py-1 rounded-full bg-[#0B3B2E] text-white">3 apps + voice · 1 history</span>
+              </div>
+              <ol class="relative py-2 space-y-5 mt-2">
+                <span class="absolute left-[11px] top-6 bottom-6 w-[2px] bg-[#D4D8DF]"></span>
+                <li class="relative pl-10">
+                  <span class="absolute left-[3px] top-1 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1px_#ACADB1] bg-[#080808]"></span>
+                  <time class="font-mono-tech text-[12px] text-[#52625A]">Mon 10:12</time>
+                  <p class="text-[15px] text-[#353536] mt-0.5"><span class="font-mono-tech text-[11px] px-2 py-0.5 rounded-full bg-[#F5F6F8] text-[#353536] mr-1.5">Instagram</span> Commented <b>“SMILE”</b> on the whitening offer. A flow moved the chat to WhatsApp.</p>
+                </li>
+                <li class="relative pl-10">
+                  <span class="absolute left-[3px] top-1 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1px_#ACADB1] bg-[#25D366]"></span>
+                  <time class="font-mono-tech text-[12px] text-[#52625A]">Mon 18:40</time>
+                  <p class="text-[15px] text-[#353536] mt-0.5"><span class="font-mono-tech text-[11px] px-2 py-0.5 rounded-full bg-[#E6F0EC] text-[#0B3B2E] mr-1.5">WhatsApp</span> Booked a <b>cleaning</b> for Thursday 4 pm and paid the advance by UPI.</p>
+                </li>
+                <li class="relative pl-10">
+                  <span class="absolute left-[3px] top-1 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1px_#ACADB1] bg-[#1877F2]"></span>
+                  <time class="font-mono-tech text-[12px] text-[#52625A]">Fri 11:30</time>
+                  <p class="text-[15px] text-[#353536] mt-0.5"><span class="font-mono-tech text-[11px] px-2 py-0.5 rounded-full bg-[#EAF2FF] text-[#275D9B] mr-1.5">Facebook</span> Commented "Loved it!" on the clinic page post. A flow sent a review link.</p>
+                </li>
+                <li class="relative pl-10">
+                  <span class="absolute left-[3px] top-1 w-[18px] h-[18px] rounded-full border-4 border-white shadow-[0_0_0_1px_#ACADB1] bg-[#CFC3FF]"></span>
+                  <time class="font-mono-tech text-[12px] text-[#52625A]">Sat 14:20 · Preview</time>
+                  <p class="text-[15px] text-[#353536] mt-0.5"><span class="font-mono-tech text-[11px] px-2 py-0.5 rounded-full bg-[#F3F0FF] text-[#43336F] mr-1.5">Voice</span> Called to reschedule. The voice agent booked Monday 11 am and saved the call summary here.</p>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 4: PLATFORM WORKBENCH (6 INTERACTIVE TABS)               -->
+      <!-- ================================================================ -->
+      <section id="platform" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Platform</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">6</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Everything a conversation touches, in
+              <br />
+              <span class="inline-block bg-[#CFC3FF] text-[#30245A] px-2.5 pb-0.5 rounded-[8px]">one workbench.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              Inbox, campaigns, CRM, automation, AI and soon voice read from the same customer record, so nothing is copied between tools.
+            </p>
+          </div>
+
+          <div class="mt-14 grid grid-cols-[300px_minmax(0,1fr)] max-[1100px]:grid-cols-1 bg-white border border-[#D4D8DF] rounded-[20px] overflow-hidden shadow-[var(--shadow-card)]">
+            <div id="platform-tabs" class="flex flex-col max-[1100px]:flex-row max-[1100px]:overflow-x-auto gap-1.5 p-3.5 bg-[#F5F6F8] border-r max-[1100px]:border-r-0 max-[1100px]:border-b border-[#D4D8DF]"></div>
+            <div id="platform-panel" class="px-10 py-9 max-[720px]:px-5 max-[720px]:py-6 min-h-[460px] bg-white"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 5: AUTOMATION FLOW BUILDER                               -->
+      <!-- ================================================================ -->
+      <section id="automation" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Automation</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">1</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Describe it like a sentence.
+              <br />
+              <span class="inline-block bg-[#E6F0EC] text-[#0B3B2E] px-2.5 pb-0.5 rounded-[8px]">It runs like a machine.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              Build a flow by stacking plain-language steps. Every run is logged, so you can see exactly what happened and when.
+            </p>
+          </div>
+
+          <div class="mt-14 bg-white border border-[#D4D8DF] rounded-[20px] shadow-[var(--shadow-card)] overflow-hidden">
+            <div class="flex justify-between items-center gap-4 flex-wrap px-6 py-4 border-b border-[#D4D8DF]">
+              <div>
+                <b class="block text-[20px] font-semibold tracking-[-0.025em] text-[#080808]">Comment to qualified lead</b>
+                <small class="font-mono-tech text-[12px] text-[#52625A]">Starts when someone comments a keyword on an Instagram post</small>
+              </div>
+              <div class="flex gap-2 flex-wrap font-mono-tech text-[12px]">
+                <span class="px-3 py-1 rounded-full bg-[#E8F5ED] text-[#18794E] font-medium">● Live</span>
+                <span class="px-3 py-1 rounded-full bg-[#F5F6F8] border border-[#D4D8DF] text-[#52625A]">1,284 runs this week</span>
+                <span class="px-3 py-1 rounded-full bg-[#F5F6F8] border border-[#D4D8DF] text-[#52625A]">Edited 2 days ago</span>
+              </div>
+            </div>
+            <div class="overflow-x-auto p-4 [background-image:radial-gradient(#D4D8DF_1px,transparent_1.2px)] [background-size:16px_16px]">
+              <svg viewBox="0 0 1160 360" class="block min-w-[920px] w-full h-auto font-mono-tech">
+                <path d="M214 140H254M444 140H484M674 140H714M904 140H924V60H944M904 140H924V220H944M1039 262V278" fill="none" stroke="#D4D8DF" stroke-width="1.5" stroke-dasharray="3 4" />
+                <path pathLength="100" d="M214 140H254" fill="none" stroke="#0B3B2E" stroke-width="3" stroke-dasharray="30 70" class="anim-dash" />
+                <path pathLength="100" d="M444 140H484" fill="none" stroke="#0B3B2E" stroke-width="3" stroke-dasharray="30 70" class="anim-dash" />
+                <path pathLength="100" d="M674 140H714" fill="none" stroke="#8066A8" stroke-width="3" stroke-dasharray="30 70" class="anim-dash" />
+
+                <g transform="translate(24 98)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#D4D8DF" stroke-width="1.5" />
+                  <rect x="14" y="12" width="59" height="18" rx="9" fill="#E6F0EC" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#0B3B2E] font-medium">TRIGGER</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">1,284</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Comment has “PRICE”</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">Instagram · any post</text>
+                </g>
+                <g transform="translate(254 98)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#D4D8DF" stroke-width="1.5" />
+                  <rect x="14" y="12" width="52" height="18" rx="9" fill="#0B3B2E" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#FFFFFF] font-medium">ACTION</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">1,241</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Send pricing card</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">DM · sent in 1.2 s</text>
+                </g>
+                <g transform="translate(484 98)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#CFC3FF" stroke-width="1.5" />
+                  <rect x="14" y="12" width="27" height="18" rx="9" fill="#CFC3FF" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#30245A] font-medium">AI</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">1,102</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Ask for budget</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">AI parses “around 15k”</text>
+                </g>
+                <g transform="translate(714 98)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#D4D8DF" stroke-width="1.5" />
+                  <rect x="14" y="12" width="72" height="18" rx="9" fill="#F3F0FF" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#43336F] font-medium">CONDITION</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">964</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Budget over ₹10,000?</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">Parsed budget: ₹15,000</text>
+                </g>
+                <g transform="translate(944 18)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#0B3B2E" stroke-width="1.5" />
+                  <rect x="14" y="12" width="52" height="18" rx="9" fill="#0B3B2E" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#FFFFFF] font-medium">ACTION</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">612</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Tag as Hot lead</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">Sales team · alert Rohan</text>
+                </g>
+                <g transform="translate(944 178)">
+                  <rect width="190" height="84" rx="14" fill="#fff" stroke="#D4D8DF" stroke-width="1.5" />
+                  <rect x="14" y="12" width="40" height="18" rx="9" fill="#F5F6F8" />
+                  <text x="21" y="24.5" class="text-[9.5px] fill-[#353536] font-medium">WAIT</text>
+                  <text x="176" y="25" text-anchor="end" class="text-[10px] fill-[#52625A]">352</text>
+                  <text x="14" y="52" class="font-semibold text-[13.5px] fill-[#080808]">Wait 1 day</text>
+                  <text x="14" y="70" class="text-[10.5px] fill-[#52625A]">Then continue the flow</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-[1.1fr_1fr] max-[1100px]:grid-cols-1 gap-5 mt-5">
+            <div class="bg-white border border-[#D4D8DF] rounded-[18px] px-6 py-6 shadow-[var(--shadow-card)] font-mono-tech text-[13px] leading-[1.9] text-[#353536]">
+              <h4 class="font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-3 flex justify-between">
+                <span>Run log</span><span>Today</span>
+              </h4>
+              <p class="grid grid-cols-[76px_1fr] gap-2"><time class="text-[#52625A]">19:41:02</time><span>Comment matched “PRICE” <em class="not-italic font-medium text-[#18794E] bg-[#E8F5ED] rounded px-1.5 text-[11.5px]">ok</em></span></p>
+              <p class="grid grid-cols-[76px_1fr] gap-2"><time class="text-[#52625A]">19:41:03</time><span>DM sent to @rohit.k <em class="not-italic font-medium text-[#18794E] bg-[#E8F5ED] rounded px-1.5 text-[11.5px]">ok</em></span></p>
+              <p class="grid grid-cols-[76px_1fr] gap-2"><time class="text-[#52625A]">19:41:44</time><span>Customer replied: “around 15k”</span></p>
+              <p class="grid grid-cols-[76px_1fr] gap-2"><time class="text-[#52625A]">19:41:45</time><span>AI parsed budget = ₹15,000 <em class="not-italic font-medium text-[#18794E] bg-[#E8F5ED] rounded px-1.5 text-[11.5px]">ok</em></span></p>
+              <p class="grid grid-cols-[76px_1fr] gap-2"><time class="text-[#52625A]">19:41:46</time><span>Tagged Hot lead, assigned to Rohan <em class="not-italic font-medium text-[#18794E] bg-[#E8F5ED] rounded px-1.5 text-[11.5px]">ok</em></span></p>
+            </div>
+
+            <div class="grid gap-5 content-start">
+              <div class="grid grid-cols-3 max-[720px]:grid-cols-1 gap-3">
+                <div class="bg-white border border-[#D4D8DF] rounded-[18px] px-4 py-4 shadow-[var(--shadow-card)]">
+                  <b class="block font-bold text-[30px] tracking-[-0.04em] text-[#0B3B2E]">96%</b>
+                  <small class="font-mono-tech text-[12px] text-[#52625A]">runs completed</small>
+                </div>
+                <div class="bg-white border border-[#D4D8DF] rounded-[18px] px-4 py-4 shadow-[var(--shadow-card)]">
+                  <b class="block font-bold text-[30px] tracking-[-0.04em] text-[#080808]">1.2 s</b>
+                  <small class="font-mono-tech text-[12px] text-[#52625A]">avg first response</small>
+                </div>
+                <div class="bg-white border border-[#D4D8DF] rounded-[18px] px-4 py-4 shadow-[var(--shadow-card)]">
+                  <b class="block font-bold text-[30px] tracking-[-0.04em] text-[#080808]">0</b>
+                  <small class="font-mono-tech text-[12px] text-[#52625A]">retries needed today</small>
+                </div>
+              </div>
+              <div class="bg-white border border-[#D4D8DF] rounded-[18px] px-6 py-5 shadow-[var(--shadow-card)]">
+                <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-3">Start a flow from</h4>
+                <div class="flex gap-1.5 flex-wrap font-mono-tech text-[12px]">
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Comment keyword</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Story reply</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Order placed</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Cart abandoned</span>
+                </div>
+                <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mt-4 mb-3">Then do</h4>
+                <div class="flex gap-1.5 flex-wrap font-mono-tech text-[12px]">
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Send DM</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Ask AI</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Tag</span>
+                  <span class="px-2.5 py-1 rounded-[7px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Webhook</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 6: USE CASES BENTO GRID                                  -->
+      <!-- ================================================================ -->
+      <section id="use-cases" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Use cases</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">6</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Whatever you sell,
+              <br />
+              <span class="inline-block bg-[#CFC3FF] text-[#30245A] px-2.5 pb-0.5 rounded-[8px]">chat is the shop.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              Parsona fits how real businesses already talk to customers — from D2C and real estate to clinics, agencies and coaching teams.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-12 max-[980px]:grid-cols-1 gap-5 mt-14">
+            <!-- D2C -->
+            <article class="col-span-7 max-[980px]:col-span-1 grid grid-cols-[1.05fr_1fr] max-[720px]:grid-cols-1 gap-5 bg-white border border-[#D4D8DF] rounded-[18px] p-3.5 shadow-[var(--shadow-card)]">
+              <div class="relative min-h-[240px] rounded-[12px] overflow-hidden border border-[#D4D8DF] bg-[#F5F6F8]">
+                <img src="./images/use-cases/d2c-retail.jpg" alt="D2C retail" class="w-full h-full object-cover" />
+              </div>
+              <div class="flex flex-col justify-between py-2 pr-2">
+                <div>
+                  <span class="inline-block font-mono-tech font-medium text-[11px] uppercase tracking-[0.06em] px-2.5 py-1 rounded-full bg-[#E6F0EC] text-[#0B3B2E] mb-3">Commerce</span>
+                  <h3 class="text-[24px] font-semibold tracking-[-0.03em] text-[#080808] mb-2">D2C and retail</h3>
+                  <p class="text-[#52625A] text-[15px] leading-[1.55]">Catalogue on WhatsApp, abandoned cart recovery, instant COD confirmations and live shipping updates in one thread.</p>
+                </div>
+                <div class="flex gap-1.5 flex-wrap mt-4 font-mono-tech text-[12px]">
+                  <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Cart recovery</span>
+                  <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">COD verify</span>
+                  <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Order updates</span>
+                </div>
+              </div>
+            </article>
+
+            <!-- Real estate -->
+            <article class="col-span-5 max-[980px]:col-span-1 flex flex-col bg-[#E6F0EC] border border-[#D4D8DF] rounded-[18px] pt-3.5 px-3.5 pb-6 shadow-[var(--shadow-card)]">
+              <div class="relative aspect-[16/10] rounded-[12px] overflow-hidden border border-[#D4D8DF] bg-white">
+                <img src="./images/use-cases/real-estate.jpg" alt="Real estate" class="w-full h-full object-cover" />
+                <span class="absolute top-3 left-3 inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[0.06em] px-2.5 py-1 rounded-full bg-[#0B3B2E]/90 text-white">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#CFC3FF]"></i>
+                  Auto-qualified · 24/7
+                </span>
+              </div>
+              <h3 class="text-[23px] font-semibold tracking-[-0.03em] mt-5 mx-2.5 mb-2 text-[#080808]">Real estate</h3>
+              <p class="mx-2.5 text-[#353536] text-[15px] leading-[1.55] flex-1">Capture Meta ad leads, qualify budget and BHK preference, drop brochures on WhatsApp and book site visits automatically.</p>
+              <div class="flex gap-1.5 flex-wrap mt-4 mx-2.5 font-mono-tech text-[12px]">
+                <span class="px-2.5 py-1 rounded-[8px] bg-white border border-[#D4D8DF] text-[#0B3B2E]">Site visits</span>
+                <span class="px-2.5 py-1 rounded-[8px] bg-white border border-[#D4D8DF] text-[#0B3B2E]">Brochure drop</span>
+                <span class="px-2.5 py-1 rounded-[8px] bg-white border border-[#D4D8DF] text-[#0B3B2E]">Lead scoring</span>
+              </div>
+            </article>
+
+            <!-- Clinics, Agencies, Coaching -->
+            <article class="col-span-4 max-[980px]:col-span-1 flex flex-col bg-white border border-[#D4D8DF] rounded-[18px] pt-3.5 px-3.5 pb-6 shadow-[var(--shadow-card)]">
+              <div class="aspect-[4/3] rounded-[12px] overflow-hidden border border-[#D4D8DF]"><img src="./images/use-cases/clinics-services.jpg" alt="Clinics" class="w-full h-full object-cover" /></div>
+              <h3 class="text-[21px] font-semibold mt-5 mx-2.5 mb-2 text-[#080808]">Clinics and services</h3>
+              <p class="mx-2.5 text-[#52625A] text-[15px] flex-1">Bookings, reschedules and appointment reminders on autopilot, with a human one tap away.</p>
+              <div class="flex gap-1.5 flex-wrap mt-4 mx-2.5 font-mono-tech text-[12px]">
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Appointments</span>
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Reminders</span>
+              </div>
+            </article>
+            <article class="col-span-4 max-[980px]:col-span-1 flex flex-col bg-white border border-[#D4D8DF] rounded-[18px] pt-3.5 px-3.5 pb-6 shadow-[var(--shadow-card)]">
+              <div class="aspect-[4/3] rounded-[12px] overflow-hidden border border-[#D4D8DF]"><img src="./images/use-cases/agencies.jpg" alt="Agencies" class="w-full h-full object-cover" /></div>
+              <h3 class="text-[21px] font-semibold mt-5 mx-2.5 mb-2 text-[#080808]">Agencies</h3>
+              <p class="mx-2.5 text-[#52625A] text-[15px] flex-1">Run many client brands from one login with separate WhatsApp numbers, roles and reports.</p>
+              <div class="flex gap-1.5 flex-wrap mt-4 mx-2.5 font-mono-tech text-[12px]">
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Multi-brand</span>
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Roles</span>
+              </div>
+            </article>
+            <article class="col-span-4 max-[980px]:col-span-1 flex flex-col bg-white border border-[#D4D8DF] rounded-[18px] pt-3.5 px-3.5 pb-6 shadow-[var(--shadow-card)]">
+              <div class="aspect-[4/3] rounded-[12px] overflow-hidden border border-[#D4D8DF]"><img src="./images/use-cases/coaching-education.jpg" alt="Coaching" class="w-full h-full object-cover" /></div>
+              <h3 class="text-[21px] font-semibold mt-5 mx-2.5 mb-2 text-[#080808]">Coaching &amp; education</h3>
+              <p class="mx-2.5 text-[#52625A] text-[15px] flex-1">Answer course questions instantly, book counselling calls and automate batch and fee reminders.</p>
+              <div class="flex gap-1.5 flex-wrap mt-4 mx-2.5 font-mono-tech text-[12px]">
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Admissions</span>
+                <span class="px-2.5 py-1 rounded-[8px] bg-[#F5F6F8] border border-[#D4D8DF] text-[#353536]">Demo calls</span>
+              </div>
+            </article>
+
+            <!-- Dark Strip -->
+            <article class="col-span-12 max-[980px]:col-span-1 bg-[#08241C] text-white border border-[#1E4A3D] rounded-[20px] p-8 flex items-center justify-between gap-8 max-[980px]:flex-col max-[980px]:items-start shadow-[var(--shadow-brand)]">
+              <div class="max-w-[680px]">
+                <span class="inline-block font-mono-tech font-medium text-[11px] uppercase tracking-[0.07em] px-2.5 py-1 rounded-full bg-[#0B3B2E] text-[#CFC3FF] mb-3">Salons · Travel · Automotive · Local teams</span>
+                <h3 class="text-[clamp(24px,2.6vw,30px)] font-semibold tracking-[-0.03em] leading-[1.15]">Built for every service business that closes on chat.</h3>
+                <p class="text-[#B6D6C8] text-[15.5px] mt-2.5 leading-[1.55]">Whether you confirm salon slots, share travel itineraries, book test drives or collect Google reviews — Parsona keeps every follow-up moving automatically.</p>
+              </div>
+              <a href="#waitlist" class="shrink-0 inline-flex items-center justify-center h-11 px-6 rounded-[12px] bg-[#CFC3FF] hover:bg-[#B9A6F5] text-[#30245A] font-semibold text-[15px]">Join the waitlist →</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 7: PRICING                                               -->
+      <!-- ================================================================ -->
+      <section id="pricing" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Pricing</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">3</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Pick a plan.
+              <br />
+              <span class="inline-block bg-[#CFC3FF] text-[#30245A] px-2.5 pb-0.5 rounded-[8px]">Change it any time.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              Early-access waitlist pricing in INR — lock in founding-team rates before public launch.
+            </p>
+          </div>
+
+          <div class="flex flex-col items-center mt-7">
+            <div class="inline-flex border border-[#D4D8DF] rounded-[12px] p-1 bg-white shadow-[var(--shadow-card)]" role="group" aria-label="Billing period">
+              <button type="button" id="bill-m" class="h-[38px] px-[18px] rounded-[8px] font-semibold text-[14px] bg-[#0B3B2E] text-white cursor-pointer">Monthly</button>
+              <button type="button" id="bill-y" class="h-[38px] px-[18px] rounded-[8px] font-semibold text-[14px] text-[#52625A] cursor-pointer">
+                Yearly <em class="font-mono-tech text-[11px] not-italic ml-1 text-[#18794E]">save 20%</em>
+              </button>
+            </div>
+            <span id="bill-caption" class="mt-3 font-mono-tech text-[12px] text-[#52625A]">PRICES IN INR</span>
+          </div>
+
+          <div class="mt-12 grid grid-cols-3 max-[980px]:grid-cols-1 gap-6 items-stretch">
+            <!-- Starter -->
+            <article class="flex flex-col rounded-[18px] p-8 bg-white border border-[#D4D8DF] shadow-[var(--shadow-card)]">
+              <h3 class="text-[22px] font-semibold text-[#080808]">Starter</h3>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span data-price-monthly="₹1,499" data-price-yearly="₹1,199" class="tier-price text-[44px] font-bold tracking-[-0.04em] leading-none text-[#080808] tabular-nums">₹1,499</span>
+                <span class="text-[14px] text-[#52625A] font-medium">/ month</span>
+              </div>
+              <p class="mt-3 text-[15px] font-semibold text-[#0B3B2E]">2,000 contacts · 1 WhatsApp number</p>
+              <p class="mt-2 text-[14.5px] text-[#52625A]">For solo founders and small shops starting with WhatsApp automation.</p>
+              <ul class="mt-6 flex-1 border-t border-[#D4D8DF] text-[14.5px] text-[#353536] divide-y divide-[#D4D8DF]">
+                <li class="py-3">✓ 1 official WhatsApp Business number</li>
+                <li class="py-3">✓ Up to 3 team members in shared inbox</li>
+                <li class="py-3">✓ 2,000 contacts with tags &amp; notes</li>
+                <li class="py-3">✓ Basic rule-based flow automations</li>
+              </ul>
+              <a href="#waitlist" class="mt-7 w-full inline-flex items-center justify-center h-[44px] rounded-[12px] bg-white text-[#0B3B2E] border border-[#D4D8DF] hover:bg-[#E6F0EC] font-semibold text-[15px]">Join the Waitlist</a>
+            </article>
+
+            <!-- Growth -->
+            <article class="relative flex flex-col rounded-[18px] p-8 bg-white border-[1.5px] border-[#0B3B2E] ring-1 ring-[#0B3B2E]/15 shadow-[var(--shadow-brand)]">
+              <span class="absolute -top-[13px] left-7 font-mono-tech font-semibold text-[11px] tracking-[0.07em] uppercase bg-[#CFC3FF] text-[#30245A] rounded-full px-3 py-1">Most popular</span>
+              <h3 class="text-[22px] font-semibold text-[#080808]">Growth</h3>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span data-price-monthly="₹4,999" data-price-yearly="₹3,999" class="tier-price text-[44px] font-bold tracking-[-0.04em] leading-none text-[#080808] tabular-nums">₹4,999</span>
+                <span class="text-[14px] text-[#52625A] font-medium">/ month</span>
+              </div>
+              <p class="mt-3 text-[15px] font-semibold text-[#0B3B2E]">5,000 AI replies · 25,000 contacts</p>
+              <p class="mt-2 text-[14.5px] text-[#52625A]">For growing teams handling high volume across WhatsApp, Instagram &amp; Facebook.</p>
+              <ul class="mt-6 flex-1 border-t border-[#D4D8DF] text-[14.5px] text-[#353536] divide-y divide-[#D4D8DF]">
+                <li class="py-3">✓ Everything in Starter</li>
+                <li class="py-3">✓ 3 WhatsApp numbers + Instagram &amp; Facebook</li>
+                <li class="py-3">✓ Up to 10 team members</li>
+                <li class="py-3">✓ Full visual flow builder &amp; broadcast campaigns</li>
+              </ul>
+              <a href="#waitlist" class="mt-7 w-full inline-flex items-center justify-center h-[44px] rounded-[12px] bg-[#0B3B2E] hover:bg-[#11503F] text-white font-semibold text-[15px]">Join the Waitlist</a>
+            </article>
+
+            <!-- Custom -->
+            <article class="flex flex-col rounded-[18px] p-8 bg-white border border-[#D4D8DF] shadow-[var(--shadow-card)]">
+              <h3 class="text-[22px] font-semibold text-[#080808]">Custom</h3>
+              <div class="mt-3">
+                <span class="text-[34px] font-bold tracking-[-0.035em] leading-[1.1] text-[#080808]">Contact sales</span>
+              </div>
+              <p class="mt-3 text-[15px] font-semibold text-[#0B3B2E]">Unlimited channels &amp; custom AI volume</p>
+              <p class="mt-2 text-[14.5px] text-[#52625A]">For agencies, multi-brand businesses, and complex custom workflows.</p>
+              <ul class="mt-6 flex-1 border-t border-[#D4D8DF] text-[14.5px] text-[#353536] divide-y divide-[#D4D8DF]">
+                <li class="py-3">✓ Unlimited WhatsApp, Instagram &amp; Facebook</li>
+                <li class="py-3">✓ Unlimited team members &amp; contacts</li>
+                <li class="py-3">✓ Full flow builder, webhooks &amp; API access</li>
+                <li class="py-3">✓ Dedicated account manager &amp; SLA</li>
+              </ul>
+              <a href="#waitlist" class="mt-7 w-full inline-flex items-center justify-center h-[44px] rounded-[12px] bg-white text-[#0B3B2E] border border-[#D4D8DF] hover:bg-[#E6F0EC] font-semibold text-[15px]">Contact Sales</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 8: FAQ                                                   -->
+      <!-- ================================================================ -->
+      <section id="faq" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Questions</span>
+            <span class="min-w-[20px] h-5 rounded-full bg-[#F3F0FF] text-[#43336F] text-[11px] inline-grid place-items-center px-1.5">5</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center mb-10">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Before you
+              <br />
+              <span class="inline-block bg-[#E6F0EC] text-[#0B3B2E] px-2.5 pb-0.5 rounded-[8px]">join the waitlist.</span>
+            </h2>
+          </div>
+
+          <div id="faq-list" class="bg-white border border-[#D4D8DF] rounded-[18px] px-8 max-[720px]:px-5 shadow-[var(--shadow-card)] divide-y divide-[#D4D8DF]"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 9: WAITLIST FORM                                         -->
+      <!-- ================================================================ -->
+      <section id="waitlist" class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 grid grid-cols-1">
+          <div class="justify-self-center inline-flex items-center gap-2.5 py-1.5 pr-4 pl-3 mb-7 rounded-full border border-[#D4D8DF] text-[#52625A] bg-white font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)]">
+            <i class="w-2 h-2 rounded-full bg-[#0B3B2E]"></i>
+            <span>Waitlist</span>
+          </div>
+
+          <div class="max-w-[820px] mx-auto text-center">
+            <h2 class="text-[clamp(32px,3.7vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+              Get early access.
+              <br />
+              <span class="inline-block bg-[#CFC3FF] text-[#30245A] px-2.5 pb-0.5 rounded-[8px]">Join the waitlist.</span>
+            </h2>
+            <p class="mt-5 text-[18px] text-[#353536] max-w-[560px] mx-auto leading-[1.6]">
+              Leave your details and we will email you as soon as your invite is ready.
+            </p>
+          </div>
+
+          <div class="mt-12 mx-auto max-w-[640px] w-full bg-white border border-[#D4D8DF] rounded-[20px] p-8 shadow-[var(--shadow-card)]">
+            <form id="mockup-wl-form" class="space-y-4">
+              <div>
+                <label class="block font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2">Full name</label>
+                <input type="text" required placeholder="Aanya Sharma" class="w-full h-[46px] border border-[#D4D8DF] rounded-[10px] px-4 text-[16px] text-[#353536] placeholder:text-[#626B65] focus:outline-none focus:border-[#0B3B2E]" />
+              </div>
+              <div class="grid grid-cols-2 max-[720px]:grid-cols-1 gap-4">
+                <div>
+                  <label class="block font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2">Email</label>
+                  <input type="email" required placeholder="you@company.com" class="w-full h-[46px] border border-[#D4D8DF] rounded-[10px] px-4 text-[16px] text-[#353536] placeholder:text-[#626B65] focus:outline-none focus:border-[#0B3B2E]" />
+                </div>
+                <div>
+                  <label class="block font-mono-tech font-medium text-[12px] tracking-[0.06em] uppercase text-[#52625A] mb-2">WhatsApp number</label>
+                  <input type="tel" required placeholder="+91 98765 43210" class="w-full h-[46px] border border-[#D4D8DF] rounded-[10px] px-4 text-[16px] text-[#353536] placeholder:text-[#626B65] focus:outline-none focus:border-[#0B3B2E]" />
+                </div>
+              </div>
+              <button type="submit" class="w-full h-[48px] rounded-[12px] bg-[#0B3B2E] hover:bg-[#11503F] text-white font-semibold text-[15px] cursor-pointer">
+                Join waitlist
+              </button>
+            </form>
+            <div id="mockup-wl-ok" class="hidden text-center py-4">
+              <div class="w-12 h-12 rounded-full bg-[#E8F5ED] text-[#18794E] grid place-items-center mx-auto mb-3 font-bold text-[20px]">✓</div>
+              <b class="text-[22px] text-[#080808]">You’re on the list!</b>
+              <p class="text-[#52625A] text-[14.5px] mt-1">Mockup preview confirmed.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- SECTION 10: CTA SECTION                                          -->
+      <!-- ================================================================ -->
+      <section class="pt-[120px] max-[980px]:pt-[88px]">
+        <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
+          <div class="grid grid-cols-[1.15fr_1fr] max-[1100px]:grid-cols-1 gap-12 items-center p-14 max-[720px]:p-6 bg-white border border-[#D4D8DF] rounded-[24px] shadow-[var(--shadow-card)]">
+            <div>
+              <h2 class="text-[clamp(32px,3.3vw,42px)] font-bold tracking-[-0.035em] leading-[1.15] text-[#080808]">
+                Start with one number.
+                <br />
+                <span class="inline-block bg-[#E6F0EC] text-[#0B3B2E] px-2.5 pb-0.5 rounded-[8px]">Grow to every channel.</span>
+              </h2>
+              <p class="mt-5 max-w-[520px] text-[#353536] text-[18px] leading-[1.6]">
+                Connect WhatsApp in about 10 minutes, then add Instagram, Facebook and soon voice calls when you are ready.
+              </p>
+              <div class="flex gap-3 flex-wrap mt-7">
+                <a href="#waitlist" class="inline-flex items-center justify-center h-[44px] px-6 rounded-[12px] bg-[#0B3B2E] hover:bg-[#11503F] text-white font-semibold text-[15px]">Join the waitlist →</a>
+                <a href="#pricing" class="inline-flex items-center justify-center h-[44px] px-6 rounded-[12px] bg-white border border-[#D4D8DF] hover:bg-[#E6F0EC] text-[#0B3B2E] font-semibold text-[15px]">View plans</a>
+              </div>
+            </div>
+
+            <div class="bg-[#F5F6F8] border border-[#D4D8DF] rounded-[18px] px-7 py-6">
+              <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.07em] uppercase text-[#52625A] mb-2">What happens next</h4>
+              <div class="divide-y divide-[#D4D8DF]">
+                <div class="grid grid-cols-[40px_1fr_auto] gap-3.5 items-center py-4">
+                  <span class="w-10 h-10 rounded-[10px] bg-[#0B3B2E] text-white grid place-items-center font-mono-tech font-semibold">1</span>
+                  <div><b class="block text-[18px] text-[#080808]">Connect your number</b><small class="text-[#52625A] text-[14px]">We guide you through the official setup.</small></div>
+                  <em class="font-mono-tech text-[11.5px] not-italic bg-white border border-[#D4D8DF] rounded-full px-2.5 py-1 text-[#0B3B2E]">10 min</em>
+                </div>
+                <div class="grid grid-cols-[40px_1fr_auto] gap-3.5 items-center py-4">
+                  <span class="w-10 h-10 rounded-[10px] bg-[#CFC3FF] text-[#30245A] grid place-items-center font-mono-tech font-semibold">2</span>
+                  <div><b class="block text-[18px] text-[#080808]">Import your contacts</b><small class="text-[#52625A] text-[14px]">CSV upload or store sync, duplicates merged.</small></div>
+                  <em class="font-mono-tech text-[11.5px] not-italic bg-white border border-[#D4D8DF] rounded-full px-2.5 py-1 text-[#0B3B2E]">5 min</em>
+                </div>
+                <div class="grid grid-cols-[40px_1fr_auto] gap-3.5 items-center py-4">
+                  <span class="w-10 h-10 rounded-[10px] bg-[#E6F0EC] text-[#0B3B2E] grid place-items-center font-mono-tech font-semibold">3</span>
+                  <div><b class="block text-[18px] text-[#080808]">Switch on your first flow</b><small class="text-[#52625A] text-[14px]">Start from a ready-made template.</small></div>
+                  <em class="font-mono-tech text-[11.5px] not-italic bg-white border border-[#D4D8DF] rounded-full px-2.5 py-1 text-[#0B3B2E]">Today</em>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================================================================ -->
+    <!-- SECTION 11: FOOTER                                               -->
+    <!-- ================================================================ -->
+    <footer class="bg-[#08241C] text-white mt-[120px] pt-[72px] border-t border-[#1E4A3D] overflow-hidden">
+      <div class="max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
+        <div class="grid grid-cols-[1.5fr_repeat(3,1fr)] max-[980px]:grid-cols-2 gap-10">
+          <div>
+            <a href="#top" class="inline-flex items-center gap-2.5 text-[22px] font-bold tracking-[-0.03em] text-white">
+              <span class="inline-grid place-items-center w-9 h-9 rounded-[10px] bg-[#080808] border border-white/15 overflow-hidden">
+                <svg width="36" height="36" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+                  <path d="M62.0004 71V68C62.0004 67.606 61.9228 67.2159 61.7721 66.8518C61.6213 66.488 61.4004 66.1573 61.1218 65.8785C60.8431 65.6 60.5123 65.379 60.1485 65.2283C59.7845 65.0776 59.3943 64.9999 59.0004 64.9999H46.9994C43.0211 64.9999 39.2057 63.4196 36.3926 60.6065C33.5795 57.7935 31.9991 53.9783 31.999 50C31.999 48.0302 32.387 46.0796 33.1409 44.2597C33.8947 42.4398 34.9996 40.7863 36.3925 39.3934C37.7855 38.0005 39.4391 36.8956 41.259 36.1418C43.0789 35.388 45.0295 35 46.9994 35.0001H58.9995C59.3934 35.0002 59.7838 34.9227 60.1478 34.772C60.5119 34.6212 60.8428 34.4003 61.1214 34.1217C61.4002 33.8431 61.6211 33.5123 61.7721 33.1483C61.9228 32.7843 62.0004 32.3941 62.0004 32V29H47.0001C44.2423 29 41.5115 29.5432 38.9636 30.5985C36.4158 31.6539 34.1007 33.2007 32.1507 35.1508C30.2007 37.1008 28.6538 39.4158 27.5985 41.9637C26.5431 44.5115 26 47.2423 26 50C26 55.5694 28.2125 60.9109 32.1508 64.8492C36.089 68.7874 41.4305 71 47.0001 71H62.0004Z" fill="#CFC3FF" />
+                  <path d="M37.9987 50C37.9987 52.3869 38.9469 54.676 40.6347 56.3637C42.3224 58.0515 44.6116 58.9996 46.9984 58.9996H61.9999C63.5913 58.9996 65.1172 59.6319 66.2424 60.7571C67.3676 61.8822 67.9999 63.4083 67.9999 64.9997V70.9998H74V64.9999C74 61.8174 72.7358 58.7652 70.4854 56.5146C68.2347 54.2643 65.1825 53 61.9999 53H46.9989C46.2032 53 45.4401 52.6839 44.8775 52.1214C44.3149 51.5587 43.9988 50.7957 43.9988 50C43.9988 49.2043 44.3149 48.4413 44.8775 47.8786C45.4401 47.316 46.2032 47 46.9989 47H61.7721C64.9546 47 68.2347 45.7357 70.4854 43.4853C72.7358 41.2349 74 38.1826 74 35.0001V29H67.999V35.0001C67.999 36.5912 67.3669 38.1171 66.242 39.2423C65.117 40.3674 63.5911 40.9997 61.9999 40.9999H46.9989C45.8169 40.9998 44.6466 41.2326 43.5546 41.6849C42.4626 42.1371 41.4704 42.8001 40.6347 43.6358C39.7989 44.4716 39.1359 45.4638 38.6837 46.5557C38.2314 47.6477 37.9986 48.8181 37.9987 50Z" fill="#CFC3FF" />
+                </svg>
+              </span>
+              Parsona
+            </a>
+            <p class="text-[#B6D6C8] mt-4 max-w-[300px] text-[15px]">Business conversations on WhatsApp, Instagram, Facebook and soon voice — with inbox, CRM, campaigns and AI in one place.</p>
+            <div class="mt-5 flex flex-col gap-2 font-mono-tech text-[13px] text-[#DCEBE4]">
+              <a href="mailto:hello@parsona.live" class="hover:text-[#CFC3FF]">hello@parsona.live</a>
+              <a href="tel:+919111951752" class="hover:text-[#CFC3FF]">9111951752</a>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.07em] uppercase text-white mb-4">Product</h4>
+            <ul class="space-y-1.5 text-[#DCEBE4] text-[15px]">
+              <li><a href="#platform" class="hover:text-[#CFC3FF]">Team inbox</a></li>
+              <li><a href="#platform" class="hover:text-[#CFC3FF]">Broadcasts</a></li>
+              <li><a href="#platform" class="hover:text-[#CFC3FF]">CRM</a></li>
+              <li><a href="#automation" class="hover:text-[#CFC3FF]">Flow builder</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.07em] uppercase text-white mb-4">Channels</h4>
+            <ul class="space-y-1.5 text-[#DCEBE4] text-[15px]">
+              <li><a href="#channels" class="hover:text-[#CFC3FF]">WhatsApp</a></li>
+              <li><a href="#channels" class="hover:text-[#CFC3FF]">Instagram</a></li>
+              <li><a href="#channels" class="hover:text-[#CFC3FF]">Facebook</a></li>
+              <li><a href="#channels" class="hover:text-[#CFC3FF]">Voice (soon)</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-mono-tech font-medium text-[12px] tracking-[0.07em] uppercase text-white mb-4">Legal &amp; Company</h4>
+            <ul class="space-y-1.5 text-[#DCEBE4] text-[15px]">
+              <li><a href="#top" class="hover:text-[#CFC3FF]">About</a></li>
+              <li><a href="/privacy" class="hover:text-[#CFC3FF]">Privacy Policy</a></li>
+              <li><a href="/terms" class="hover:text-[#CFC3FF]">Terms &amp; Conditions</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="flex justify-between gap-3 flex-wrap mt-14 pt-5 border-t border-[#1E4A3D] font-mono-tech text-[12.5px] text-[#9FC2B4]">
+          <span>© 2026 Parsona. All rights reserved.</span>
+          <span>WhatsApp, Instagram and Facebook are trademarks of their respective owners.</span>
+        </div>
+      </div>
+      <div aria-hidden="true" class="font-extrabold tracking-[-0.06em] leading-[0.74] text-[#0B3B2E] mt-9 -mb-[0.06em] whitespace-nowrap text-center select-none" style="font-size: clamp(84px, 24vw, 380px)">Parsona</div>
+    </footer>
+
+    <!-- ================================================================ -->
+    <!-- INTERACTIVE MOCKUP SCRIPT                                        -->
+    <!-- ================================================================ -->
+    <script>
+      // 1. Inbox Console Demo Data & Interactivity
+      const CONTACTS = [
+        {
+          id: 'aanya', initials: 'AS', bg: '#E6F0EC', channel: 'WhatsApp', dot: '#25D366', name: 'Aanya Sharma', handle: '+91 98•• ••210', time: '2m', unread: 2, assigned: 'Rohan', since: 'Mar 2025',
+          tags: [{ label: 'Hot lead', hot: true }, { label: 'COD' }], ltv: '₹18,240', orders: 6, stage: 'Negotiation',
+          summary: 'Repeat buyer asking about cash on delivery for kurta set (M). Low return risk.',
+          messages: [
+            { sender: 'event', text: 'Instagram story reply → catalogue sent · Mon 10:12' },
+            { sender: 'in', text: 'Hi, is the cotton kurta set available in M? I need it by Friday.' },
+            { sender: 'out', who: 'Parsona AI', text: 'Hi Aanya! Yes, size M is in stock and reaches you by Thursday. Shall I hold it?' },
+            { sender: 'in', text: 'Yes please. Can I pay on delivery?' },
+            { sender: 'out', who: 'Parsona AI · Payments', text: 'Yes! Cash on delivery is available at ₹0 extra fee. I have reserved size M for you.' }
+          ]
+        },
+        {
+          id: 'rohit', initials: 'RK', bg: '#F3F0FF', channel: 'Instagram', dot: '#D62976', name: 'Rohit Kapoor', handle: '@rohit.k', time: '6m', unread: 1, assigned: 'Rohan', since: 'Aug 2025',
+          tags: [{ label: 'IG Comment', hot: true }, { label: 'Combo' }], ltv: '₹6,400', orders: 2, stage: 'Qualified',
+          summary: 'Commented "PRICE" on festive reel. Budget parsed around ₹15,000.',
+          messages: [
+            { sender: 'event', text: 'Commented "PRICE" on reel → DM triggered · 6m ago' },
+            { sender: 'in', text: 'What is the combo price? Looking for around 15k for family gifts.' },
+            { sender: 'out', who: 'Parsona AI · Catalogue', text: 'The festive combo is ₹3,990 (save ₹800) with free express delivery. Want me to send the checkout link?' }
+          ]
+        },
+        {
+          id: 'meera', initials: 'MJ', bg: '#EAF2FF', channel: 'Facebook', dot: '#1877F2', name: 'Meera Joshi', handle: 'Messenger', time: '14m', unread: 0, assigned: 'Priya', since: 'Jan 2025',
+          tags: [{ label: 'Booking' }, { label: 'VIP' }], ltv: '₹12,500', orders: 4, stage: 'Booked',
+          summary: 'Requesting to reschedule consultation from Saturday to Monday morning.',
+          messages: [
+            { sender: 'event', text: 'Appointment reminder delivered · Today 09:00' },
+            { sender: 'in', text: 'Can I move my slot to Monday?' },
+            { sender: 'out', who: 'Parsona AI · Bookings', text: 'Of course! Monday 11:00 AM is available. Shall I move your booking?' }
+          ]
+        }
+      ];
+
+      let activeId = 'aanya';
+      const threadMap = Object.fromEntries(CONTACTS.map(c => [c.id, [...c.messages]]));
+
+      function renderContacts() {
+        const el = document.getElementById('demo-contact-list');
+        el.innerHTML = CONTACTS.map(c => {
+          const sel = c.id === activeId;
+          return `<button data-cid="${c.id}" class="w-full text-left flex gap-3 px-[18px] py-[13px] border-t border-[#D4D8DF] items-center cursor-pointer ${sel ? 'bg-[#E6F0EC]' : 'bg-white hover:bg-[#F5F6F8]'}">
+            <div class="relative w-10 h-10 rounded-full grid place-items-center font-bold text-[13px] shrink-0 text-[#080808]" style="background:${c.bg}">
+              ${c.initials}
+              <span class="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 rounded-full border-2 border-white" style="background:${c.dot}"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <b class="block text-[14px] text-[#080808]">${c.name}</b>
+              <span class="block text-[12.5px] text-[#52625A] truncate">${threadMap[c.id].slice(-1)[0].text}</span>
+            </div>
+            <span class="font-mono-tech text-[11.5px] text-[#52625A]">${c.time}</span>
+          </button>`;
+        }).join('');
+        el.querySelectorAll('button').forEach(btn => {
+          btn.onclick = () => { activeId = btn.dataset.cid; renderDemo(); };
+        });
+      }
+
+      function renderDemo() {
+        const c = CONTACTS.find(x => x.id === activeId);
+        renderContacts();
+        document.getElementById('demo-active-avatar').textContent = c.initials;
+        document.getElementById('demo-active-avatar').style.background = c.bg;
+        document.getElementById('demo-active-name').textContent = c.name;
+        document.getElementById('demo-active-meta').textContent = `${c.channel} · ${c.handle}`;
+        document.getElementById('demo-assigned').textContent = `Assigned: ${c.assigned}`;
+        document.getElementById('demo-crm-avatar').textContent = c.initials;
+        document.getElementById('demo-crm-avatar').style.background = c.bg;
+        document.getElementById('demo-crm-name').textContent = c.name;
+        document.getElementById('demo-crm-since').textContent = `Customer since ${c.since}`;
+        document.getElementById('demo-crm-ltv').textContent = c.ltv;
+        document.getElementById('demo-crm-orders').textContent = c.orders;
+        document.getElementById('demo-crm-stage').textContent = c.stage;
+        document.getElementById('demo-crm-summary').textContent = c.summary;
+        document.getElementById('demo-crm-tags').innerHTML = c.tags.map(t =>
+          `<span class="font-mono-tech text-[12px] px-2.5 py-0.5 rounded-full ${t.hot ? 'bg-[#F3F0FF] text-[#43336F]' : 'bg-[#E6F0EC] text-[#0B3B2E]'}">${t.label}</span>`
+        ).join('');
+
+        const msgEl = document.getElementById('demo-messages');
+        msgEl.innerHTML = threadMap[c.id].map(m => {
+          if (m.sender === 'event') return `<div class="self-center text-center font-mono-tech text-[11.5px] text-[#52625A] border border-dashed border-[#ACADB1] rounded-lg px-3 py-1 bg-white">${m.text}</div>`;
+          if (m.sender === 'in') return `<div class="max-w-[80%] px-3.5 py-2.5 rounded-[14px] rounded-tl-[4px] text-[14px] bg-white border border-[#D4D8DF] self-start text-[#353536]">${m.text}</div>`;
+          return `<div class="max-w-[80%] px-3.5 py-2.5 rounded-[14px] rounded-tr-[4px] text-[14px] bg-[#E6F0EC] border border-[#0B3B2E]/15 self-end text-[#080808]">
+            ${m.who ? `<span class="block font-mono-tech text-[10.5px] uppercase tracking-[0.05em] text-[#0B3B2E] mb-1">${m.who}</span>` : ''}${m.text}
+          </div>`;
+        }).join('');
+        msgEl.scrollTop = msgEl.scrollHeight;
+      }
+
+      function askMockupAI(text) {
+        if (!text.trim()) return;
+        threadMap[activeId].push({ sender: 'in', text });
+        threadMap[activeId].push({ sender: 'out', who: 'Parsona AI · Instant reply', text: 'Size M is ready to dispatch today with free shipping above ₹999 and Cash on Delivery available.' });
+        renderDemo();
+      }
+
+      document.querySelectorAll('.demo-chip').forEach(btn => {
+        btn.onclick = () => askMockupAI(btn.textContent);
+      });
+      document.getElementById('demo-ask-form').onsubmit = e => {
+        e.preventDefault();
+        const inp = document.getElementById('demo-ask-input');
+        askMockupAI(inp.value);
+        inp.value = '';
+      };
+      document.getElementById('demo-reset-all').onclick = () => {
+        CONTACTS.forEach(c => { threadMap[c.id] = [...c.messages]; });
+        renderDemo();
+      };
+      renderDemo();
+
+      // 2. Platform Tabs
+      const TABS = [
+        { title: 'Team inbox', sub: 'Assign, note and reply together', kicker: 'TEAM INBOX', head: 'A shared inbox with a clock on every chat', desc: 'See who owns what, which replies are due and what the team said privately across all channels.', bg: '#0B3B2E', fg: '#fff', rows: [['Aanya Sharma', 'Can I get an appointment today?', 'due in 4m'], ['Meera Joshi', 'Can I move my slot to Monday?', 'on track'], ['Internal note · Priya', '"Offered a free follow-up check."', 'private']] },
+        { title: 'Broadcasts', sub: 'Segmented campaigns on templates', kicker: 'BROADCASTS', head: 'Send to the right 12,480 people, not everyone', desc: 'Filter by tag or purchase, pick an approved template and schedule it. Replies land in the inbox.', bg: '#E6F0EC', fg: '#0B3B2E', rows: [['Due for check-up · 12,480 contacts', 'Template · Approved', 'Fri 6:00 pm'], ['Last campaign performance', '98% delivered · 64% read', 'Completed']] },
+        { title: 'CRM', sub: 'Profiles that build themselves', kicker: 'BUILT-IN CRM', head: 'A pipeline that fills itself in from chat', desc: 'Tags, orders and stage changes are logged from conversations automatically.', bg: '#F5F6F8', fg: '#080808', rows: [['New', 'Priya Nair · ₹12,000 · Instagram', '2 deals'], ['Booking', 'Aanya Sharma · ₹2,490 · WhatsApp', '4 deals'], ['Treated', 'Neha Rao · ₹9,000 · WhatsApp', '6 deals']] },
+        { title: 'Flow builder', sub: 'Triggers, logic and delays', kicker: 'FLOW BUILDER', head: 'Three flows running while the team sleeps', desc: 'Every flow is a plain-language rule. Switch it on, watch the runs, switch it off.', bg: '#E6F0EC', fg: '#0B3B2E', rows: [['Comment "SMILE" → WhatsApp chat', 'Instagram · 486 runs this week', 'Live'], ['Appointment reminder → confirm', 'WhatsApp · 436 runs this week', 'Live'], ['Booking confirmed → location', 'WhatsApp · 2,018 runs', 'Live']] },
+        { title: 'AI agents', sub: 'Answers from your own content', kicker: 'AI AGENTS', head: 'Answers that cite your own policies', desc: 'Agents read your services, FAQs and timings. When unsure, they hand over with full thread.', bg: '#CFC3FF', fg: '#30245A', rows: [['Customer asked', 'Do you do root canals, and how long does it take?', '96% conf.'], ['Handoff rule', 'Emergencies & <70% confidence go to a human.', 'Active']] },
+        { title: 'Voice agent', sub: 'Answers calls, books & hands off', kicker: 'VOICE AGENT · COMING SOON', head: 'The same agent, now on the phone', desc: 'Voice answers calls, books appointments and saves the call summary to the same timeline.', bg: '#F3F0FF', fg: '#43336F', rows: [['Incoming call preview', 'Hi, can I move my slot to Monday?', 'Soon'], ['Call summary saved', 'Synced to Meera Joshi timeline', 'Soon']] }
+      ];
+      let activeTab = 0;
+      function renderTabs() {
+        document.getElementById('platform-tabs').innerHTML = TABS.map((t, i) => `
+          <button data-tid="${i}" class="flex gap-3.5 items-center text-left border rounded-[14px] px-3.5 py-3 cursor-pointer ${i === activeTab ? 'bg-white border-[#0B3B2E] shadow-[var(--shadow-card)]' : 'border-transparent hover:bg-white'}">
+            <span class="w-10 h-10 rounded-[10px] grid place-items-center font-mono-tech text-[12px] font-bold shrink-0" style="background:${t.bg};color:${t.fg}">0${i+1}</span>
+            <div>
+              <b class="block text-[15.5px] font-semibold text-[#080808]">${t.title}</b>
+              <span class="block max-[720px]:hidden text-[12.5px] text-[#52625A]">${t.sub}</span>
+            </div>
+          </button>
+        `).join('');
+        const t = TABS[activeTab];
+        document.getElementById('platform-panel').innerHTML = `
+          <span class="inline-block font-mono-tech text-[11px] font-medium px-3 py-1 rounded-full bg-[#E6F0EC] text-[#0B3B2E] mb-4">${t.kicker}</span>
+          <h3 class="text-[28px] font-semibold tracking-[-0.03em] leading-[1.15] text-[#080808]">${t.head}</h3>
+          <p class="mt-3 text-[#52625A] max-w-[540px] text-[16px]">${t.desc}</p>
+          <div class="mt-7 grid gap-3">
+            ${t.rows.map(r => `<div class="bg-white border border-[#D4D8DF] border-l-[3px] border-l-[#0B3B2E] rounded-[14px] px-4 py-3.5 flex items-center justify-between gap-4 shadow-[var(--shadow-card)]">
+              <div><b class="block text-[14.5px] text-[#080808]">${r[0]}</b><small class="text-[#52625A] text-[13px]">${r[1]}</small></div>
+              <span class="font-mono-tech text-[11.5px] px-2.5 py-1 rounded-full bg-[#F5F6F8] text-[#353536]">${r[2]}</span>
+            </div>`).join('')}
+          </div>
+        `;
+        document.querySelectorAll('#platform-tabs button').forEach(b => {
+          b.onclick = () => { activeTab = Number(b.dataset.tid); renderTabs(); };
+        });
+      }
+      renderTabs();
+
+      // 3. Pricing Toggle
+      const billM = document.getElementById('bill-m');
+      const billY = document.getElementById('bill-y');
+      const billCap = document.getElementById('bill-caption');
+      function setBilling(yearly) {
+        billM.className = `h-[38px] px-[18px] rounded-[8px] font-semibold text-[14px] cursor-pointer ${!yearly ? 'bg-[#0B3B2E] text-white' : 'text-[#52625A]'}`;
+        billY.className = `h-[38px] px-[18px] rounded-[8px] font-semibold text-[14px] cursor-pointer ${yearly ? 'bg-[#0B3B2E] text-white' : 'text-[#52625A]'}`;
+        billCap.textContent = yearly ? 'PRICES IN INR · BILLED ANNUALLY' : 'PRICES IN INR';
+        document.querySelectorAll('.tier-price').forEach(el => {
+          el.textContent = yearly ? el.dataset.priceYearly : el.dataset.priceMonthly;
+        });
+      }
+      billM.onclick = () => setBilling(false);
+      billY.onclick = () => setBilling(true);
+
+      // 4. FAQ Accordion
+      const FAQS = [
+        ['When does early access open, and how does the waitlist work?', 'We onboard founding teams in weekly batches in the order they sign up. Joining gives you priority workspace access and locked-in pricing.'],
+        ['Do I need to pay or add a credit card to join the waitlist?', 'No. Joining the waitlist is completely free with zero commitment.'],
+        ['Will my existing WhatsApp Business number work with the official API?', 'Yes. Parsona connects through the official Meta WhatsApp Business API in about 10 minutes.'],
+        ['Can I review or edit AI replies before they go out to customers?', 'Yes. Choose AI draft suggestions, FAQ auto-replies, or full autopilot per channel.'],
+        ['Are Instagram, Facebook, and the upcoming Voice agent all in one inbox?', 'Yes. All conversations land on one shared customer timeline.']
+      ];
+      let openFaq = 0;
+      function renderFaq() {
+        document.getElementById('faq-list').innerHTML = FAQS.map((f, i) => `
+          <div class="py-6">
+            <button data-fid="${i}" class="w-full text-left flex justify-between items-center gap-4 text-[19px] font-semibold text-[#080808] cursor-pointer">
+              <span>${f[0]}</span>
+              <span class="w-8 h-8 rounded-full border border-[#D4D8DF] bg-[#F5F6F8] grid place-items-center text-[20px] shrink-0">${i === openFaq ? '×' : '+'}</span>
+            </button>
+            ${i === openFaq ? `<p class="pt-3.5 text-[#353536] text-[15.5px] max-w-[700px] leading-[1.6]">${f[1]}</p>` : ''}
+          </div>
+        `).join('');
+        document.querySelectorAll('#faq-list button').forEach(b => {
+          b.onclick = () => { const idx = Number(b.dataset.fid); openFaq = openFaq === idx ? -1 : idx; renderFaq(); };
+        });
+      }
+      renderFaq();
+
+      // 5. Waitlist Form Preview
+      document.getElementById('mockup-wl-form').onsubmit = e => {
+        e.preventDefault();
+        document.getElementById('mockup-wl-form').classList.add('hidden');
+        document.getElementById('mockup-wl-ok').classList.remove('hidden');
+      };
+    </script>
+  </body>
+</html>

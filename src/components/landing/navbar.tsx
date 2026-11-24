@@ -42,7 +42,7 @@ export function Navbar() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 bg-[var(--background)]/94 backdrop-blur-[10px] border-b border-[var(--border)]">
+    <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[var(--border)]/80">
       <div className="max-w-[1280px] mx-auto px-8 max-[720px]:px-5 flex items-center justify-between h-[76px] max-[980px]:h-[68px] gap-4">
         {/* Left: Parsona Logo -> / */}
         <Link
@@ -68,7 +68,7 @@ export function Navbar() {
         {/* Center: Desktop Pill-Style Navigation */}
         <nav
           aria-label="Main"
-          className="hidden min-[981px]:flex items-center gap-1 rounded-full bg-white border border-[var(--border)] p-[5px] shadow-[var(--shadow-card)]"
+          className="hidden min-[981px]:flex items-center gap-1 rounded-full bg-[var(--surface-secondary)] border border-[var(--border)] p-1 shadow-[var(--shadow-card)]"
         >
           {NAV_LINKS.map((link) => {
             const isActive = activeId === link.id
@@ -79,8 +79,8 @@ export function Navbar() {
                 onClick={() => setActiveId(link.id)}
                 className={`rounded-full px-4 py-[7px] text-[14px] font-medium transition-colors duration-200 whitespace-nowrap focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[2px] ${
                   isActive
-                    ? 'bg-[var(--surface-green)] text-[var(--brand-primary)] font-semibold'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-secondary)] hover:text-[var(--text-primary)]'
+                    ? 'bg-white text-[var(--brand-primary)] font-semibold shadow-xs'
+                    : 'text-[var(--text-secondary)] hover:bg-white/70 hover:text-[var(--text-primary)]'
                 }`}
               >
                 {link.label}
@@ -92,10 +92,9 @@ export function Navbar() {
         {/* Right: Desktop Join waitlist -> #waitlist */}
         <a
           href="#waitlist"
-          className="hidden min-[981px]:inline-flex items-center justify-center gap-1.5 h-11 px-5 rounded-[12px] bg-[var(--brand-primary)] hover:bg-[var(--brand-hover)] active:bg-[var(--brand-active)] text-white font-semibold text-[15px] transition-colors duration-200 whitespace-nowrap shadow-[var(--shadow-brand)] shrink-0 focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px]"
+          className="hidden min-[981px]:inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-[10px] bg-white border border-[var(--border)] hover:border-[var(--brand-primary)] hover:bg-[var(--surface-green)] text-[var(--text-primary)] font-medium text-[14px] transition-colors duration-200 whitespace-nowrap shadow-[var(--shadow-card)] shrink-0 focus-visible:outline-[3px] focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-[3px]"
         >
           <span>Join waitlist</span>
-          <span aria-hidden="true">→</span>
         </a>
 
         {/* Right: Mobile Minimal 2-Line Menu Toggle */}

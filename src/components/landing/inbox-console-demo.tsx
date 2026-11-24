@@ -295,7 +295,7 @@ function getSmartAiReply(question: string): { who: string; text: string } {
   }
 }
 
-export function InboxConsoleDemo() {
+export function InboxConsoleDemo({ embedded = false }: { embedded?: boolean } = {}) {
   const [activeId, setActiveId] = useState<string>('aanya')
   const [threads, setThreads] = useState<Record<string, ThreadMessage[]>>(() =>
     Object.fromEntries(INITIAL_CONTACTS.map((c) => [c.id, c.initialMessages]))
@@ -413,7 +413,7 @@ export function InboxConsoleDemo() {
     contact.id === 'aanya' && aanyaOrderStep === 'confirmed' ? 'Won' : contact.stage
 
   return (
-    <div className="relative mt-9 max-[720px]:mt-7">
+    <div className={embedded ? 'relative' : 'relative mt-9 max-[720px]:mt-7'}>
       <div
         className="bg-white border border-[var(--border)] rounded-[20px] overflow-hidden shadow-[var(--shadow-card)]"
         aria-label="Interactive preview of the Parsona team inbox"
