@@ -807,3 +807,51 @@ describe("auto-advancing chain length", () => {
     ]);
   });
 });
+
+describe("AI nodes and intent trigger validation", () => {
+  it("validates ai_intent trigger configuration", () => {
+    const invalidFlow = {
+      ...validFlow,
+      trigger_type: "ai_intent" as any,
+      trigger_config: { intent_name: "" },
+    };
+    const issues = validateFlowForActivation(invalidFlow, validNodes);
+    expect(issues.some((i) => i.scope === "trigger" && i.field === "trigger_config.intent_name")).toBe(true);
+  });
+
+  it("validates ai_message node configuration", () => {
+    const nodes = [
+      { node_key: "start", node_type: "start", config: { next_node_key: "ai_msg" } },
+      {
+        node_key: "ai_msg",
+        node_type: "ai_message",
+        config: { mode: "ai_generated", prompt: "", next_node_key: "end_node" },
+      },
+      { node_key: "end_node", node_type: "end", config: {} },
+    ];
+    const issues = validateFlowForActivation({ ...validFlow, entry_node_id: "start" }, nodes);
+    expect(issues.some((i) => i.node_key === "ai_msg" && i.field === "prompt")).toBe(true);
+  });
+
+  it("validates ai_extract and ai_decision node connections", () => {
+    const nodes = [
+      { node_key: "start", node_type: "start", config: { next_node_key: "ai_ext" } },
+      {
+        node_key: "ai_ext",
+        node_type: "ai_extract",
+        config: { fields: [], next_node_key: "ai_dec" },
+      },
+      {
+        node_key: "ai_dec",
+        node_type: "ai_decision",
+        config: { prompt: "Choose branch", branches: [{ branch_key: "yes", next_node_key: "end_node" }] },
+      },
+      { node_key: "end_node", node_type: "end", config: {} },
+    ];
+    const issues = validateFlowForActivation({ ...validFlow, entry_node_id: "start" }, nodes);
+    // Should have a warning for empty fields on ai_extract
+    expect(issues.some((i) => i.node_key === "ai_ext" && i.field === "fields" && i.severity === "warning")).toBe(true);
+    // Should have no errors
+    expect(issues.filter((i) => i.severity === "error")).toEqual([]);
+  });
+});

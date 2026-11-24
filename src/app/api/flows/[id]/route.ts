@@ -76,7 +76,7 @@ export async function GET(
 interface PutBody {
   name?: string
   description?: string | null
-  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual'
+  trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'ai_intent'
   trigger_config?: Record<string, unknown>
   channels?: ('whatsapp' | 'instagram' | 'facebook')[]
   entry_node_id?: string | null
@@ -150,26 +150,111 @@ export async function PUT(
   if (body.fallback_policy !== undefined)
     flowPatch.fallback_policy = body.fallback_policy
 
+  // Sync trigger config from canvas trigger node if present
+  const canvasTriggerNode = body.nodes?.find((n) => n.node_type === 'trigger')
+  if (canvasTriggerNode?.config) {
+    const tc = canvasTriggerNode.config as Record<string, any>
+    if (tc.starting_step === 'ai_intent' || tc.intent_name) {
+      flowPatch.trigger_type = 'ai_intent'
+      flowPatch.trigger_config = {
+        ...(typeof flowPatch.trigger_config === 'object' && flowPatch.trigger_config ? flowPatch.trigger_config : {}),
+        ...tc,
+        starting_step: 'ai_intent',
+      }
+    } else if (tc.starting_step === 'keyword' || tc.starting_step === 'contact_from_ad') {
+      flowPatch.trigger_type = 'keyword'
+      flowPatch.trigger_config = {
+        ...(typeof flowPatch.trigger_config === 'object' && flowPatch.trigger_config ? flowPatch.trigger_config : {}),
+        ...tc,
+        keywords: tc.keywords || (flowPatch.trigger_config as any)?.keywords || [],
+      }
+    } else if (tc.starting_step === 'new_contact') {
+      flowPatch.trigger_type = 'first_inbound_message'
+      flowPatch.trigger_config = {
+        ...(typeof flowPatch.trigger_config === 'object' && flowPatch.trigger_config ? flowPatch.trigger_config : {}),
+        ...tc,
+      }
+    }
+
+    if (!flowPatch.entry_node_id && !body.entry_node_id) {
+      flowPatch.entry_node_id = canvasTriggerNode.node_key
+    }
+  }
+
   if (body.nodes !== undefined) {
-    const { error: graphErr } = await guard.supabase.rpc('replace_flow_graph', {
+    let nodesToSave = body.nodes.map((n) => ({
+      node_key: n.node_key,
+      node_type: n.node_type,
+      config: n.config,
+      position_x: n.position_x ?? 0,
+      position_y: n.position_y ?? 0,
+    }))
+
+    let rpcRes = await guard.supabase.rpc('replace_flow_graph', {
       p_flow_id: id,
-      p_nodes: body.nodes.map((n) => ({
-        node_key: n.node_key,
-        node_type: n.node_type,
-        config: n.config,
-        position_x: n.position_x ?? 0,
-        position_y: n.position_y ?? 0,
-      })),
+      p_nodes: nodesToSave,
       p_flow: flowPatch,
     })
-    if (graphErr) {
-      return NextResponse.json({ error: graphErr.message }, { status: 500 })
+
+    // If database check constraint on trigger_type fails (migration 080 not yet executed on DB)
+    if (
+      rpcRes.error &&
+      (rpcRes.error.message.includes('flows_trigger_type_check') ||
+        rpcRes.error.message.includes('trigger_type'))
+    ) {
+      const fallbackPatch = {
+        ...flowPatch,
+        trigger_type: 'keyword',
+      }
+      rpcRes = await guard.supabase.rpc('replace_flow_graph', {
+        p_flow_id: id,
+        p_nodes: nodesToSave,
+        p_flow: fallbackPatch,
+      })
+    }
+
+    // If database check constraint on node_type fails (migration 080 not yet executed on DB)
+    if (rpcRes.error && rpcRes.error.message.includes('flow_nodes_node_type_check')) {
+      // Map ai_message -> ai_response if ai_message was used
+      nodesToSave = nodesToSave.map((n) => {
+        if (n.node_type === 'ai_message') {
+          return {
+            ...n,
+            node_type: 'ai_response',
+            config: { ...n.config, is_ai_message: true },
+          }
+        }
+        return n
+      })
+      rpcRes = await guard.supabase.rpc('replace_flow_graph', {
+        p_flow_id: id,
+        p_nodes: nodesToSave,
+        p_flow: flowPatch,
+      })
+    }
+
+    if (rpcRes.error) {
+      return NextResponse.json({ error: rpcRes.error.message }, { status: 500 })
     }
   } else {
-    const { error: updErr } = await admin
+    let { error: updErr } = await admin
       .from('flows')
       .update({ ...flowPatch, updated_at: new Date().toISOString() })
       .eq('id', id)
+
+    if (
+      updErr &&
+      (updErr.message.includes('flows_trigger_type_check') ||
+        updErr.message.includes('trigger_type'))
+    ) {
+      const fallbackPatch = { ...flowPatch, trigger_type: 'keyword' }
+      const retry = await admin
+        .from('flows')
+        .update({ ...fallbackPatch, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      updErr = retry.error
+    }
+
     if (updErr) {
       return NextResponse.json({ error: updErr.message }, { status: 500 })
     }

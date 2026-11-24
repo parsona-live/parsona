@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { Image as ImageIcon, Video, FileText, Type, X, Braces, ChevronDown } from "lucide-react";
+import { Image as ImageIcon, Video, FileText, Type, X, Braces, ChevronDown, Sparkles } from "lucide-react";
 import { NODE_META, type BuilderNode } from "../shared";
 import { useOptionalFlowEditor } from "../flow-editor-state";
 
@@ -427,6 +427,195 @@ export function HeaderMediaSelector({
               Paste an image or video URL above to attach as header
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// PromptOrTextInput Component
+// ============================================================
+
+export function PromptOrTextInput({
+  mode = "static",
+  text = "",
+  prompt = "",
+  fallbackText = "",
+  label = "Message Body",
+  placeholderText = "Type message text...",
+  placeholderPrompt = "Instruct AI what to generate based on previous customer context (e.g. Acknowledge customer booking and ask for preferred time)...",
+  rows = 3,
+  allNodes,
+  onChange,
+}: {
+  mode?: "static" | "prompt";
+  text?: string;
+  prompt?: string;
+  fallbackText?: string;
+  label?: string;
+  placeholderText?: string;
+  placeholderPrompt?: string;
+  rows?: number;
+  allNodes?: BuilderNode[];
+  onChange: (patch: {
+    text_mode: "static" | "prompt";
+    text?: string;
+    prompt?: string;
+    fallback_text?: string;
+  }) => void;
+}) {
+  const isPrompt = mode === "prompt";
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertPromptVariable = (varTag: string) => {
+    const el = promptRef.current;
+    if (!el) {
+      onChange({
+        text_mode: "prompt",
+        text,
+        prompt: prompt ? `${prompt} ${varTag}` : varTag,
+        fallback_text: fallbackText,
+      });
+      return;
+    }
+    const start = el.selectionStart ?? prompt.length;
+    const end = el.selectionEnd ?? prompt.length;
+    const before = prompt.substring(0, start);
+    const after = prompt.substring(end);
+    const nextVal = `${before}${varTag}${after}`;
+    onChange({
+      text_mode: "prompt",
+      text,
+      prompt: nextVal,
+      fallback_text: fallbackText,
+    });
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + varTag.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Header with Label and Segmented Toggle */}
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-slate-800 dark:text-slate-200">
+          {label}
+        </label>
+        <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-muted p-0.5 text-[11px]">
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                text_mode: "static",
+                text: text || fallbackText || "",
+                prompt,
+                fallback_text: fallbackText,
+              })
+            }
+            className={cn(
+              "px-2.5 py-1 rounded-md font-medium transition-all",
+              !isPrompt
+                ? "bg-white dark:bg-card text-foreground shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Static Text
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                text_mode: "prompt",
+                text,
+                prompt,
+                fallback_text: fallbackText || text || "",
+              })
+            }
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all",
+              isPrompt
+                ? "bg-purple-600 text-white shadow-xs font-semibold"
+                : "text-purple-600 dark:text-purple-400 hover:text-purple-700"
+            )}
+          >
+            <Sparkles className="h-3 w-3" />
+            <span>AI Prompt</span>
+          </button>
+        </div>
+      </div>
+
+      {!isPrompt ? (
+        /* Static Text Mode */
+        <TextRow
+          label=""
+          value={text}
+          onChange={(v) => onChange({ text_mode: "static", text: v, prompt, fallback_text: fallbackText })}
+          rows={rows}
+          placeholder={placeholderText}
+          allNodes={allNodes}
+          hideVariablePicker={false}
+        />
+      ) : (
+        /* Dynamic AI Prompt Mode */
+        <div className="space-y-2.5 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1">
+              <Sparkles className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+              <span>AI Prompt (Generates text dynamically)</span>
+            </span>
+            <VariableDropdown onSelect={handleInsertPromptVariable} nodes={allNodes} />
+          </div>
+
+          <Textarea
+            ref={promptRef}
+            value={prompt}
+            onChange={(e) =>
+              onChange({
+                text_mode: "prompt",
+                text,
+                prompt: e.target.value,
+                fallback_text: fallbackText,
+              })
+            }
+            rows={rows}
+            placeholder={placeholderPrompt}
+            className="text-xs resize-y bg-white dark:bg-card border-purple-200 dark:border-purple-900/60 focus:border-purple-500"
+          />
+
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-purple-700 dark:text-purple-300">
+            <span className="bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded font-medium">
+              ✨ Context-Aware
+            </span>
+            <span className="bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded font-medium">
+              🗣️ Hinglish / English
+            </span>
+            <span className="bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded font-medium">
+              ⚡ Previous answers included
+            </span>
+          </div>
+
+          <div className="space-y-1 pt-1.5 border-t border-purple-200/60 dark:border-purple-900/40">
+            <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+              Safe Fallback Text (Sent if AI times out or errors)
+            </label>
+            <Textarea
+              value={fallbackText}
+              onChange={(e) =>
+                onChange({
+                  text_mode: "prompt",
+                  text,
+                  prompt,
+                  fallback_text: e.target.value,
+                })
+              }
+              rows={2}
+              placeholder="e.g. Thank you for your response! How else can I assist you today?"
+              className="text-xs resize-y bg-white dark:bg-card border-slate-200 dark:border-slate-800"
+            />
+          </div>
         </div>
       )}
     </div>

@@ -66,7 +66,7 @@ import { NODE_META, slugify, type BuilderNode, type NodeType } from "./shared";
 export interface BuilderState {
   name: string;
   description: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "ai_intent";
   trigger_config: Record<string, unknown>;
   channels?: ("whatsapp" | "instagram" | "facebook")[];
   entry_node_id: string | null;
@@ -288,6 +288,43 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         active: true,
         next_node_key: "",
       };
+    case "ai_message":
+      return {
+        mode: "generated",
+        prompt: "",
+        context_sources: ["contact", "conversation", "memories"],
+        language_style: "conversational Hinglish/English",
+        fallback_text: "I understand. How else can I assist you?",
+        max_tokens: 300,
+        next_node_key: "",
+        fallback_node_key: "",
+      };
+    case "ai_extract":
+      return {
+        fields: [
+          { name: "extracted_info", type: "string", description: "Key customer information", required: true },
+        ],
+        extraction_instructions: "",
+        next_node_key: "",
+        missing_fields_node_key: "",
+      };
+    case "ai_decision":
+      return {
+        prompt: "",
+        branches: [
+          { branch_key: "yes", key: "yes", description: "Customer agrees or is interested", next_node_key: "" },
+          { branch_key: "no", key: "no", description: "Customer declines or not interested", next_node_key: "" },
+        ],
+        fallback_next: "",
+        fallback_node_key: "",
+      };
+    case "ai_summarize":
+      return {
+        target_var: "summary",
+        focus: "all",
+        max_words: 100,
+        next_node_key: "",
+      };
     case "send_email":
       return {
         to_email: "{{contact.email}}",
@@ -493,19 +530,41 @@ export function FlowEditorProvider({
   }, [dirty]);
 
   // ---- Validation ----
-  const issues = useMemo<ValidationIssue[]>(
-    () =>
-      validateFlowForActivation(
-        {
-          name: state.name,
-          trigger_type: state.trigger_type,
-          trigger_config: state.trigger_config,
-          entry_node_id: state.entry_node_id,
-        },
-        state.nodes,
-      ),
-    [state],
-  );
+  const issues = useMemo<ValidationIssue[]>(() => {
+    const triggerNode = state.nodes.find((n) => n.node_type === "trigger");
+    let effTriggerType = state.trigger_type;
+    let effTriggerConfig = { ...(state.trigger_config || {}) };
+    let effEntryId =
+      state.entry_node_id || triggerNode?.node_key || state.nodes[0]?.node_key || null;
+
+    if (triggerNode) {
+      const tc = (triggerNode.config || {}) as Record<string, any>;
+      if (tc.starting_step === "ai_intent" || tc.intent_name) {
+        effTriggerType = "ai_intent";
+        effTriggerConfig = { ...effTriggerConfig, ...tc, starting_step: "ai_intent" };
+      } else if (tc.starting_step === "keyword" || tc.starting_step === "contact_from_ad") {
+        effTriggerType = "keyword";
+        effTriggerConfig = {
+          ...effTriggerConfig,
+          ...tc,
+          keywords: tc.keywords || effTriggerConfig.keywords || [],
+        };
+      } else if (tc.starting_step === "new_contact") {
+        effTriggerType = "first_inbound_message";
+        effTriggerConfig = { ...effTriggerConfig, ...tc };
+      }
+    }
+
+    return validateFlowForActivation(
+      {
+        name: state.name,
+        trigger_type: effTriggerType,
+        trigger_config: effTriggerConfig,
+        entry_node_id: effEntryId,
+      },
+      state.nodes,
+    );
+  }, [state]);
   const canActivate = useMemo(
     () => issues.every((i) => i.severity !== "error"),
     [issues],

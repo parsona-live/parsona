@@ -23,13 +23,15 @@ export interface RazorpayOrderResult {
  * Creates an order via Razorpay API using Basic Auth
  */
 export async function createRazorpayOrder(params: CreateOrderParams): Promise<RazorpayOrderResult> {
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+  const keyId = process.env.RAZORPAY_KEY_ID || RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
     throw new Error(
       "Razorpay credentials are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
     );
   }
 
-  const authHeader = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
+  const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
   const amountPaise = Math.round(params.amountInr * 100);
 
   const response = await fetch("https://api.razorpay.com/v1/orders", {
@@ -55,6 +57,67 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Ra
   }
 
   return (await response.json()) as RazorpayOrderResult;
+}
+
+export interface CreatePaymentLinkParams {
+  amountInr: number;
+  description: string;
+  customer?: {
+    name?: string;
+    contact?: string;
+    email?: string;
+  };
+  notes?: Record<string, string>;
+  callbackUrl?: string;
+}
+
+export interface RazorpayPaymentLinkResult {
+  id: string;
+  short_url: string;
+  status: string;
+  amount: number;
+}
+
+/**
+ * Creates a dynamic payment link via Razorpay API using Basic Auth
+ */
+export async function createRazorpayPaymentLink(params: CreatePaymentLinkParams): Promise<RazorpayPaymentLinkResult> {
+  const keyId = process.env.RAZORPAY_KEY_ID || RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    throw new Error(
+      "Razorpay credentials are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+    );
+  }
+
+  const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  const amountPaise = Math.round(params.amountInr * 100);
+
+  const response = await fetch("https://api.razorpay.com/v1/payment_links", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: amountPaise,
+      currency: "INR",
+      description: params.description,
+      customer: params.customer,
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+      notes: params.notes,
+      callback_url: params.callbackUrl,
+      callback_method: "get",
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Razorpay Payment Link creation failed: ${response.status} ${errorBody}`);
+  }
+
+  return (await response.json()) as RazorpayPaymentLinkResult;
 }
 
 /**

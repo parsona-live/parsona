@@ -89,7 +89,7 @@ interface NodeData extends Record<string, unknown> {
   onTestNode?: (node: BuilderNode) => void;
   onUpdateNodeConfig?: (key: string, patch: Record<string, unknown>) => void;
   onUpdateTrigger?: (
-    triggerType: 'keyword' | 'first_inbound_message' | 'manual',
+    triggerType: 'keyword' | 'first_inbound_message' | 'manual' | 'ai_intent',
     triggerConfig: Record<string, unknown>,
   ) => void;
 }
@@ -218,10 +218,16 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
 
   switch (node.node_type) {
     case 'send_message': {
-      const text = (cfg.text as string) || '';
+      const isPrompt = cfg.text_mode === 'prompt' && cfg.prompt;
+      const text = isPrompt ? `✨ Prompt: ${cfg.prompt}` : ((cfg.text as string) || '');
       return (
         <>
           {renderHeader()}
+          {isPrompt && (
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> AI Generated
+            </span>
+          )}
           <BodyText lines={4}>{text || <Placeholder>Empty message text…</Placeholder>}</BodyText>
         </>
       );
@@ -405,6 +411,79 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
       );
     }
 
+    case 'ai_message': {
+      const mode = (cfg.mode as string) || 'generated';
+      const prompt = (cfg.prompt as string) || '';
+      const staticText = (cfg.static_text as string) || '';
+      const fallback = (cfg.fallback_text as string) || '';
+      return (
+        <>
+          <IconLine icon={Sparkles}>
+            {mode === 'generated' ? 'Context-Aware AI Generation' : 'Static AI Fallback'}
+          </IconLine>
+          {mode === 'generated' ? (
+            prompt ? (
+              <BodyText lines={3}>{prompt}</BodyText>
+            ) : (
+              <Placeholder>No prompt specified…</Placeholder>
+            )
+          ) : (
+            <BodyText lines={2}>{staticText || <Placeholder>No text…</Placeholder>}</BodyText>
+          )}
+          {fallback && (
+            <p className="text-[10px] text-slate-400 truncate">Fallback: {fallback}</p>
+          )}
+        </>
+      );
+    }
+
+    case 'ai_extract': {
+      const fields = Array.isArray(cfg.fields) ? (cfg.fields as Array<{ name: string; type?: string; required?: boolean }>) : [];
+      const instructions = (cfg.extraction_instructions as string) || '';
+      return (
+        <div className="space-y-1.5">
+          {instructions && <BodyText lines={2}>{instructions}</BodyText>}
+          <div className="flex flex-wrap gap-1 pt-1">
+            {fields.map((f, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-700 dark:text-slate-300"
+              >
+                <span>{f.name}</span>
+                {f.required !== false && <span className="text-amber-500 font-bold">*</span>}
+              </span>
+            ))}
+            {fields.length === 0 && <Placeholder>No fields configured</Placeholder>}
+          </div>
+        </div>
+      );
+    }
+
+    case 'ai_decision': {
+      const prompt = (cfg.prompt as string) || '';
+      return (
+        <>
+          <IconLine icon={Sparkles}>Semantic Decision Router</IconLine>
+          {prompt ? (
+            <BodyText lines={3}>{prompt}</BodyText>
+          ) : (
+            <Placeholder>Describe classification criteria…</Placeholder>
+          )}
+        </>
+      );
+    }
+
+    case 'ai_summarize': {
+      const targetVar = (cfg.target_var as string) || 'summary';
+      const focus = (cfg.focus as string) || 'all';
+      return (
+        <>
+          <IconLine icon={FileText}>Focus: {focus}</IconLine>
+          <Chip>&#123;&#123;vars.{targetVar}&#125;&#125;</Chip>
+        </>
+      );
+    }
+
     case 'send_email': {
       const subject = (cfg.subject as string) || '';
       return (
@@ -458,19 +537,33 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
     case 'whatsapp_payment': {
       const amt = cfg.amount ?? 0;
       const curr = (cfg.currency as string) || 'INR';
+      const isWait = Boolean(cfg.wait_for_payment);
       return (
-        <IconLine icon={CreditCard}>
-          Request {amt} {curr}
-        </IconLine>
+        <div className="space-y-1">
+          <IconLine icon={CreditCard}>
+            Request {amt} {curr}
+          </IconLine>
+          {isWait && (
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium block">
+              ⏳ Waits for payment webhook
+            </span>
+          )}
+        </div>
       );
     }
 
     case 'collect_input':
     case 'input_flow': {
-      const p = (cfg.prompt_text as string) || '';
+      const isPrompt = cfg.text_mode === 'prompt' && cfg.prompt;
+      const p = isPrompt ? `✨ Prompt: ${cfg.prompt}` : ((cfg.prompt_text as string) || '');
       const v = (cfg.var_key as string) || 'val';
       return (
         <>
+          {isPrompt && (
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> AI Prompt Question
+            </span>
+          )}
           <BodyText lines={2}>{p || 'Prompt customer'}</BodyText>
           <Chip>&#123;&#123;vars.{v}&#125;&#125;</Chip>
         </>
@@ -548,7 +641,7 @@ function TriggerNodeCard({
   onDeleteNode?: (key: string) => void;
   onUpdateNodeConfig?: (key: string, patch: Record<string, unknown>) => void;
   onUpdateTrigger?: (
-    triggerType: 'keyword' | 'first_inbound_message' | 'manual',
+    triggerType: 'keyword' | 'first_inbound_message' | 'manual' | 'ai_intent',
     triggerConfig: Record<string, unknown>,
   ) => void;
 }) {
@@ -556,7 +649,7 @@ function TriggerNodeCard({
   const { state, setState } = useFlowEditor();
   const currentChannels = state.channels || ['whatsapp', 'instagram', 'facebook'];
   const cfg = (node.config ?? {}) as Record<string, any>;
-  const startingStep = cfg.starting_step || 'new_contact';
+  const startingStep = cfg.starting_step || (state.trigger_type === 'ai_intent' ? 'ai_intent' : 'new_contact');
   const keywordsList: string[] = Array.isArray(cfg.keywords) ? cfg.keywords : [];
   const [keywordText, setKeywordText] = useState(() => keywordsList.join(', '));
 
@@ -564,19 +657,34 @@ function TriggerNodeCard({
     setKeywordText(keywordsList.join(', '));
   }, [cfg.keywords]);
 
-  const selectStartingStep = (step: 'new_contact' | 'keyword' | 'contact_from_ad') => {
+  const selectStartingStep = (step: 'new_contact' | 'keyword' | 'contact_from_ad' | 'ai_intent') => {
     setDropdownOpen(false);
     if (step === 'new_contact') {
       onUpdateNodeConfig?.(node.node_key, { starting_step: 'new_contact' });
       onUpdateTrigger?.('first_inbound_message', {});
+      setState((s) => ({ ...s, trigger_type: 'first_inbound_message', trigger_config: {} }));
     } else if (step === 'keyword') {
       const parsed = keywordText ? keywordText.split(',').map((s) => s.trim()).filter(Boolean) : keywordsList;
       onUpdateNodeConfig?.(node.node_key, { starting_step: 'keyword', keywords: parsed });
       onUpdateTrigger?.('keyword', { keywords: parsed });
+      setState((s) => ({ ...s, trigger_type: 'keyword', trigger_config: { keywords: parsed } }));
     } else if (step === 'contact_from_ad') {
       const parsed = keywordText ? keywordText.split(',').map((s) => s.trim()).filter(Boolean) : keywordsList;
       onUpdateNodeConfig?.(node.node_key, { starting_step: 'contact_from_ad', keywords: parsed });
       onUpdateTrigger?.('keyword', { ad: true, keywords: parsed });
+      setState((s) => ({ ...s, trigger_type: 'keyword', trigger_config: { ad: true, keywords: parsed } }));
+    } else if (step === 'ai_intent') {
+      const intentConfig = {
+        intent_name: cfg.intent_name || (state.trigger_config?.intent_name as string) || '',
+        intent_description: cfg.intent_description || (state.trigger_config?.intent_description as string) || '',
+        positive_examples: cfg.positive_examples || (state.trigger_config?.positive_examples as string[]) || [],
+        negative_examples: cfg.negative_examples || (state.trigger_config?.negative_examples as string[]) || [],
+        confidence_threshold: typeof cfg.confidence_threshold === 'number' ? cfg.confidence_threshold : 0.75,
+        priority: typeof cfg.priority === 'number' ? cfg.priority : 0,
+      };
+      onUpdateNodeConfig?.(node.node_key, { starting_step: 'ai_intent', ...intentConfig });
+      onUpdateTrigger?.('ai_intent', intentConfig);
+      setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: intentConfig }));
     }
   };
 
@@ -594,7 +702,9 @@ function TriggerNodeCard({
       ? 'New contact'
       : startingStep === 'contact_from_ad'
         ? 'Contact from Ad'
-        : 'Text contains specific keywords';
+        : startingStep === 'ai_intent'
+          ? 'AI Intent — Natural Language'
+          : 'Text contains specific keywords';
 
   return (
     <div
@@ -696,6 +806,30 @@ function TriggerNodeCard({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  selectStartingStep('ai_intent');
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors',
+                  startingStep === 'ai_intent'
+                    ? 'bg-[#fef9c3] text-amber-950 font-medium'
+                    : 'text-slate-700 hover:bg-slate-50'
+                )}
+              >
+                {startingStep === 'ai_intent' ? (
+                  <Check className="h-3.5 w-3.5 text-amber-700 shrink-0 stroke-[2.5]" />
+                ) : (
+                  <span className="w-3.5 shrink-0" />
+                )}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Sparkles className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                  <span>AI Intent — Natural Language</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   selectStartingStep('contact_from_ad');
                 }}
                 className={cn(
@@ -731,6 +865,69 @@ function TriggerNodeCard({
               placeholder="e.g. hi, hello, start, support"
               className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
             />
+          </div>
+        )}
+
+        {/* AI Intent input right inside the Trigger node */}
+        {startingStep === 'ai_intent' && (
+          <div className="space-y-2 pt-1.5 border-t border-slate-100">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-slate-700">Intent Name</span>
+              <input
+                type="text"
+                value={cfg.intent_name || (state.trigger_config?.intent_name as string) || ''}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                  const patch = { intent_name: val };
+                  onUpdateNodeConfig?.(node.node_key, patch);
+                  onUpdateTrigger?.('ai_intent', { ...state.trigger_config, ...patch });
+                  setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="e.g. appointment_booking"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-slate-700">Description</span>
+              <textarea
+                value={cfg.intent_description || (state.trigger_config?.intent_description as string) || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const patch = { intent_description: val };
+                  onUpdateNodeConfig?.(node.node_key, patch);
+                  onUpdateTrigger?.('ai_intent', { ...state.trigger_config, ...patch });
+                  setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="What user intent triggers this flow..."
+                rows={2}
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs resize-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-slate-700">Positive Examples</span>
+              <input
+                type="text"
+                value={
+                  Array.isArray(cfg.positive_examples)
+                    ? cfg.positive_examples.join(', ')
+                    : Array.isArray(state.trigger_config?.positive_examples)
+                      ? (state.trigger_config.positive_examples as string[]).join(', ')
+                      : ''
+                }
+                onChange={(e) => {
+                  const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                  const patch = { positive_examples: list };
+                  onUpdateNodeConfig?.(node.node_key, patch);
+                  onUpdateTrigger?.('ai_intent', { ...state.trigger_config, ...patch });
+                  setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+                }}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="e.g. book appointment, demo, hi"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+              />
+            </div>
           </div>
         )}
         {/* Active Channels */}
@@ -894,13 +1091,13 @@ function FlowNodeCard({ data, selected }: NodeProps) {
       {/* Body */}
       {body && <div className="flex flex-col gap-1.5 px-3 pb-3 text-slate-600">{body}</div>}
 
-      {/* Per-branch rows (buttons, condition, list rows, carousel) —
+      {/* Per-branch rows (buttons, condition, list rows, carousel, ai_decision) —
           each row owns the source handle for its slot. */}
       {isMultiSlot && (
         <div className="border-slate-100 divide-slate-100 divide-y border-t bg-slate-50/50 rounded-b-xl">
-          {slots.map((slot) => (
+          {slots.map((slot, sIdx) => (
             <div
-              key={slot.id}
+              key={`${slot.id || 'slot'}_${sIdx}`}
               className={cn(
                 'relative flex items-center px-3 py-1.5 text-[11px]',
                 node.node_type === 'send_buttons'
@@ -1041,7 +1238,7 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
           onUpdateNodeConfig: (key: string, patch: Record<string, unknown>) =>
             updateNodeConfig(key, patch),
           onUpdateTrigger: (
-            type: 'keyword' | 'first_inbound_message' | 'manual',
+            type: 'keyword' | 'first_inbound_message' | 'manual' | 'ai_intent',
             config: Record<string, unknown>,
           ) => {
             setState((prev) => ({
@@ -1467,12 +1664,16 @@ const ADD_NODE_TYPES: NodeType[] = [
   'send_list',
   'send_carousel',
   'send_message',
+  'ai_message',
   'send_media',
   'send_location',
   'send_contact',
   'request_address',
   'collect_input',
   'condition',
+  'ai_extract',
+  'ai_decision',
+  'ai_summarize',
   'set_tag',
   'handoff',
   'end',

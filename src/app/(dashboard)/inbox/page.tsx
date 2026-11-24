@@ -53,6 +53,10 @@ function InboxPageInner() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
+  const activeConversationRef = useRef(activeConversation);
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
@@ -160,19 +164,19 @@ function InboxPageInner() {
       const fetched = normalizeConversation(data);
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === fetched.id);
+        let list: Conversation[];
         if (existing) {
-          // Already in state — keep its fields (a realtime UPDATE may
-          // have landed while the fetch was in flight and patched
-          // last_message_text / unread_count to fresher values than
-          // the row we just read). Only backfill `contact`, which the
-          // realtime payloads never carry.
-          return prev.map((c) =>
+          list = prev.map((c) =>
             c.id === fetched.id
-              ? { ...c, contact: c.contact ?? fetched.contact }
+              ? { ...c, ...fetched, contact: c.contact ?? fetched.contact }
               : c,
           );
+        } else {
+          list = [fetched, ...prev];
         }
-        return [fetched, ...prev];
+        return [...list].sort((a, b) =>
+          (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")
+        );
       });
     } finally {
       hydratingConvIdsRef.current.delete(convId);
@@ -225,10 +229,11 @@ function InboxPageInner() {
       const newMsg = event.new;
 
       if (event.eventType === "INSERT") {
+        const currentActive = activeConversationRef.current;
         // Add to messages if it belongs to active conversation
         if (
-          activeConversation &&
-          newMsg.conversation_id === activeConversation.id
+          currentActive &&
+          newMsg.conversation_id === currentActive.id
         ) {
           setMessages((prev) => applyRealtimeInsert(prev, newMsg));
         }
@@ -239,21 +244,24 @@ function InboxPageInner() {
         // knownConvIdsRef for why a closure flag inside the updater would
         // always read false here.
         if (knownConvIdsRef.current.has(newMsg.conversation_id)) {
-          setConversations((prev) =>
-            prev.map((c) =>
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
               c.id === newMsg.conversation_id
                 ? {
                   ...c,
                   last_message_text: newMsg.content_text ?? "",
                   last_message_at: newMsg.created_at,
                   unread_count:
-                    activeConversation?.id === newMsg.conversation_id
+                    currentActive?.id === newMsg.conversation_id
                       ? 0
                       : c.unread_count + 1,
                 }
                 : c,
-            ),
-          );
+            );
+            return [...updated].sort((a, b) =>
+              (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")
+            );
+          });
         } else {
           // First time we're seeing this conv: the conv-INSERT event
           // hasn't landed yet, or was missed. Hydrate from the DB so
@@ -271,7 +279,7 @@ function InboxPageInner() {
         );
       }
     },
-    [activeConversation, hydrateConversation]
+    [hydrateConversation]
   );
 
   // Handle realtime conversation events
@@ -282,6 +290,7 @@ function InboxPageInner() {
       old: Partial<Conversation>;
     }) => {
       const conv = event.new;
+      const currentActive = activeConversationRef.current;
 
       if (event.eventType === "INSERT") {
         // Prepend immediately for snappy UX so the new conv shows in the
@@ -305,9 +314,9 @@ function InboxPageInner() {
           // RIGHT NOW, so any positive value would just flicker the badge
           // back on for the ~100ms it takes for the reset effect's server
           // UPDATE to round-trip. Non-active convs take the value as-is.
-          const isActive = activeConversation?.id === conv.id;
-          setConversations((prev) =>
-            prev.map((c) =>
+          const isActive = currentActive?.id === conv.id;
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
               c.id === conv.id
                 ? {
                   ...c,
@@ -315,8 +324,11 @@ function InboxPageInner() {
                   unread_count: isActive ? 0 : conv.unread_count,
                 }
                 : c,
-            ),
-          );
+            );
+            return [...updated].sort((a, b) =>
+              (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")
+            );
+          });
         } else {
           // UPDATE arrived before the INSERT (or after a missed INSERT)
           // — fetch the row so it surfaces with its contact joined. The
@@ -326,14 +338,14 @@ function InboxPageInner() {
         }
 
         // Update active conversation if it changed
-        if (activeConversation && conv.id === activeConversation.id) {
+        if (currentActive && conv.id === currentActive.id) {
           setActiveConversation((prev) =>
             prev ? { ...prev, ...conv } : prev
           );
         }
       }
     },
-    [activeConversation, hydrateConversation]
+    [hydrateConversation]
   );
 
   // Subscribe to realtime. The `isConnected` flag below feeds the

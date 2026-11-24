@@ -635,6 +635,29 @@ export function FlowChatPreview({
         case 'whatsapp_payment': {
           const amt = cfg.amount ?? 100;
           const curr = cfg.currency || 'INR';
+          const isWait = Boolean(cfg.wait_for_payment);
+          const successNext = (cfg.success_next || cfg.next_node_key) as string | undefined;
+          const cancelNext = cfg.cancel_next as string | undefined;
+
+          if (isWait) {
+            const simButtons = [
+              ...(successNext ? [{ reply_id: 'sim_pay', title: '✅ Simulate Payment', next_node_key: successNext }] : []),
+              ...(cancelNext ? [{ reply_id: 'sim_cancel', title: '❌ Cancel Order', next_node_key: cancelNext }] : []),
+            ];
+            const nextHistory: ChatMessage[] = [
+              ...currentHistory,
+              {
+                id: `msg-${Date.now()}-${Math.random()}`,
+                sender: 'bot',
+                text: `Payment Request: ${curr} ${amt} for ${cfg.item_name || 'Order'}\n\nPay securely here: https://rzp.io/i/simulated`,
+                actionBadge: { icon: CreditCard, label: 'Waiting for Payment', detail: `${curr} ${amt}` },
+                buttons: simButtons,
+                timestamp: time,
+              },
+            ];
+            return nextHistory;
+          }
+
           const next = (cfg.success_next || cfg.next_node_key) as string | undefined;
           const nextHistory: ChatMessage[] = [
             ...currentHistory,
@@ -674,13 +697,90 @@ export function FlowChatPreview({
             {
               id: `msg-${Date.now()}-${Math.random()}`,
               sender: 'bot',
-              text: 'Please complete the native WhatsApp form below:',
+              text: (cfg.body_text as string) || 'Please complete the native WhatsApp form below:',
+              buttons: [
+                {
+                  reply_id: 'sim_form_submit',
+                  title: `📝 ${(cfg.button_text as string) || 'Complete Form'}`,
+                  next_node_key: next,
+                },
+              ],
               actionBadge: { icon: FileText, label: 'WhatsApp Flow Form' },
               timestamp: time,
             },
           ];
-          if (next) return executeNode(next, nextHistory, vars);
           return nextHistory;
+        }
+
+        case 'ai_decision': {
+          const prompt = interpolate((cfg.prompt as string) || 'Evaluating decision...', vars);
+          const rawBranches = Array.isArray(cfg.branches) ? cfg.branches : [];
+          const simButtons = rawBranches.map((b: any, bIdx: number) => ({
+            reply_id: b.branch_key || b.key || `branch_${bIdx + 1}`,
+            title: b.description || b.branch_key || `Branch ${bIdx + 1}`,
+            next_node_key: b.next_node_key || '',
+          }));
+
+          const fallbackNext = (cfg.fallback_next || cfg.fallback_node_key) as string | undefined;
+          if (fallbackNext) {
+            simButtons.push({
+              reply_id: 'fallback_branch',
+              title: 'Fallback Condition',
+              next_node_key: fallbackNext,
+            });
+          }
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              text: `🤖 AI Decision: ${prompt}`,
+              buttons: simButtons,
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'catalog': {
+          const bodyText = interpolate((cfg.body_text as string) || 'Explore our latest products and catalog below:', vars);
+          const next = cfg.next_node_key as string | undefined;
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              text: bodyText,
+              buttons: [
+                {
+                  reply_id: 'sim_view_catalog',
+                  title: '🛍️ View Catalog',
+                  next_node_key: next,
+                },
+              ],
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'webhook':
+        case 'http_fetch': {
+          const method = (cfg.method as string) || 'POST';
+          const targetUrl = interpolate((cfg.url as string) || '', vars);
+          const next = cfg.next_node_key as string | undefined;
+
+          const webhookHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `sys-${Date.now()}-${Math.random()}`,
+              sender: 'system',
+              actionBadge: { icon: Globe, label: `Webhook [${method}]`, detail: targetUrl || '200 OK' },
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, webhookHistory, vars);
+          return webhookHistory;
         }
 
         case 'agent_handover':

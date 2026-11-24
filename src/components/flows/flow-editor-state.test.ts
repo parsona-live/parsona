@@ -144,6 +144,46 @@ describe("defaultConfigFor", () => {
   it("end's default is an empty object (terminal — no config)", () => {
     expect(defaultConfigFor("end")).toEqual({});
   });
+
+  it("ai_message default config has fallback_text and context_sources", () => {
+    const cfg = defaultConfigFor("ai_message") as {
+      mode?: string;
+      fallback_text?: string;
+      context_sources?: string[];
+      max_tokens?: number;
+    };
+    expect(cfg.mode).toBe("generated");
+    expect(cfg.fallback_text).toBeTruthy();
+    expect(cfg.context_sources?.length).toBeGreaterThan(0);
+    expect(cfg.max_tokens).toBeGreaterThan(0);
+  });
+
+  it("ai_extract default config has valid fields list", () => {
+    const cfg = defaultConfigFor("ai_extract") as {
+      fields?: Array<{ name: string; type?: string; required?: boolean }>;
+    };
+    expect(cfg.fields?.length).toBeGreaterThan(0);
+    expect(cfg.fields?.[0].name).toBeTruthy();
+  });
+
+  it("ai_decision default config has at least two decision branches", () => {
+    const cfg = defaultConfigFor("ai_decision") as {
+      branches?: Array<{ key: string; description: string }>;
+    };
+    expect(cfg.branches?.length).toBeGreaterThanOrEqual(2);
+    expect(cfg.branches?.[0].key).toBeTruthy();
+  });
+
+  it("ai_summarize default config has valid target_var and max_words", () => {
+    const cfg = defaultConfigFor("ai_summarize") as {
+      target_var?: string;
+      max_words?: number;
+      focus?: string;
+    };
+    expect(cfg.target_var).toBe("summary");
+    expect(cfg.max_words).toBeGreaterThan(0);
+    expect(cfg.focus).toBe("all");
+  });
 });
 
 describe("buildNewNode", () => {

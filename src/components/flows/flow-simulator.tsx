@@ -408,6 +408,203 @@ export function FlowSimulator({
           return branchHistory;
         }
 
+        case 'whatsapp_payment': {
+          const amt = cfg.amount ?? 100;
+          const curr = (cfg.currency as string) || 'INR';
+          const itemName = interpolate((cfg.item_name as string) || 'Order Payment');
+          const isWait = Boolean(cfg.wait_for_payment);
+          const successNext = (cfg.success_next || cfg.next_node_key) as string | undefined;
+          const cancelNext = cfg.cancel_next as string | undefined;
+
+          if (isWait) {
+            const simButtons = [
+              ...(successNext ? [{ reply_id: 'sim_pay', title: `✅ Simulate Payment (${curr} ${amt})`, next_node_key: successNext }] : []),
+              ...(cancelNext ? [{ reply_id: 'sim_cancel', title: '❌ Cancel Order', next_node_key: cancelNext }] : []),
+            ];
+            return [
+              ...currentHistory,
+              {
+                id: `msg-${Date.now()}-${Math.random()}`,
+                sender: 'bot',
+                nodeKey: node.node_key,
+                nodeType: 'whatsapp_payment',
+                text: `Payment Request: ${curr} ${amt} for *${itemName}*.\n\nPay securely here: https://rzp.io/i/simulated`,
+                buttons: simButtons,
+                timestamp: time,
+              },
+            ];
+          }
+
+          const next = successNext;
+          const nextHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'whatsapp_payment',
+              text: `Payment Request: ${curr} ${amt} for *${itemName}*.\n\nLink: https://rzp.io/i/simulated`,
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, nextHistory);
+          return nextHistory;
+        }
+
+        case 'ai_decision': {
+          const prompt = interpolate((cfg.prompt as string) || 'Evaluating decision...');
+          const rawBranches = Array.isArray(cfg.branches) ? cfg.branches : [];
+          const simButtons = rawBranches.map((b: any, bIdx: number) => ({
+            reply_id: b.branch_key || b.key || `branch_${bIdx + 1}`,
+            title: b.description || b.branch_key || `Branch ${bIdx + 1}`,
+            next_node_key: b.next_node_key || '',
+          }));
+
+          const fallbackNext = (cfg.fallback_next || cfg.fallback_node_key) as string | undefined;
+          if (fallbackNext) {
+            simButtons.push({
+              reply_id: 'fallback_branch',
+              title: 'Fallback Condition',
+              next_node_key: fallbackNext,
+            });
+          }
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'ai_decision',
+              text: `🤖 *AI Decision*: ${prompt}`,
+              buttons: simButtons,
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'whatsapp_form': {
+          const bodyText = interpolate((cfg.body_text as string) || 'Please complete the native WhatsApp form below:');
+          const buttonText = (cfg.button_text as string) || 'Complete Form';
+          const next = cfg.next_node_key as string | undefined;
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'whatsapp_form',
+              text: bodyText,
+              buttons: [
+                {
+                  reply_id: 'sim_form_submit',
+                  title: `📝 ${buttonText}`,
+                  next_node_key: next,
+                },
+              ],
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'catalog': {
+          const bodyText = interpolate((cfg.body_text as string) || 'Explore our latest products and catalog below:');
+          const next = cfg.next_node_key as string | undefined;
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'catalog',
+              text: bodyText,
+              buttons: [
+                {
+                  reply_id: 'sim_view_catalog',
+                  title: '🛍️ View Catalog',
+                  next_node_key: next,
+                },
+              ],
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'webhook':
+        case 'http_fetch': {
+          const method = (cfg.method as string) || 'POST';
+          const targetUrl = interpolate((cfg.url as string) || '');
+          const next = cfg.next_node_key as string | undefined;
+
+          const webhookHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `sys-${Date.now()}-${Math.random()}`,
+              sender: 'system',
+              text: `⚡ Webhook [${method}] ${targetUrl || 'API'} → 200 OK (simulated)`,
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, webhookHistory);
+          return webhookHistory;
+        }
+
+        case 'ai_message':
+        case 'ai_response': {
+          const prompt = interpolate((cfg.prompt as string) || 'AI generated answer to customer inquiry.');
+          const next = cfg.next_node_key as string | undefined;
+
+          const nextHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              text: `✨ ${prompt}`,
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, nextHistory);
+          return nextHistory;
+        }
+
+        case 'book_appointment': {
+          const prompt = interpolate((cfg.prompt_text as string) || 'Book your meeting slot here:');
+          const bookingUrl = (cfg.booking_url as string) || 'https://cal.com/example';
+          const next = cfg.next_node_key as string | undefined;
+
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'book_appointment',
+              text: `${prompt}\n\n${bookingUrl}`,
+              buttons: next ? [{ reply_id: 'booked_slot', title: '📅 Slot Booked', next_node_key: next }] : [],
+              timestamp: time,
+            },
+          ];
+        }
+
+        case 'input_flow': {
+          const prompt = interpolate((cfg.prompt_text as string) || 'Please enter your response:');
+          setActiveInputNodeKey(node.node_key);
+          return [
+            ...currentHistory,
+            {
+              id: `msg-${Date.now()}-${Math.random()}`,
+              sender: 'bot',
+              nodeKey: node.node_key,
+              nodeType: 'collect_input',
+              text: prompt,
+              timestamp: time,
+            },
+          ];
+        }
+
         case 'set_tag': {
           const tagName = (cfg.tag_name as string) || 'tag';
           const next = cfg.next_node_key as string | undefined;
@@ -426,7 +623,40 @@ export function FlowSimulator({
           return tagHistory;
         }
 
-        case 'handoff': {
+        case 'create_deal': {
+          const next = cfg.next_node_key as string | undefined;
+          const dealHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `sys-${Date.now()}-${Math.random()}`,
+              sender: 'system',
+              text: `💼 Created deal in sales pipeline`,
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, dealHistory);
+          return dealHistory;
+        }
+
+        case 'update_contact': {
+          const field = (cfg.field as string) || 'field';
+          const val = interpolate((cfg.value as string) || '');
+          const next = cfg.next_node_key as string | undefined;
+          const updateHistory: ChatMessage[] = [
+            ...currentHistory,
+            {
+              id: `sys-${Date.now()}-${Math.random()}`,
+              sender: 'system',
+              text: `👤 Updated contact ${field}: ${val || 'updated'}`,
+              timestamp: time,
+            },
+          ];
+          if (next) return executeNode(next, updateHistory);
+          return updateHistory;
+        }
+
+        case 'handoff':
+        case 'agent_handover': {
           return [
             ...currentHistory,
             {
@@ -450,8 +680,11 @@ export function FlowSimulator({
           ];
         }
 
-        default:
+        default: {
+          const next = (cfg.next_node_key || cfg.success_next) as string | undefined;
+          if (next) return executeNode(next, currentHistory);
           return currentHistory;
+        }
       }
     },
     [nodeMap, interpolate]

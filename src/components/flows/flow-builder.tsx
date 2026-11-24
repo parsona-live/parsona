@@ -31,6 +31,7 @@ import { ChannelIcon } from '@/components/channels/channel-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -288,7 +289,18 @@ function TriggerPanel({
                 ...s,
                 trigger_type: v as BuilderState['trigger_type'],
                 trigger_config:
-                  v === 'keyword' ? { keywords: [] } : v === 'manual' ? {} : {},
+                  v === 'keyword'
+                    ? { keywords: [] }
+                    : v === 'ai_intent'
+                      ? {
+                          intent_name: '',
+                          intent_description: '',
+                          positive_examples: [],
+                          negative_examples: [],
+                          confidence_threshold: 0.75,
+                          priority: 0,
+                        }
+                      : {},
               }))
             }
           >
@@ -298,6 +310,9 @@ function TriggerPanel({
             <SelectContent>
               <SelectItem value="keyword">
                 {t('triggerKeywordTitle')}
+              </SelectItem>
+              <SelectItem value="ai_intent">
+                AI Intent (Natural Language & Hinglish)
               </SelectItem>
               <SelectItem value="first_inbound_message">
                 {t('triggerFirstInboundTitle')}
@@ -327,6 +342,154 @@ function TriggerPanel({
               }
               t={t}
             />
+          </div>
+        )}
+
+        {state.trigger_type === 'ai_intent' && (
+          <div className="col-span-full space-y-3 rounded-lg border border-border bg-muted/20 p-3.5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                  Intent Name *
+                </label>
+                <Input
+                  value={(state.trigger_config.intent_name as string) || ''}
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      trigger_config: {
+                        ...s.trigger_config,
+                        intent_name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+                      },
+                    }))
+                  }
+                  placeholder="e.g. appointment_booking"
+                  className="bg-card font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                  Priority (Ties Resolution)
+                </label>
+                <Input
+                  type="number"
+                  value={
+                    typeof state.trigger_config.priority === 'number'
+                      ? state.trigger_config.priority
+                      : 0
+                  }
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      trigger_config: {
+                        ...s.trigger_config,
+                        priority: parseInt(e.target.value, 10) || 0,
+                      },
+                    }))
+                  }
+                  placeholder="0"
+                  className="bg-card text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                  Confidence Threshold (0.1 - 1.0)
+                </label>
+                <Input
+                  type="number"
+                  step="0.05"
+                  min="0.1"
+                  max="1.0"
+                  value={
+                    typeof state.trigger_config.confidence_threshold === 'number'
+                      ? state.trigger_config.confidence_threshold
+                      : 0.75
+                  }
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      trigger_config: {
+                        ...s.trigger_config,
+                        confidence_threshold: parseFloat(e.target.value) || 0.75,
+                      },
+                    }))
+                  }
+                  placeholder="0.75"
+                  className="bg-card text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                Intent Description (Guidance for AI Router) *
+              </label>
+              <Textarea
+                value={(state.trigger_config.intent_description as string) || ''}
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    trigger_config: {
+                      ...s.trigger_config,
+                      intent_description: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="e.g. Trigger when a customer wants to schedule, book, reserve, or arrange an appointment. The customer must express active scheduling intent."
+                rows={2}
+                className="bg-card text-xs resize-y"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                  Positive Examples (Comma-separated)
+                </label>
+                <KeywordsInput
+                  keywords={
+                    Array.isArray(state.trigger_config.positive_examples)
+                      ? (state.trigger_config.positive_examples as string[])
+                      : []
+                  }
+                  onChange={(positive_examples) =>
+                    setState((s) => ({
+                      ...s,
+                      trigger_config: { ...s.trigger_config, positive_examples },
+                    }))
+                  }
+                  t={t}
+                />
+                <p className="text-muted-foreground mt-1 text-[11px]">
+                  e.g. book an appointment, slot chahiye, schedule meeting
+                </p>
+              </div>
+
+              <div>
+                <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                  Negative Examples (Messages to reject)
+                </label>
+                <KeywordsInput
+                  keywords={
+                    Array.isArray(state.trigger_config.negative_examples)
+                      ? (state.trigger_config.negative_examples as string[])
+                      : []
+                  }
+                  onChange={(negative_examples) =>
+                    setState((s) => ({
+                      ...s,
+                      trigger_config: { ...s.trigger_config, negative_examples },
+                    }))
+                  }
+                  t={t}
+                />
+                <p className="text-muted-foreground mt-1 text-[11px]">
+                  e.g. already booked, cancel appointment, kitne ka hai
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -622,12 +785,16 @@ function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: Retur
     'send_list',
     'send_carousel',
     'send_message',
+    'ai_message',
     'send_media',
     'send_location',
     'send_contact',
     'request_address',
     'collect_input',
     'condition',
+    'ai_extract',
+    'ai_decision',
+    'ai_summarize',
     'set_tag',
     'handoff',
     'end',

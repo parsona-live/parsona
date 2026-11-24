@@ -614,4 +614,92 @@ describe("unlinkNodeReferences", () => {
     expect(cards[0].buttons[0].next_node_key).toBe("");
     expect(cards[0].buttons[1].next_node_key).toBe("safe");
   });
+
+  it("handles ai_decision outgoing slots without producing branch_undefined", () => {
+    // 1. Branch with branch_key
+    const slots1 = outgoingSlots({
+      node_key: "ai1",
+      node_type: "ai_decision",
+      config: {
+        branches: [
+          { branch_key: "sales", next_node_key: "n1" },
+          { branch_key: "support", next_node_key: "n2" },
+        ],
+      },
+    });
+    expect(slots1.map((s) => s.id)).toEqual(["branch_sales", "branch_support", "fallback"]);
+
+    // 2. Legacy schema with key instead of branch_key (must NEVER produce branch_undefined)
+    const slotsLegacy = outgoingSlots({
+      node_key: "ai2",
+      node_type: "ai_decision",
+      config: {
+        branches: [
+          { key: "yes", description: "Agree" },
+          { key: "no", description: "Disagree" },
+        ],
+      },
+    });
+    expect(slotsLegacy.map((s) => s.id)).toEqual(["branch_yes", "branch_no", "fallback"]);
+    expect(slotsLegacy.some((s) => s.id.includes("undefined"))).toBe(false);
+
+    // 3. Branches without any keys at all (fallback to index-based keys)
+    const slotsEmpty = outgoingSlots({
+      node_key: "ai3",
+      node_type: "ai_decision",
+      config: {
+        branches: [
+          { description: "First" },
+          { description: "Second" },
+        ],
+      },
+    });
+    expect(slotsEmpty.map((s) => s.id)).toEqual(["branch_1", "branch_2", "fallback"]);
+  });
+
+  it("derives and patches edges for ai_decision seamlessly", () => {
+    const edges = deriveCanvasEdges([
+      {
+        node_key: "ai",
+        node_type: "ai_decision",
+        config: {
+          branches: [
+            { key: "pricing", next_node_key: "n_pricing" },
+            { branch_key: "support", next_node_key: "n_support" },
+          ],
+          fallback_next: "n_fallback",
+        },
+      },
+      { node_key: "n_pricing", node_type: "end", config: {} },
+      { node_key: "n_support", node_type: "end", config: {} },
+      { node_key: "n_fallback", node_type: "end", config: {} },
+    ]);
+    expect(edges).toHaveLength(3);
+    expect(edges.map((e) => e.sourceHandle)).toEqual([
+      "branch_pricing",
+      "branch_support",
+      "fallback",
+    ]);
+
+    const patch = applyEdgeConnection(
+      {
+        node_key: "ai",
+        node_type: "ai_decision",
+        config: {
+          branches: [{ key: "pricing", next_node_key: "" }],
+        },
+      },
+      "branch_pricing",
+      "n_pricing"
+    );
+    expect(patch).toEqual({
+      branches: [
+        {
+          key: "pricing",
+          branch_key: "pricing",
+          next_node_key: "n_pricing",
+        },
+      ],
+    });
+  });
 });

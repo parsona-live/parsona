@@ -19,12 +19,47 @@ export async function POST(request: NextRequest) {
     const supabase = supabaseAdmin();
 
     switch (eventType) {
+      case "payment_link.paid":
       case "payment.captured": {
-        const payment = payload.payment.entity;
-        const accountId = payment.notes?.accountId;
-        const planId = payment.notes?.planId;
+        const paymentEntity = payload.payment?.entity || payload.payment_link?.entity;
+        const notes = paymentEntity?.notes || {};
+        const flowRunId = notes.flow_run_id;
+        const successNodeKey = notes.success_node_key;
 
-        if (accountId && payment.id) {
+        // 1. If triggered by a Flow Automation run, resume and advance the flow
+        if (flowRunId) {
+          try {
+            const { resumeFlowRunOnEvent } = await import("@/lib/flows/engine");
+            const paidAmount = (paymentEntity.amount_paid || paymentEntity.amount || 0) / 100;
+            await resumeFlowRunOnEvent({
+              db: supabase,
+              runId: flowRunId,
+              targetNodeKey: successNodeKey,
+              varsPatch: {
+                payment_status: "paid",
+                razorpay_payment_id: paymentEntity.id,
+                paid_amount: paidAmount,
+                payment_currency: paymentEntity.currency || "INR",
+              },
+              eventPayload: {
+                provider: "razorpay",
+                payment_id: paymentEntity.id,
+                event: eventType,
+                amount: paidAmount,
+              },
+            });
+          } catch (flowErr) {
+            console.error("[Razorpay Webhook] Flow resumption error:", flowErr);
+          }
+          break;
+        }
+
+        // 2. Otherwise handle SaaS Account Billing Subscriptions
+        const payment = payload.payment?.entity;
+        const accountId = payment?.notes?.accountId || notes.accountId;
+        const planId = payment?.notes?.planId || notes.planId;
+
+        if (accountId && payment?.id) {
           const amountInr = payment.amount / 100;
           await supabase.from("payment_transactions").upsert(
             {

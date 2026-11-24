@@ -61,6 +61,15 @@ import { removeContactTag } from "@/lib/contacts/tag-write";
 import { logContactActivity } from "@/lib/contacts/timeline";
 import { upsertCustomerMemory } from "@/lib/context/memory";
 import { checkRunTimeout, markRunTimedOut, type RunTimeoutCheck } from "./timeout";
+import { safeInterpolate } from "./safe-interpolator";
+import {
+  executeAiMessageNode,
+  executeAiExtractNode,
+  executeAiDecisionNode,
+  executeAiSummarizeNode,
+} from "./ai-node-service";
+import { routeInboundIntent, scoreSemanticIntent } from "./intent-router";
+import { isDeliverableUrl } from "@/lib/webhooks/ssrf";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -82,6 +91,20 @@ import {
   type SetTagNodeConfig,
   type StartNodeConfig,
   type KeywordTriggerConfig,
+  type AiMessageNodeConfig,
+  type AiExtractNodeConfig,
+  type AiDecisionNodeConfig,
+  type AiSummarizeNodeConfig,
+  type AiIntentTriggerConfig,
+  type WebhookNodeConfig,
+  type PromptTextConfig,
+  type CreateDealNodeConfig,
+  type WhatsAppPaymentNodeConfig,
+  type WhatsAppFormNodeConfig,
+  type CatalogNodeConfig,
+  type BookAppointmentNodeConfig,
+  type AddToGroupNodeConfig,
+  type RemoveFromGroupNodeConfig,
   AUTO_ADVANCING_NODE_TYPES,
   MAX_NODES_PER_ADVANCE,
 } from "./types";
@@ -260,24 +283,37 @@ export function matchesKeywordTrigger(
 ): boolean {
   if (!text || !cfg.keywords?.length) return false;
   const matchType = cfg.match_type ?? "contains";
-  const haystack = cfg.case_sensitive ? text : text.toLowerCase();
-  for (const raw of cfg.keywords) {
+  const rawHaystack = cfg.case_sensitive ? text : text.toLowerCase();
+  const haystack = rawHaystack.trim();
+  const strippedHaystack = haystack.replace(/[.!?]+$/, "").trim();
+
+  // Support comma-separated keywords if saved in a single string
+  const rawList = cfg.keywords.flatMap((k) => (typeof k === "string" ? k.split(",") : []));
+
+  for (const raw of rawList) {
     if (!raw) continue;
     const needle = cfg.case_sensitive ? raw.trim() : raw.trim().toLowerCase();
     if (!needle) continue;
 
     if (matchType === "exact") {
-      if (haystack.trim() === needle) return true;
+      if (haystack === needle || strippedHaystack === needle) return true;
     } else {
       // Match whole word or phrase with Unicode boundaries:
-      // Prevents "hi" from triggering on "chahiye", "this", "machine", etc.
-      const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const wordBoundaryRegex = new RegExp(
-        `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
-        cfg.case_sensitive ? "u" : "iu",
-      );
-      if (wordBoundaryRegex.test(haystack)) {
-        return true;
+      // Prevents short keywords like "hi" from triggering on "chahiye", "this", "machine", etc.
+      const isWordPattern = /^[\p{L}\p{N}\s]+$/u.test(needle);
+      if (isWordPattern) {
+        const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const wordBoundaryRegex = new RegExp(
+          `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`,
+          cfg.case_sensitive ? "u" : "iu",
+        );
+        if (wordBoundaryRegex.test(haystack)) {
+          return true;
+        }
+      } else {
+        if (haystack.includes(needle)) {
+          return true;
+        }
       }
     }
   }
@@ -387,6 +423,20 @@ export function evaluateConditionPredicate(args: {
     case "contains":
       if (args.subjectValue === undefined) return false;
       return args.subjectValue.includes(args.configValue ?? "");
+    case "greater_than":
+    case "less_than":
+    case "greater_or_equal":
+    case "less_or_equal": {
+      if (args.subjectValue === undefined) return false;
+      const numSubject = parseFloat(String(args.subjectValue).replace(/[^0-9.-]/g, ""));
+      const numConfig = parseFloat(String(args.configValue ?? "").replace(/[^0-9.-]/g, ""));
+      if (isNaN(numSubject) || isNaN(numConfig)) return false;
+      if (args.operator === "greater_than") return numSubject > numConfig;
+      if (args.operator === "less_than") return numSubject < numConfig;
+      if (args.operator === "greater_or_equal") return numSubject >= numConfig;
+      if (args.operator === "less_or_equal") return numSubject <= numConfig;
+      return false;
+    }
   }
 }
 
@@ -487,6 +537,67 @@ async function logEvent(
   }
 }
 
+const RECENT_MESSAGE_DEDUP_CACHE = new Map<string, number>();
+
+/**
+ * In-memory fast-path deduplication to block microsecond concurrency races from webhook retries.
+ */
+export function checkAndRecordInboundDeduplication(metaMessageId?: string): boolean {
+  if (!metaMessageId) return false;
+  if (process.env.NODE_ENV === "test" && !metaMessageId.startsWith("dedup-test-")) {
+    return false;
+  }
+  const now = Date.now();
+  for (const [key, ts] of RECENT_MESSAGE_DEDUP_CACHE.entries()) {
+    if (now - ts > 60000) RECENT_MESSAGE_DEDUP_CACHE.delete(key);
+  }
+  if (RECENT_MESSAGE_DEDUP_CACHE.has(metaMessageId)) {
+    return true;
+  }
+  RECENT_MESSAGE_DEDUP_CACHE.set(metaMessageId, now);
+  return false;
+}
+
+export function clearInboundDeduplicationCache(): void {
+  RECENT_MESSAGE_DEDUP_CACHE.clear();
+}
+
+export async function isFlowCompletedForContact(
+  db: AdminClient,
+  flowId: string,
+  contactId: string,
+): Promise<boolean> {
+  if (!flowId || !contactId) return false;
+  const { count, error } = await db
+    .from("flow_completed_contacts")
+    .select("contact_id", { count: "exact", head: true })
+    .eq("flow_id", flowId)
+    .eq("contact_id", contactId);
+  if (error) {
+    return false;
+  }
+  return (count ?? 0) > 0;
+}
+
+export async function markFlowCompletedForContact(
+  db: AdminClient,
+  flowId: string,
+  contactId: string,
+): Promise<void> {
+  if (!flowId || !contactId) return;
+  try {
+    const tableClient = db.from("flow_completed_contacts");
+    const row = { flow_id: flowId, contact_id: contactId, completed_at: new Date().toISOString() };
+    if (typeof (tableClient as any).upsert === "function") {
+      await (tableClient as any).upsert(row, { onConflict: "flow_id,contact_id" });
+    } else {
+      await tableClient.insert(row);
+    }
+  } catch (err) {
+    console.warn("[flows] markFlowCompletedForContact error:", err);
+  }
+}
+
 /**
  * Idempotency check — has a `reply_received` event with this Meta
  * message_id already been recorded for any of the contact's flow
@@ -530,6 +641,7 @@ async function findEntryFlow(
   message: ParsedInbound,
   isFirstInbound: boolean,
   channel?: string,
+  contactId?: string,
 ): Promise<FlowRow | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -560,19 +672,26 @@ async function findEntryFlow(
       continue;
     }
 
+    // run_once check
+    if (flow.run_once && contactId) {
+      const alreadyCompleted = await isFlowCompletedForContact(db, flow.id, contactId);
+      if (alreadyCompleted) continue;
+    }
+
     if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
       if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
         return flow;
       }
     } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
-      // Also reachable by a tap now: a broadcast template with a
-      // quick-reply button can genuinely be what prompts a contact's
-      // first-ever inbound. The automations dispatcher has always
-      // treated a tap that way (the webhook pushes
-      // `first_inbound_message` regardless of envelope) — flows were
-      // the inconsistent half.
       return flow;
+    } else if (flow.trigger_type === ("ai_intent" as any) && message.kind === "text") {
+      const cfg = (flow.trigger_config || {}) as unknown as AiIntentTriggerConfig;
+      const { score } = scoreSemanticIntent(message.text, cfg);
+      const threshold = cfg.confidence_threshold ?? 0.75;
+      if (score >= threshold) {
+        return flow;
+      }
     }
     // 'manual' triggers do not auto-start from inbound messages.
   }
@@ -585,12 +704,56 @@ async function findEntryFlow(
 // thread can quote the prompt the customer is replying to.
 // ============================================================
 
+/**
+ * Resolves the final text to send to the customer.
+ * If text_mode is "prompt" and prompt is configured, dynamically generates contextual text via AI.
+ * Falls back safely to fallback_text or defaultStaticText.
+ */
+export async function resolveNodeText(
+  db: AdminClient,
+  run: FlowRunRow,
+  node: FlowNodeRow,
+  defaultStaticText: string,
+  config: PromptTextConfig,
+  message?: ParsedInbound
+): Promise<string> {
+  if (config.text_mode === "prompt" && config.prompt?.trim()) {
+    try {
+      const res = await executeAiMessageNode({
+        db: db as any,
+        run,
+        node: {
+          ...node,
+          config: {
+            mode: "generated",
+            prompt: config.prompt,
+            fallback_text: config.fallback_text || defaultStaticText,
+            language_style: config.language_style,
+            context_sources: config.context_sources || ["contact", "conversation", "memories"],
+          },
+        },
+        message,
+      });
+      if (res.text && res.text.trim()) {
+        return res.text.trim();
+      }
+    } catch (err) {
+      console.warn(`[engine] resolveNodeText dynamic prompt failed for node ${node.node_key}, using fallback:`, err);
+    }
+    if (config.fallback_text?.trim()) {
+      return interpolateVars(config.fallback_text, run.vars);
+    }
+  }
+  return interpolateVars(defaultStaticText, run.vars);
+}
+
 async function sendButtonsAndSuspend(
   db: AdminClient,
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<{ outcome: "advanced"; node_key: string }> {
   const cfg = node.config as unknown as SendButtonsNodeConfig;
+  const resolvedBody = await resolveNodeText(db, run, node, cfg.text || "", cfg);
   // Every customer-visible string is interpolated against run.vars —
   // same treatment send_message / collect_input already get (#553).
   // `reply_id` is deliberately NOT interpolated: it is the routing key
@@ -603,7 +766,7 @@ async function sendButtonsAndSuspend(
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: interpolateVars(cfg.text, run.vars),
+    bodyText: resolvedBody,
     headerText: interpolateOptionalVars(cfg.header_text, run.vars),
     headerType: cfg.header_type,
     headerMediaUrl: cfg.header_media_url,
@@ -640,6 +803,7 @@ async function sendListAndSuspend(
   node: FlowNodeRow,
 ): Promise<{ outcome: "advanced"; node_key: string }> {
   const cfg = node.config as unknown as SendListNodeConfig;
+  const resolvedBody = await resolveNodeText(db, run, node, cfg.text || "", cfg);
   // See sendButtonsAndSuspend — interpolate every visible string,
   // never the row `reply_id`.
   const { whatsapp_message_id } = await engineSendInteractiveList({
@@ -647,7 +811,7 @@ async function sendListAndSuspend(
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
-    bodyText: interpolateVars(cfg.text, run.vars),
+    bodyText: resolvedBody,
     buttonLabel: interpolateVars(cfg.button_label, run.vars),
     headerText: interpolateOptionalVars(cfg.header_text, run.vars),
     headerType: cfg.header_type,
@@ -724,6 +888,52 @@ async function sendCarouselAndSuspend(
   return { outcome: "advanced", node_key: node.node_key };
 }
 
+export async function resolveRoundRobinAgent(
+  db: AdminClient,
+  accountId: string,
+): Promise<string | null> {
+  const { data: profiles, error } = await db
+    .from("profiles")
+    .select("user_id")
+    .eq("account_id", accountId)
+    .in("account_role", ["admin", "agent"]);
+
+  if (error || !profiles || profiles.length === 0) {
+    const { data: fallbackProfiles } = await db
+      .from("profiles")
+      .select("user_id")
+      .eq("account_id", accountId)
+      .limit(5);
+    if (!fallbackProfiles || fallbackProfiles.length === 0) return null;
+    return fallbackProfiles[0].user_id;
+  }
+
+  if (profiles.length === 1) return profiles[0].user_id;
+
+  const candidateIds = profiles.map((p) => p.user_id);
+
+  // Find agent with the fewest active/open/pending conversations
+  const { data: convs } = await db
+    .from("conversations")
+    .select("assigned_agent_id")
+    .eq("account_id", accountId)
+    .in("status", ["open", "pending"])
+    .in("assigned_agent_id", candidateIds);
+
+  const counts: Record<string, number> = {};
+  for (const id of candidateIds) counts[id] = 0;
+  if (convs) {
+    for (const c of convs) {
+      if (c.assigned_agent_id && counts[c.assigned_agent_id] !== undefined) {
+        counts[c.assigned_agent_id]++;
+      }
+    }
+  }
+
+  candidateIds.sort((a, b) => (counts[a] ?? 0) - (counts[b] ?? 0));
+  return candidateIds[0] ?? null;
+}
+
 async function executeHandoff(
   db: AdminClient,
   run: FlowRunRow,
@@ -735,7 +945,12 @@ async function executeHandoff(
     const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
     effectiveNode = await localizeNode(node, targetLocale, aiCfg, db, run.account_id);
   }
-  const cfg = effectiveNode.config as { assign_to?: string; note?: string; message?: string };
+  const cfg = effectiveNode.config as {
+    assign_to?: string;
+    note?: string;
+    message?: string;
+    mode?: "specific" | "round_robin";
+  };
   const handoverMsg = cfg.message || cfg.note;
   if (handoverMsg) {
     try {
@@ -751,11 +966,17 @@ async function executeHandoff(
     }
   }
 
+  let assignedAgentId = cfg.assign_to;
+  if (cfg.mode === "round_robin" || (!assignedAgentId && cfg.mode !== "specific")) {
+    const resolvedAgent = await resolveRoundRobinAgent(db, run.account_id);
+    if (resolvedAgent) assignedAgentId = resolvedAgent;
+  }
+
   const convUpdate: Record<string, unknown> = {
     status: "pending",
     updated_at: new Date().toISOString(),
   };
-  if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  if (assignedAgentId) convUpdate.assigned_agent_id = assignedAgentId;
   if (run.conversation_id) {
     await db
       .from("conversations")
@@ -765,7 +986,7 @@ async function executeHandoff(
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
     message: cfg.message ?? null,
-    assigned_to: cfg.assign_to ?? null,
+    assigned_to: assignedAgentId ?? null,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
@@ -831,49 +1052,13 @@ async function evaluateConditionNode(
 }
 
 /**
- * Flexible variable interpolation supporting both `{{vars.foo}}` and `{{foo}}`
- * as well as contact fields (`{{contact.name}}`, `{{contact.phone}}`).
- * Used by send_message + collect_input prompt text so captured variables
- * and contact properties show up smoothly in subsequent messages.
- * Missing vars render as empty string — consistent with automations.
+ * Safe, predictable variable interpolation supporting both `{{vars.foo}}` and `{{foo}}`,
+ * contact fields (`{{contact.name}}`, `{{contact.phone}}`), pipeline filters (`| default:"there"`),
+ * and security allowlisting.
  */
 export function interpolateVars(template: string, vars: Record<string, unknown> = {}): string {
   if (!template) return "";
-  return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, rawKey) => {
-    // 1. Direct match (e.g. "name", "vars.name", "contact.phone")
-    if (vars[rawKey] !== undefined && vars[rawKey] !== null) {
-      return String(vars[rawKey]);
-    }
-    // 2. Strip "vars." if present (e.g. "vars.name" -> look up "name")
-    if (rawKey.startsWith("vars.")) {
-      const stripped = rawKey.slice(5);
-      if (vars[stripped] !== undefined && vars[stripped] !== null) {
-        return String(vars[stripped]);
-      }
-    }
-    // 3. Add "vars." if omitted (e.g. "name" -> look up "vars.name")
-    const prefixed = `vars.${rawKey}`;
-    if (vars[prefixed] !== undefined && vars[prefixed] !== null) {
-      return String(vars[prefixed]);
-    }
-    // 4. Check nested object (e.g. "contact.name" on vars.contact = { name: "..." })
-    if (rawKey.includes(".")) {
-      const parts = rawKey.split(".");
-      let cur: any = vars;
-      for (const p of parts) {
-        if (cur && typeof cur === "object") {
-          cur = cur[p];
-        } else {
-          cur = undefined;
-          break;
-        }
-      }
-      if (cur !== undefined && cur !== null) {
-        return String(cur);
-      }
-    }
-    return "";
-  });
+  return safeInterpolate(template, vars);
 }
 
 /**
@@ -908,14 +1093,27 @@ async function endRun(
     })
     .eq("id", runId)
     .eq("status", "active")
-    .select("conversation_id");
+    .select("conversation_id, flow_id, contact_id");
 
-  const convId = updatedRuns?.[0]?.conversation_id;
+  const runInfo = updatedRuns?.[0];
+  const convId = runInfo?.conversation_id;
   if (convId && (status === "completed" || status === "cancelled")) {
     await db
       .from("conversations")
       .update({ ai_autoreply_disabled: false, ai_reply_count: 0 })
       .eq("id", convId);
+  }
+
+  // Atomically record completed contact if run completed and flow has run_once
+  if (status === "completed" && runInfo?.flow_id && runInfo?.contact_id) {
+    try {
+      const flow = await loadFlow(db, runInfo.flow_id);
+      if (flow?.run_once) {
+        await markFlowCompletedForContact(db, runInfo.flow_id, runInfo.contact_id);
+      }
+    } catch (err) {
+      console.warn("[flows] failed to mark flow completed contact:", err);
+    }
   }
 }
 
@@ -931,6 +1129,7 @@ async function advanceFromNodeKey(
   run: FlowRunRow,
   startNodeKey: string,
   nodes: Map<string, FlowNodeRow>,
+  message?: ParsedInbound,
 ): Promise<{ outcome: "advanced" | "completed" | "handed_off" }> {
   let currentKey: string | null = startNodeKey;
   for (let safety = 0; safety < MAX_NODES_PER_ADVANCE; safety += 1) {
@@ -969,6 +1168,7 @@ async function advanceFromNodeKey(
       const cfg = effectiveNode.config as unknown as SendMessageNodeConfig;
       try {
         let whatsapp_message_id: string;
+        const resolvedText = await resolveNodeText(db, run, effectiveNode, cfg.text || "", cfg);
         if (
           cfg.header_type &&
           cfg.header_type !== "none" &&
@@ -982,15 +1182,15 @@ async function advanceFromNodeKey(
             contactId: run.contact_id!,
             kind: cfg.header_type as "image" | "video" | "document",
             link: cfg.header_media_url,
-            caption: interpolateVars(cfg.text, run.vars),
+            caption: resolvedText,
             filename: cfg.header_filename,
           });
           whatsapp_message_id = res.whatsapp_message_id;
         } else {
           const textToSend =
             cfg.header_type === "text" && cfg.header_text
-              ? `*${interpolateVars(cfg.header_text, run.vars)}*\n\n${interpolateVars(cfg.text, run.vars)}`
-              : interpolateVars(cfg.text, run.vars);
+              ? `*${interpolateVars(cfg.header_text, run.vars)}*\n\n${resolvedText}`
+              : resolvedText;
           const res = await engineSendText({
             accountId: run.account_id,
             userId: run.user_id,
@@ -1266,12 +1466,13 @@ async function advanceFromNodeKey(
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
       try {
+        const resolvedPrompt = await resolveNodeText(db, run, effectiveNode, cfg.prompt_text || "", cfg);
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: resolvedPrompt,
         });
         await logEvent(db, run.id, "message_sent", node.node_key, {
           node_type: node.node_type,
@@ -1448,6 +1649,19 @@ async function advanceFromNodeKey(
     if (node.node_type === "trigger") {
       const cfg = node.config as { next_node_key?: string };
       currentKey = cfg.next_node_key || "";
+      if (!currentKey) {
+        // If trigger card wasn't explicitly linked, find start node or first non-trigger node
+        if (nodes.has("start")) {
+          currentKey = "start";
+        } else {
+          for (const [k, n] of nodes) {
+            if (k !== node.node_key && n.node_type !== "trigger") {
+              currentKey = k;
+              break;
+            }
+          }
+        }
+      }
       continue;
     }
     if (node.node_type === "assign_label") {
@@ -1481,9 +1695,24 @@ async function advanceFromNodeKey(
       try {
         if (cfg.field && run.contact_id) {
           const val = interpolateVars(cfg.value || "", run.vars);
-          if (["name", "email", "company"].includes(cfg.field)) {
-            await db.from("contacts").update({ [cfg.field]: val }).eq("id", run.contact_id);
+          const ALLOWED_COLUMNS = [
+            "name", "email", "phone", "company", "address", "city", "state", "zip", "country",
+            "intent_category", "intent_score", "intent_summary", "next_best_action", "sentiment"
+          ];
+          if (ALLOWED_COLUMNS.includes(cfg.field)) {
+            const updatePayload: Record<string, unknown> = { [cfg.field]: cfg.field === "intent_score" ? (parseInt(val, 10) || 0) : val };
+            if (cfg.field.startsWith("intent_") || cfg.field === "sentiment") {
+              updatePayload.intelligence_updated_at = new Date().toISOString();
+            }
+            await db.from("contacts").update(updatePayload).eq("id", run.contact_id).eq("account_id", run.account_id);
+          } else {
+            // Write to contact metadata safely
+            const { data: c } = await db.from("contacts").select("metadata").eq("id", run.contact_id).maybeSingle();
+            const meta = (((c as Record<string, unknown> | null)?.metadata as Record<string, unknown>) || {});
+            meta[cfg.field] = val;
+            await db.from("contacts").update({ metadata: meta }).eq("id", run.contact_id).eq("account_id", run.account_id);
           }
+          run.vars[cfg.field] = val;
         }
       } catch (err) {
         console.error("[flows] update_contact error:", err);
@@ -1584,23 +1813,255 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "webhook" || node.node_type === "http_fetch") {
-      const cfg = node.config as { url?: string; method?: string; next_node_key?: string };
+      const cfg = node.config as unknown as WebhookNodeConfig;
+      const targetUrl = interpolateVars(cfg.url || "", run.vars).trim();
+      let deliverySuccess = false;
+      let responseBody: unknown = null;
+      let statusCode = 0;
+
+      if (targetUrl) {
+        try {
+          const deliverable = await isDeliverableUrl(targetUrl);
+          if (!deliverable) {
+            throw new Error(`SSRF guard blocked destination URL: ${targetUrl}`);
+          }
+
+          const method = (cfg.method || "POST").toUpperCase();
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            "User-Agent": "WACRM-Flow-Engine/2.0",
+          };
+          if (cfg.headers) {
+            for (const [k, v] of Object.entries(cfg.headers)) {
+              headers[k] = interpolateVars(v, run.vars);
+            }
+          }
+
+          let body: string | undefined = undefined;
+          if (method !== "GET" && method !== "HEAD") {
+            body = cfg.body_template ? interpolateVars(cfg.body_template, run.vars) : JSON.stringify(run.vars);
+          }
+
+          const res = await fetch(targetUrl, {
+            method,
+            headers,
+            body,
+            signal: AbortSignal.timeout(10000),
+            redirect: "manual",
+          });
+          statusCode = res.status;
+          const textRes = await res.text();
+          try {
+            responseBody = JSON.parse(textRes);
+          } catch {
+            responseBody = textRes;
+          }
+          deliverySuccess = res.ok;
+
+          run.vars.webhook_status = statusCode;
+          run.vars.webhook_success = deliverySuccess;
+          if (cfg.save_response_var) {
+            run.vars[cfg.save_response_var] = responseBody;
+            run.vars[`${cfg.save_response_var}_status`] = statusCode;
+          }
+          await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn("[flows] webhook node failed:", errMsg);
+          run.vars.webhook_status = statusCode || 500;
+          run.vars.webhook_success = false;
+          await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+          await logEvent(db, run.id, "error", node.node_key, {
+            reason: "webhook_execution_failed",
+            detail: errMsg,
+          });
+        }
+      }
+
       await logEvent(db, run.id, "node_entered", node.node_key, {
         action: "webhook",
-        url: cfg.url,
+        url: targetUrl,
+        success: deliverySuccess,
+        statusCode,
       });
-      currentKey = cfg.next_node_key || "";
+
+      if (!deliverySuccess && cfg.failure_next) {
+        currentKey = cfg.failure_next;
+      } else {
+        currentKey = cfg.next_node_key || "";
+      }
+      continue;
+    }
+    if (node.node_type === "ai_message") {
+      const cfg = effectiveNode.config as unknown as AiMessageNodeConfig;
+      let textToSend = "";
+
+      try {
+        const res = await executeAiMessageNode({
+          db,
+          run,
+          node: effectiveNode,
+          message: undefined,
+        });
+        textToSend = res.text;
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "ai_message_failed",
+          detail: errMsg,
+        });
+
+        if (cfg.failure_next) {
+          currentKey = cfg.failure_next;
+          continue;
+        }
+        if (cfg.fallback_message) {
+          textToSend = interpolateVars(cfg.fallback_message, run.vars);
+        } else {
+          await endRun(db, run.id, "failed", "ai_message_failed");
+          return { outcome: "completed" };
+        }
+      }
+
+      if (textToSend) {
+        try {
+          const res = await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            text: textToSend,
+          });
+          await logEvent(db, run.id, "message_sent", node.node_key, {
+            node_type: "ai_message",
+            whatsapp_message_id: res.whatsapp_message_id,
+          });
+        } catch (err) {
+          await logEvent(db, run.id, "error", node.node_key, {
+            reason: "send_text_failed",
+            detail: err instanceof Error ? err.message : String(err),
+          });
+          await endRun(db, run.id, "failed", "send_text_failed");
+          return { outcome: "completed" };
+        }
+      }
+
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "ai_extract") {
+      const cfg = effectiveNode.config as unknown as AiExtractNodeConfig;
+      try {
+        const res = await executeAiExtractNode({
+          db,
+          run,
+          node: effectiveNode,
+          message: undefined,
+        });
+
+        for (const [k, v] of Object.entries(res.extracted)) {
+          if (v !== undefined && v !== null && v !== "") {
+            run.vars[k] = v;
+          }
+        }
+        if (res.missingFields.length > 0) {
+          run.vars._missing_fields = res.missingFields;
+        }
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "ai_extract_completed",
+          extracted_keys: Object.keys(res.extracted),
+          missing_fields: res.missingFields,
+        });
+
+        currentKey = res.nextNodeKey;
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "ai_extract_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        currentKey = cfg.next_node_key;
+      }
+      continue;
+    }
+    if (node.node_type === "ai_decision") {
+      const cfg = effectiveNode.config as unknown as AiDecisionNodeConfig;
+      try {
+        const res = await executeAiDecisionNode({
+          db,
+          run,
+          node: effectiveNode,
+          message: message,
+        });
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "ai_decision_completed",
+          selected_branch: res.selectedBranch,
+          confidence: res.confidence,
+          reason: res.reason,
+        });
+
+        currentKey = res.nextNodeKey;
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "ai_decision_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        currentKey = cfg.fallback_next || (cfg.branches?.[0]?.next_node_key ?? "");
+      }
+      continue;
+    }
+    if (node.node_type === "ai_summarize") {
+      const cfg = effectiveNode.config as unknown as AiSummarizeNodeConfig;
+      try {
+        const res = await executeAiSummarizeNode({
+          db,
+          run,
+          node: effectiveNode,
+        });
+
+        run.vars[res.targetVar] = res.summary;
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "ai_summarize_completed",
+          target_var: res.targetVar,
+        });
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "ai_summarize_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+      currentKey = cfg.next_node_key;
       continue;
     }
     if (node.node_type === "ai_response") {
       const cfg = node.config as { prompt?: string; next_node_key?: string };
       try {
+        let textToSend = "";
+        if (cfg.prompt && cfg.prompt.length > 5) {
+          try {
+            const res = await executeAiMessageNode({
+              db,
+              run,
+              node: effectiveNode,
+            });
+            textToSend = res.text;
+          } catch {
+            textToSend = interpolateVars(cfg.prompt, run.vars);
+          }
+        } else {
+          textToSend = "Thank you, our AI agent will assist you shortly.";
+        }
+
         await engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: cfg.prompt ? interpolateVars(cfg.prompt, run.vars) : "Thank you, our AI agent will assist you shortly.",
+          text: textToSend,
         });
       } catch (err) {
         console.error("[flows] ai_response error:", err);
@@ -1609,16 +2070,355 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "create_deal") {
-      const cfg = node.config as { title?: string; value?: number; next_node_key?: string };
+      const cfg = node.config as unknown as CreateDealNodeConfig;
+      let dealId: string | null = null;
+      try {
+        let pipelineId = cfg.pipeline_id;
+        let stageId = cfg.stage_id;
+
+        if (!pipelineId || !stageId) {
+          const { data: pipeline } = await db
+            .from("pipelines")
+            .select("id")
+            .eq("account_id", run.account_id)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (pipeline?.id) {
+            pipelineId = pipeline.id;
+            const { data: stage } = await db
+              .from("pipeline_stages")
+              .select("id")
+              .eq("pipeline_id", pipeline.id)
+              .order("position", { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            if (stage?.id) stageId = stage.id;
+          }
+        }
+
+        if (pipelineId && stageId && run.contact_id) {
+          const { data: acct } = await db
+            .from("accounts")
+            .select("default_currency")
+            .eq("id", run.account_id)
+            .maybeSingle();
+
+          const dealTitle = interpolateVars(cfg.title || "New Deal from WhatsApp", run.vars);
+          const rawVal = cfg.value !== undefined ? String(cfg.value) : "0";
+          const parsedVal = parseFloat(interpolateVars(rawVal, run.vars).replace(/[^0-9.-]/g, "")) || 0;
+
+          const { data: deal, error: dealErr } = await db
+            .from("deals")
+            .insert({
+              account_id: run.account_id,
+              user_id: run.user_id,
+              pipeline_id: pipelineId,
+              stage_id: stageId,
+              contact_id: run.contact_id,
+              title: dealTitle,
+              value: parsedVal,
+              currency: cfg.currency || acct?.default_currency || "USD",
+              status: "open",
+            })
+            .select("id")
+            .single();
+
+          if (!dealErr && deal?.id) {
+            dealId = deal.id;
+            run.vars.deal_id = deal.id;
+            run.vars.deal_title = dealTitle;
+            run.vars.deal_value = parsedVal;
+            await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+          }
+        }
+      } catch (err) {
+        console.warn("[flows] create_deal error:", err);
+      }
+
       await logEvent(db, run.id, "node_entered", node.node_key, {
         action: "create_deal",
+        deal_id: dealId,
         title: interpolateVars(cfg.title || "", run.vars),
       });
       currentKey = cfg.next_node_key || "";
       continue;
     }
-    if (node.node_type === "catalog" || node.node_type === "book_appointment" || node.node_type === "add_to_group" || node.node_type === "remove_from_group") {
-      const cfg = node.config as { next_node_key?: string };
+    if (node.node_type === "whatsapp_payment") {
+      const cfg = node.config as unknown as WhatsAppPaymentNodeConfig;
+      try {
+        const rawAmount = cfg.amount !== undefined ? String(cfg.amount) : "0";
+        const parsedAmount = parseFloat(interpolateVars(rawAmount, run.vars).replace(/[^0-9.-]/g, "")) || 0;
+        const currency = cfg.currency || "INR";
+        const itemName = interpolateVars(cfg.item_name || "Order Payment", run.vars);
+        const provider = cfg.provider || "razorpay";
+        let paymentLink = cfg.payment_link ? interpolateVars(cfg.payment_link, run.vars).trim() : "";
+
+        // Dynamic Razorpay Payment Link creation when provider is razorpay and no static link is set
+        if (provider === "razorpay" && !paymentLink && parsedAmount > 0) {
+          try {
+            const { createRazorpayPaymentLink } = await import("@/lib/billing/razorpay");
+            let contactName = "";
+            let contactPhone = "";
+            if (run.contact_id) {
+              const { data: cRow } = await db
+                .from("contacts")
+                .select("name, phone")
+                .eq("id", run.contact_id)
+                .maybeSingle();
+              if (cRow) {
+                contactName = cRow.name || "";
+                contactPhone = cRow.phone || "";
+              }
+            }
+            const linkRes = await createRazorpayPaymentLink({
+              amountInr: parsedAmount,
+              description: itemName,
+              customer: {
+                name: contactName || undefined,
+                contact: contactPhone || undefined,
+              },
+              notes: {
+                flow_run_id: run.id,
+                contact_id: run.contact_id || "",
+                account_id: run.account_id,
+                success_node_key: cfg.success_next || cfg.next_node_key || "",
+              },
+            });
+            if (linkRes?.short_url) {
+              paymentLink = linkRes.short_url;
+            }
+          } catch (linkErr) {
+            console.warn("[flows] dynamic Razorpay link creation error:", linkErr);
+          }
+        }
+
+        run.vars.payment_amount = parsedAmount;
+        run.vars.payment_currency = currency;
+        run.vars.payment_item = itemName;
+        run.vars.payment_provider = provider;
+        run.vars.payment_link = paymentLink;
+        run.vars.payment_status = cfg.wait_for_payment ? "pending" : "requested";
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+        let paymentText = `Please complete your payment of ${currency} ${parsedAmount.toLocaleString()} for *${itemName}*.`;
+        if (paymentLink) {
+          paymentText += `\n\nPay securely here: ${paymentLink}`;
+        }
+
+        if (run.conversation_id && run.contact_id) {
+          if (cfg.wait_for_payment && cfg.cancel_next) {
+            try {
+              await engineSendInteractiveButtons({
+                accountId: run.account_id,
+                userId: run.user_id,
+                conversationId: run.conversation_id,
+                contactId: run.contact_id,
+                bodyText: paymentText,
+                buttons: [{ id: "cancel_payment", title: "Cancel Order" }],
+              });
+            } catch {
+              await engineSendText({
+                accountId: run.account_id,
+                userId: run.user_id,
+                conversationId: run.conversation_id,
+                contactId: run.contact_id,
+                text: `${paymentText}\n\n(Type 'cancel' to cancel this order)`,
+              });
+            }
+          } else {
+            await engineSendText({
+              accountId: run.account_id,
+              userId: run.user_id,
+              conversationId: run.conversation_id,
+              contactId: run.contact_id,
+              text: paymentText,
+            });
+          }
+        }
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "whatsapp_payment_requested",
+          amount: parsedAmount,
+          currency,
+          item_name: itemName,
+          provider,
+          payment_link: paymentLink,
+          wait_for_payment: Boolean(cfg.wait_for_payment),
+        });
+
+        // If wait_for_payment is requested, suspend the flow execution until Razorpay webhook arrives
+        if (cfg.wait_for_payment) {
+          await db
+            .from("flow_runs")
+            .update({ current_node_key: node.node_key, vars: run.vars })
+            .eq("id", run.id);
+          return { outcome: "advanced" };
+        }
+      } catch (err) {
+        console.warn("[flows] whatsapp_payment error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "whatsapp_form") {
+      const cfg = node.config as unknown as WhatsAppFormNodeConfig;
+      try {
+        const flowId = cfg.flow_id || "";
+        const flowToken = cfg.flow_token || run.id;
+        const promptText = interpolateVars(cfg.body_text || "Please complete the interactive form to proceed:", run.vars);
+        const buttonLabel = cfg.button_text || "Complete Form";
+
+        run.vars.flow_form_id = flowId;
+        run.vars.flow_token = flowToken;
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+        if (run.conversation_id && run.contact_id) {
+          await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id,
+            contactId: run.contact_id,
+            text: `${promptText}\n\n[📋 ${buttonLabel}]`,
+          });
+        }
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "whatsapp_form_sent",
+          flow_id: flowId,
+          flow_token: flowToken,
+        });
+      } catch (err) {
+        console.warn("[flows] whatsapp_form error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "catalog") {
+      const cfg = node.config as unknown as CatalogNodeConfig;
+      try {
+        const bodyText = interpolateVars(cfg.body_text || "Explore our latest products and catalog below:", run.vars);
+        const catalogId = cfg.catalog_id || "";
+        const productId = cfg.product_retailer_id || "";
+
+        if (run.conversation_id && run.contact_id) {
+          let messageText = bodyText;
+          if (productId) {
+            messageText += `\n\nFeatured Product SKU: *${productId}*`;
+          }
+          messageText += `\n🛍️ [View WhatsApp Catalog]`;
+
+          await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id,
+            contactId: run.contact_id,
+            text: messageText,
+          });
+        }
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "catalog_sent",
+          catalog_id: catalogId,
+          product_id: productId,
+        });
+      } catch (err) {
+        console.warn("[flows] catalog error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "book_appointment") {
+      const cfg = node.config as unknown as BookAppointmentNodeConfig;
+      try {
+        let bookingUrl = interpolateVars(cfg.booking_url || "", run.vars).trim();
+        const prompt = interpolateVars(cfg.prompt_text || "Select a convenient time for your consultation:", run.vars);
+
+        if (bookingUrl && run.contact_id) {
+          const { data: contact } = await db
+            .from("contacts")
+            .select("name, email, phone")
+            .eq("id", run.contact_id)
+            .maybeSingle();
+
+          if (contact) {
+            const sep = bookingUrl.includes("?") ? "&" : "?";
+            const params: string[] = [];
+            if (contact.name) params.push(`name=${encodeURIComponent(contact.name)}`);
+            if (contact.email) params.push(`email=${encodeURIComponent(contact.email)}`);
+            if (contact.phone) params.push(`phone=${encodeURIComponent(contact.phone)}`);
+            if (params.length > 0 && !bookingUrl.includes("email=")) {
+              bookingUrl += sep + params.join("&");
+            }
+          }
+        }
+
+        run.vars.booking_url = bookingUrl;
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+        if (run.conversation_id && run.contact_id) {
+          await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id,
+            contactId: run.contact_id,
+            text: `${prompt}\n\n📅 Book your slot here: ${bookingUrl || "Contact our support team"}`,
+          });
+        }
+
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "book_appointment_sent",
+          booking_url: bookingUrl,
+        });
+      } catch (err) {
+        console.warn("[flows] book_appointment error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "add_to_group") {
+      const cfg = node.config as unknown as AddToGroupNodeConfig;
+      try {
+        if (cfg.group_id && run.contact_id) {
+          await db.from("contact_group_members").upsert(
+            {
+              account_id: run.account_id,
+              group_id: cfg.group_id,
+              contact_id: run.contact_id,
+              added_at: new Date().toISOString(),
+            },
+            { onConflict: "group_id,contact_id" },
+          );
+        }
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "contact_added_to_group",
+          group_id: cfg.group_id,
+        });
+      } catch (err) {
+        console.warn("[flows] add_to_group error:", err);
+      }
+      currentKey = cfg.next_node_key || "";
+      continue;
+    }
+    if (node.node_type === "remove_from_group") {
+      const cfg = node.config as unknown as RemoveFromGroupNodeConfig;
+      try {
+        if (cfg.group_id && run.contact_id) {
+          await db
+            .from("contact_group_members")
+            .delete()
+            .eq("account_id", run.account_id)
+            .eq("group_id", cfg.group_id)
+            .eq("contact_id", run.contact_id);
+        }
+        await logEvent(db, run.id, "node_entered", node.node_key, {
+          action: "contact_removed_from_group",
+          group_id: cfg.group_id,
+        });
+      } catch (err) {
+        console.warn("[flows] remove_from_group error:", err);
+      }
       currentKey = cfg.next_node_key || "";
       continue;
     }
@@ -1772,12 +2572,90 @@ async function closeActiveRun(
 // Public entry point — the webhook calls this on every inbound.
 // ============================================================
 
+async function loadEnrichedActiveFlows(
+  db: AdminClient,
+  accountId: string,
+): Promise<FlowRow[]> {
+  const { data: flows } = await db
+    .from("flows")
+    .select("*")
+    .eq("account_id", accountId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  const typedFlows = (flows || []) as FlowRow[];
+  if (typedFlows.length === 0) return [];
+
+  try {
+    const flowIds = typedFlows.map((f) => f.id);
+    const { data: triggerNodes } = await db
+      .from("flow_nodes")
+      .select("flow_id, node_key, config")
+      .in("flow_id", flowIds)
+      .eq("node_type", "trigger");
+
+    if (triggerNodes && triggerNodes.length > 0) {
+      const triggerMap = new Map<string, { node_key: string; config: Record<string, unknown> }>();
+      for (const tn of triggerNodes) {
+        triggerMap.set(tn.flow_id, {
+          node_key: tn.node_key,
+          config: (tn.config || {}) as Record<string, unknown>,
+        });
+      }
+
+      for (const flow of typedFlows) {
+        if (!flow.channels || (Array.isArray(flow.channels) && flow.channels.length === 0)) {
+          (flow as any).channels = ['whatsapp', 'instagram', 'facebook'];
+        }
+        const tn = triggerMap.get(flow.id);
+        if (tn) {
+          const tc = tn.config;
+          if (!flow.entry_node_id) {
+            flow.entry_node_id = tn.node_key;
+          }
+          if (tc.starting_step === "ai_intent" || tc.intent_name) {
+            flow.trigger_type = "ai_intent" as any;
+            flow.trigger_config = {
+              ...flow.trigger_config,
+              ...tc,
+              starting_step: "ai_intent",
+            };
+          } else if (
+            tc.starting_step === "keyword" ||
+            (Array.isArray(tc.keywords) && tc.keywords.length > 0)
+          ) {
+            if (flow.trigger_type !== "ai_intent") {
+              flow.trigger_type = "keyword";
+              flow.trigger_config = {
+                ...flow.trigger_config,
+                keywords: tc.keywords || (flow.trigger_config as any)?.keywords || [],
+              };
+            }
+          } else if (tc.starting_step === "new_contact") {
+            if (flow.trigger_type !== "ai_intent" && flow.trigger_type !== "keyword") {
+              flow.trigger_type = "first_inbound_message";
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[flows] failed to enrich active flows with trigger nodes:", err);
+  }
+
+  return typedFlows;
+}
+
 export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   let ownedRunId: string | null = null;
   try {
+    if (!input.accountId || !input.contactId) {
+      return { consumed: false, outcome: "no_match" };
+    }
+
     const activeRun = await loadActiveRunForContact(
       db,
       input.accountId,
@@ -1785,8 +2663,15 @@ export async function dispatchInboundToFlows(
       input.conversationId,
     );
 
-    // Global idempotency deduplication by meta_message_id across active & historical runs
+    // Fast-path in-memory and DB idempotency deduplication by meta_message_id
     if (input.message?.meta_message_id) {
+      if (checkAndRecordInboundDeduplication(input.message.meta_message_id)) {
+        return {
+          consumed: true,
+          flow_run_id: activeRun?.id,
+          outcome: "duplicate_inbound_ignored",
+        };
+      }
       const dupe = await isDuplicateInbound(
         db,
         input.accountId,
@@ -1804,6 +2689,11 @@ export async function dispatchInboundToFlows(
 
     if (activeRun) {
       ownedRunId = activeRun.id;
+      // Tenant isolation revalidation
+      if (activeRun.account_id !== input.accountId || activeRun.contact_id !== input.contactId) {
+        return { consumed: false, outcome: "no_match" };
+      }
+
       // One SELECT for the whole flow's nodes — advance loop is now
       // in-memory. See loadAllNodes.
       const [runFlow, nodes] = await Promise.all([
@@ -1818,22 +2708,49 @@ export async function dispatchInboundToFlows(
         now,
       });
       if (!closure) {
-        // Priority 1: Check if user sent a keyword trigger for a DIFFERENT active flow
-        const matchingEntryFlow = await findEntryFlow(
+        // Multi-stage intent routing & flow arbitration
+        const typedFlows = await loadEnrichedActiveFlows(db, input.accountId);
+
+        const routing = await routeInboundIntent({
           db,
-          input.accountId,
-          input.message,
-          false,
-          input.channel,
-        );
-        if (matchingEntryFlow) {
-          if (matchingEntryFlow.id !== activeRun.flow_id) {
-            await endRun(db, activeRun.id, "completed", "superseded_by_new_flow");
-            const newNodes = await loadAllNodes(db, matchingEntryFlow.id);
-            return startNewRun(db, matchingEntryFlow, input, newNodes);
+          accountId: input.accountId,
+          contactId: input.contactId,
+          conversationId: input.conversationId,
+          message: input.message,
+          channel: input.channel,
+          isFirstInbound: input.isFirstInboundMessage,
+          activeRun,
+          flows: typedFlows,
+        });
+
+        if (routing.decision === "interrupted_pause" && routing.selectedFlow) {
+          // Pause current run to preserve variables
+          await db
+            .from("flow_runs")
+            .update({ status: "paused_by_agent" })
+            .eq("id", activeRun.id);
+          await logEvent(db, activeRun.id, "node_entered", activeRun.current_node_key, {
+            action: "flow_paused_for_interruption",
+            reason: routing.reasonCode,
+            selected_flow_id: routing.selectedFlow.id,
+          });
+
+          const newNodes = await loadAllNodes(db, routing.selectedFlow.id);
+          return startNewRun(db, routing.selectedFlow, input, newNodes);
+        }
+
+        if (routing.decision === "trigger" && routing.selectedFlow) {
+          if (
+            activeRun.status === "paused_by_agent" ||
+            routing.selectedFlow.id !== activeRun.flow_id ||
+            routing.reasonCode?.includes("exact_keyword_trigger") ||
+            routing.confidence >= 0.85
+          ) {
+            await endRun(db, activeRun.id, "completed", "superseded_by_trigger");
+            const newNodes = await loadAllNodes(db, routing.selectedFlow.id);
+            return startNewRun(db, routing.selectedFlow, input, newNodes);
           }
-          // Note: If matchingEntryFlow is the SAME flow as activeRun, do not restart!
-          // The user is currently in this flow run. Progress to handleReplyForActiveRun below.
+          // Same flow continuation
         }
 
         // Fire typing indicator immediately so customer sees "typing..." instantly
@@ -1863,21 +2780,44 @@ export async function dispatchInboundToFlows(
       ownedRunId = null;
     }
 
-    // No active run → look for a flow whose entry trigger matches.
-    const flow = await findEntryFlow(
-      db,
-      input.accountId,
-      input.message,
-      input.isFirstInboundMessage,
-      input.channel,
+    // No active run → use routeInboundIntent
+    const typedFlows = await loadEnrichedActiveFlows(db, input.accountId);
+    console.log(
+      `[flows] dispatchInboundToFlows: account=${input.accountId} active_flows=${typedFlows.length} message="${input.message.kind === 'text' ? input.message.text : ''}"`,
     );
-    if (!flow || !flow.entry_node_id) {
-      return { consumed: false, outcome: "no_match" };
+
+    const routing = await routeInboundIntent({
+      db,
+      accountId: input.accountId,
+      contactId: input.contactId,
+      conversationId: input.conversationId,
+      message: input.message,
+      channel: input.channel,
+      isFirstInbound: input.isFirstInboundMessage,
+      activeRun: null,
+      flows: typedFlows,
+    });
+    console.log(
+      `[flows] routeInboundIntent decision=${routing.decision} selectedFlow=${routing.selectedFlow?.name || 'none'} confidence=${routing.confidence} reason=${routing.reasonCode}`,
+    );
+
+    if (
+      (routing.decision === "trigger" || routing.decision === "interrupted_pause") &&
+      routing.selectedFlow
+    ) {
+      if (routing.selectedFlow.run_once && input.contactId) {
+        const alreadyCompleted = await isFlowCompletedForContact(db, routing.selectedFlow.id, input.contactId);
+        if (alreadyCompleted) {
+          return { consumed: false, outcome: "no_match" };
+        }
+      }
+      // Fire typing indicator immediately as new flow run starts
+      void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
+      const nodes = await loadAllNodes(db, routing.selectedFlow.id);
+      return startNewRun(db, routing.selectedFlow, input, nodes);
     }
-    // Fire typing indicator immediately as new flow run starts
-    void showFlowTypingIndicator(db, input.accountId, input.message.meta_message_id);
-    const nodes = await loadAllNodes(db, flow.id);
-    return startNewRun(db, flow, input, nodes);
+
+    return { consumed: false, outcome: "no_match" };
   } catch (err) {
     console.error(
       "[flows] dispatchInboundToFlows threw:",
@@ -1935,8 +2875,28 @@ async function handleReplyForActiveRun(
           return lostReplyRace(db, run, currentNode.node_key);
         }
         await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_resumed_with_answer" });
-        const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes);
+        const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes, message);
         return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+      }
+    }
+
+    if (currentNode.node_type === "whatsapp_payment") {
+      const pCfg = currentNode.config as unknown as WhatsAppPaymentNodeConfig;
+      if (
+        (message.kind === "interactive_reply" && message.reply_id === "cancel_payment") ||
+        (message.kind === "text" && /^(?:cancel|cancel payment|cancel order)$/i.test(message.text.trim()))
+      ) {
+        if (pCfg.cancel_next) {
+          run.vars.payment_status = "cancelled";
+          await db.from("flow_runs").update({ status: "active", vars: run.vars, end_reason: null, reprompt_count: 0 }).eq("id", run.id);
+          run.status = "active";
+          if (!(await claimReplyTransition(db, run, pCfg.cancel_next))) {
+            return lostReplyRace(db, run, currentNode.node_key);
+          }
+          await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_payment_cancelled" });
+          const outcome = await advanceFromNodeKey(db, run, pCfg.cancel_next, nodes, message);
+          return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+        }
       }
     }
 
@@ -1956,7 +2916,7 @@ async function handleReplyForActiveRun(
             return lostReplyRace(db, run, currentNode.node_key);
           }
           await logEvent(db, run.id, "node_entered", currentNode.node_key, { action: "flow_resumed_with_answer" });
-          const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes);
+          const outcome = await advanceFromNodeKey(db, run, btnMatch, nodes, message);
           return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
         }
       }
@@ -2058,7 +3018,7 @@ async function handleReplyForActiveRun(
             captured_key: collectCfg.var_key,
             captured_value: normalized,
           });
-          const outcome = await advanceFromNodeKey(db, run, collectCfg.next_node_key, nodes);
+          const outcome = await advanceFromNodeKey(db, run, collectCfg.next_node_key, nodes, message);
           return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
         }
       }
@@ -2243,7 +3203,7 @@ async function handleReplyForActiveRun(
           }).catch(() => null);
         }
 
-        const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes);
+        const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes, message);
         return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
       }
     }
@@ -2323,7 +3283,7 @@ async function handleReplyForActiveRun(
     if (!(await claimReplyTransition(db, run, matched))) {
       return lostReplyRace(db, run, currentNode.node_key);
     }
-    const outcome = await advanceFromNodeKey(db, run, matched, nodes);
+    const outcome = await advanceFromNodeKey(db, run, matched, nodes, message);
     return {
       consumed: true,
       flow_run_id: run.id,
@@ -2444,12 +3404,13 @@ async function handleReplyForActiveRun(
         // Customer typed something we couldn't accept (empty after trim,
         // or var_key missing — rare). Re-send the prompt so they try again.
         const cfg = effectiveCurrentNode.config as unknown as CollectInputNodeConfig;
+        const resolvedPrompt = await resolveNodeText(db, run, effectiveCurrentNode, cfg.prompt_text || "", cfg, message);
         await engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
-          text: interpolateVars(cfg.prompt_text, run.vars),
+          text: resolvedPrompt,
         });
       }
     } catch (err) {
@@ -2522,6 +3483,14 @@ async function startNewRun(
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  // run_once check
+  if (flow.run_once && input.contactId) {
+    const alreadyCompleted = await isFlowCompletedForContact(db, flow.id, input.contactId);
+    if (alreadyCompleted) {
+      return { consumed: false, outcome: "no_match" };
+    }
+  }
+
   // Pre-seed contact info into run vars so {{contact.name}}, {{name}}, {{phone}}, {{email}} work
   let initialVars: Record<string, unknown> = {};
   if (input.contactId) {
@@ -2611,6 +3580,18 @@ async function startNewRun(
   initialVars.locale = detectedLocale;
   initialVars.language = detectedLocale;
 
+  // Resolve entry node key: check flow.entry_node_id, then trigger node, then start, or first node in graph
+  let entryNodeKey = flow.entry_node_id;
+  if (!entryNodeKey || !nodes.has(entryNodeKey)) {
+    const triggerNode = Array.from(nodes.values()).find((n) => n.node_type === "trigger");
+    entryNodeKey = triggerNode?.node_key || (nodes.has("start") ? "start" : Array.from(nodes.keys())[0]);
+  }
+  if (!entryNodeKey) {
+    console.error(`[flows] flow ${flow.id} has no valid nodes to start run`);
+    return { consumed: false, outcome: "no_match" };
+  }
+  flow.entry_node_id = entryNodeKey;
+
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
@@ -2629,7 +3610,7 @@ async function startNewRun(
       contact_id: input.contactId,
       conversation_id: input.conversationId,
       status: "active",
-      current_node_key: flow.entry_node_id,
+      current_node_key: entryNodeKey,
       vars: initialVars,
     })
     .select("*")
@@ -2644,7 +3625,7 @@ async function startNewRun(
     return { consumed: false, outcome: "no_match" };
   }
   const run = inserted as FlowRunRow;
-  await logEvent(db, run.id, "started", flow.entry_node_id, {
+  await logEvent(db, run.id, "started", entryNodeKey, {
     flow_id: flow.id,
     trigger_type: flow.trigger_type,
     meta_message_id: input.message.meta_message_id,
@@ -2666,10 +3647,68 @@ async function startNewRun(
   }
 
   // Run the advance loop starting from the entry node.
-  const outcome = await advanceFromNodeKey(db, run, flow.entry_node_id!, nodes);
+  const outcome = await advanceFromNodeKey(db, run, flow.entry_node_id!, nodes, input.message);
+  if (outcome.outcome === "completed" && flow.run_once && input.contactId) {
+    await markFlowCompletedForContact(db, flow.id, input.contactId);
+  }
   return {
     consumed: true,
     flow_run_id: run.id,
     outcome: outcome.outcome === "advanced" ? "started" : outcome.outcome,
   };
+}
+
+/**
+ * Resumes an active flow run upon an external system event (e.g. Razorpay webhook, payment received).
+ */
+export async function resumeFlowRunOnEvent(args: {
+  db: AdminClient;
+  runId: string;
+  targetNodeKey?: string;
+  varsPatch?: Record<string, unknown>;
+  eventPayload?: Record<string, unknown>;
+}): Promise<{ success: boolean; outcome?: string }> {
+  const { db, runId, targetNodeKey, varsPatch, eventPayload } = args;
+  const { data: run, error } = await db
+    .from("flow_runs")
+    .select("*")
+    .eq("id", runId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error || !run) {
+    return { success: false, outcome: "run_not_found_or_inactive" };
+  }
+
+  const nodes = await loadAllNodes(db, run.flow_id);
+  const currentNode = run.current_node_key ? nodes.get(run.current_node_key) : null;
+
+  let nextKey = targetNodeKey;
+  if (!nextKey && currentNode) {
+    if (currentNode.node_type === "whatsapp_payment") {
+      const paymentCfg = currentNode.config as unknown as WhatsAppPaymentNodeConfig;
+      nextKey = paymentCfg.success_next || paymentCfg.next_node_key;
+    } else {
+      nextKey = (currentNode.config as any)?.next_node_key;
+    }
+  }
+
+  if (!nextKey) {
+    return { success: false, outcome: "no_target_node_key" };
+  }
+
+  const updatedVars = { ...(run.vars || {}), ...(varsPatch || {}) };
+  run.vars = updatedVars;
+  await db
+    .from("flow_runs")
+    .update({ vars: updatedVars, current_node_key: nextKey })
+    .eq("id", run.id);
+
+  await logEvent(db, run.id, "node_entered", nextKey, {
+    action: "flow_resumed_from_external_event",
+    ...(eventPayload || {}),
+  });
+
+  const outcome = await advanceFromNodeKey(db, run, nextKey, nodes);
+  return { success: true, outcome: outcome.outcome };
 }

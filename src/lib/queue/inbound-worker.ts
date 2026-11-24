@@ -40,7 +40,8 @@ export async function enqueueInboundEvent(
         status: 'pending',
         attempts: 0,
         max_attempts: 5,
-        retry_after: new Date().toISOString(),
+        // Set retry_after in the past so the event is immediately claimable without clock-skew delay
+        retry_after: new Date(Date.now() - 60_000).toISOString(),
       },
       { onConflict: 'channel,event_key', ignoreDuplicates: true },
     )
@@ -67,12 +68,12 @@ export async function claimInboundEvents(
     p_batch_size: batchSize,
   })
 
-  if (!error && data) {
+  if (!error && Array.isArray(data) && data.length > 0) {
     return data as InboundEvent[]
   }
 
-  // Fallback if RPC is missing (e.g. before migration applied in dev)
-  const now = new Date().toISOString()
+  // Fallback if RPC is missing, returned empty due to timezone comparison differences, or errored
+  const now = new Date(Date.now() + 60_000).toISOString()
   const { data: fallbackData } = await db
     .from('inbound_events')
     .select('*')

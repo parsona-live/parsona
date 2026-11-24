@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     | {
         name?: string
         description?: string | null
-        trigger_type?: 'keyword' | 'first_inbound_message' | 'manual'
+        trigger_type?: 'keyword' | 'first_inbound_message' | 'manual' | 'ai_intent'
         trigger_config?: Record<string, unknown>
         /**
          * If set, clone the matching template's name + trigger +
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
   }
 
   // Pre-seed default Trigger node so every new flow begins with an on-canvas Trigger node
-  const defaultStartingStep = trigger_type === 'first_inbound_message' ? 'new_contact' : 'keyword'
+  const defaultStartingStep = trigger_type === 'first_inbound_message' ? 'new_contact' : trigger_type === 'ai_intent' ? 'ai_intent' : 'keyword'
   const defaultKeywords = Array.isArray((trigger_config as Record<string, unknown>)?.keywords)
     ? ((trigger_config as Record<string, unknown>).keywords as string[])
     : []

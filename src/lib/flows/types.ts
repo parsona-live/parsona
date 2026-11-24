@@ -22,12 +22,27 @@
 // Node configs (discriminated union by node_type)
 // ============================================================
 
+export type TextMode = "static" | "prompt";
+
+export interface PromptTextConfig {
+  /** Mode for generating the text: static authored text or dynamic AI-generated text. Defaults to "static". */
+  text_mode?: TextMode;
+  /** AI prompt / instructions to generate the text based on customer context and previous messages. */
+  prompt?: string;
+  /** Safe fallback text used if AI times out or generation fails. */
+  fallback_text?: string;
+  /** Desired language style, e.g. "conversational Hinglish/English". */
+  language_style?: string;
+  /** Context sources to include when generating response. */
+  context_sources?: ("contact" | "conversation" | "memories" | "orders")[];
+}
+
 export interface StartNodeConfig {
   /** Stable node_key of the first real node to advance to. */
   next_node_key: string;
 }
 
-export interface SendMessageNodeConfig {
+export interface SendMessageNodeConfig extends PromptTextConfig {
   /** Plain text sent to the customer; can interpolate {{vars.X}}. */
   text: string;
   /** Auto-advance target after the message lands at Meta. */
@@ -39,7 +54,7 @@ export interface SendMessageNodeConfig {
   header_filename?: string;
 }
 
-export interface SendButtonsNodeConfig {
+export interface SendButtonsNodeConfig extends PromptTextConfig {
   text: string;
   /** Optional header / footer lines around the buttons. */
   header_text?: string;
@@ -58,7 +73,7 @@ export interface SendButtonsNodeConfig {
   }>;
 }
 
-export interface SendListNodeConfig {
+export interface SendListNodeConfig extends PromptTextConfig {
   text: string;
   /** Label of the tap-to-expand button on the message bubble. */
   button_label: string;
@@ -234,7 +249,7 @@ export type InputValidationType =
   | "number"
   | "regex";
 
-export interface CollectInputNodeConfig {
+export interface CollectInputNodeConfig extends PromptTextConfig {
   /** Prompt text sent to the customer before they reply. */
   prompt_text: string;
   /**
@@ -260,7 +275,11 @@ export type ConditionOperator =
   | "equals"
   | "contains"
   | "present"
-  | "absent";
+  | "absent"
+  | "greater_than"
+  | "less_than"
+  | "greater_or_equal"
+  | "less_or_equal";
 
 export type ConditionSubject = "var" | "tag" | "contact_field" | "channel";
 
@@ -295,9 +314,15 @@ export interface SetTagNodeConfig {
 }
 
 export interface TriggerNodeConfig {
-  starting_step: "new_contact" | "keyword";
+  starting_step: "new_contact" | "keyword" | "contact_from_ad" | "ai_intent";
   keywords?: string[];
   match_type?: "exact" | "contains" | "word";
+  intent_name?: string;
+  intent_description?: string;
+  positive_examples?: string[];
+  negative_examples?: string[];
+  confidence_threshold?: number;
+  priority?: number;
   next_node_key: string;
 }
 
@@ -308,6 +333,85 @@ export interface AiResponseNodeConfig {
   low_confidence_message?: string;
   active?: boolean;
   next_node_key: string;
+}
+
+export interface AiMessageNodeConfig {
+  mode?: "static" | "ai_generated";
+  text?: string;
+  prompt?: string;
+  context_sources?: {
+    current_message?: boolean;
+    conversation_history?: boolean;
+    conversation_summary?: boolean;
+    customer_memory?: boolean;
+    flow_variables?: boolean;
+    business_knowledge?: boolean;
+    business_state?: boolean;
+  };
+  language?: "auto" | "en" | "hi" | "hinglish" | string;
+  style?: "friendly_professional" | "concise" | "formal" | "casual";
+  max_length?: "short" | "medium" | "detailed";
+  temperature?: number;
+  fallback_mode?: "static" | "branch";
+  fallback_message?: string;
+  failure_next?: string;
+  next_node_key: string;
+}
+
+export interface AiExtractField {
+  name: string;
+  type: "string" | "number" | "date" | "time" | "boolean";
+  required?: boolean;
+  description?: string;
+}
+
+export interface AiExtractNodeConfig {
+  fields: AiExtractField[];
+  instructions?: string;
+  context_sources?: {
+    current_message?: boolean;
+    flow_variables?: boolean;
+    conversation_history?: boolean;
+    customer_memory?: boolean;
+  };
+  missing_fields_next?: string;
+  conflict_next?: string;
+  next_node_key: string;
+}
+
+export interface AiDecisionBranch {
+  branch_key: string;
+  description: string;
+  examples?: string[];
+  next_node_key: string;
+}
+
+export interface AiDecisionNodeConfig {
+  prompt: string;
+  branches: AiDecisionBranch[];
+  confidence_threshold?: number;
+  fallback_next?: string;
+}
+
+export interface AiSummarizeNodeConfig {
+  target_var: string;
+  focus?: "full_conversation" | "collected_info" | "handoff_notes";
+  max_words?: number;
+  next_node_key: string;
+}
+
+export interface AiIntentTriggerConfig {
+  intent_name: string;
+  intent_description: string;
+  positive_examples?: string[];
+  negative_examples?: string[];
+  confidence_threshold?: number;
+  priority?: number;
+  channel?: "all" | "whatsapp" | "instagram" | "facebook";
+  channel_restrictions?: ("whatsapp" | "instagram" | "facebook")[];
+  cooldown_minutes?: number;
+  re_entry_policy?: "once_per_contact" | "once_per_conversation" | "allow_multiple";
+  interruption_policy?: "continue" | "pause" | "cancel" | "switch";
 }
 
 export interface SendEmailNodeConfig {
@@ -358,11 +462,12 @@ export interface DelayNodeConfig {
 
 export interface WebhookNodeConfig {
   url: string;
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   headers?: Record<string, string>;
   body_template?: string;
   save_response_var?: string;
   next_node_key: string;
+  failure_next?: string;
 }
 
 export interface BookAppointmentNodeConfig {
@@ -373,11 +478,14 @@ export interface BookAppointmentNodeConfig {
 }
 
 export interface WhatsAppPaymentNodeConfig {
-  amount: number;
+  amount: number | string;
   currency: string;
   item_name: string;
   provider?: "razorpay" | "whatsapp_pay" | "custom";
+  payment_link?: string;
+  wait_for_payment?: boolean;
   success_next?: string;
+  cancel_next?: string;
   failure_next?: string;
   next_node_key: string;
 }
@@ -413,14 +521,17 @@ export interface WhatsAppFormNodeConfig {
   flow_id?: string;
   flow_token?: string;
   screen_id?: string;
+  button_text?: string;
+  body_text?: string;
   next_node_key: string;
 }
 
 export interface CreateDealNodeConfig {
-  pipeline_id: string;
-  stage_id: string;
+  pipeline_id?: string;
+  stage_id?: string;
   title: string;
-  value?: number;
+  value?: number | string;
+  currency?: string;
   next_node_key: string;
 }
 
@@ -460,6 +571,10 @@ export type FlowNodeConfig =
   | { node_type: "http_fetch"; config: WebhookNodeConfig }
   | { node_type: "book_appointment"; config: BookAppointmentNodeConfig }
   | { node_type: "ai_response"; config: AiResponseNodeConfig }
+  | { node_type: "ai_message"; config: AiMessageNodeConfig }
+  | { node_type: "ai_extract"; config: AiExtractNodeConfig }
+  | { node_type: "ai_decision"; config: AiDecisionNodeConfig }
+  | { node_type: "ai_summarize"; config: AiSummarizeNodeConfig }
   | { node_type: "whatsapp_payment"; config: WhatsAppPaymentNodeConfig }
   | { node_type: "catalog"; config: CatalogNodeConfig }
   | { node_type: "input_flow"; config: InputFlowNodeConfig }
@@ -498,7 +613,8 @@ export type FirstInboundTriggerConfig = Record<string, never>;
 export type FlowTriggerConfig =
   | { trigger_type: "keyword"; config: KeywordTriggerConfig }
   | { trigger_type: "first_inbound_message"; config: FirstInboundTriggerConfig }
-  | { trigger_type: "manual"; config: Record<string, never> };
+  | { trigger_type: "manual"; config: Record<string, never> }
+  | { trigger_type: "ai_intent"; config: AiIntentTriggerConfig };
 
 // ============================================================
 // DB-row shapes (read by the engine via supabaseAdmin)
@@ -515,8 +631,10 @@ export interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
-  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | Record<string, unknown>;
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "ai_intent";
+  trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | AiIntentTriggerConfig | Record<string, unknown>;
+  run_once?: boolean;
+  priority?: number;
   channels?: ("whatsapp" | "instagram" | "facebook")[];
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
@@ -676,7 +794,14 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "http_fetch",
   "book_appointment",
   "catalog",
+  "whatsapp_payment",
+  "whatsapp_form",
   "create_deal",
+  "ai_response",
+  "ai_message",
+  "ai_extract",
+  "ai_decision",
+  "ai_summarize",
 ]);
 
 export const MAX_NODES_PER_ADVANCE = 25;

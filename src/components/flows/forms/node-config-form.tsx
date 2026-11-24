@@ -50,10 +50,14 @@ import {
 import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
-import { NextNodeRow, NodeKeySelect, TextRow, HeaderMediaSelector } from "./fields";
+import { NextNodeRow, NodeKeySelect, TextRow, HeaderMediaSelector, PromptOrTextInput } from "./fields";
 import { TranslationsSection } from "./translations-section";
 import {
   AiResponseForm,
+  AiMessageForm,
+  AiExtractForm,
+  AiDecisionForm,
+  AiSummarizeForm,
   SendEmailForm,
   TriggerNodeForm,
   DelayForm,
@@ -62,6 +66,11 @@ import {
   WhatsAppPaymentForm,
   CreateDealForm,
   AgentHandoverForm,
+  WhatsAppFormForm,
+  CatalogForm,
+  BookAppointmentForm,
+  AddToGroupForm,
+  RemoveFromGroupForm,
 } from "./action-node-forms";
 
 interface NodeConfigFormProps {
@@ -101,11 +110,14 @@ export function NodeConfigForm({
             headerFilename={(cfg as any).header_filename}
             onChange={(patch) => onUpdateConfig(patch)}
           />
-          <TextRow
+          <PromptOrTextInput
+            mode={((cfg as any).text_mode as "static" | "prompt") || "static"}
+            text={(cfg as { text?: string }).text ?? ""}
+            prompt={(cfg as any).prompt ?? ""}
+            fallbackText={(cfg as any).fallback_text ?? ""}
             label={t("textToCustomer")}
-            value={(cfg as { text?: string }).text ?? ""}
-            onChange={(v) => onUpdateConfig({ text: v, translations: undefined })}
-            rows={3}
+            allNodes={allNodes}
+            onChange={(patch) => onUpdateConfig({ ...patch, translations: undefined })}
           />
           <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
           <NextNodeRow
@@ -289,6 +301,87 @@ export function NodeConfigForm({
         </div>
       );
 
+    case "ai_message":
+      return (
+        <div className="space-y-4">
+          <AiMessageForm config={cfg} onChange={onUpdateConfig} />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 pt-2 border-t border-border">
+            <NextNodeRow
+              value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+              allNodes={allNodes}
+              currentKey={node.node_key}
+              onChange={(v) => onUpdateConfig({ next_node_key: v })}
+              label="On Success Advance To"
+            />
+            <NextNodeRow
+              value={(cfg as { fallback_node_key?: string }).fallback_node_key ?? ""}
+              allNodes={allNodes}
+              currentKey={node.node_key}
+              onChange={(v) => onUpdateConfig({ fallback_node_key: v })}
+              label="On Fallback / Error"
+            />
+          </div>
+        </div>
+      );
+
+    case "ai_extract":
+      return (
+        <div className="space-y-4">
+          <AiExtractForm config={cfg} onChange={onUpdateConfig} />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 pt-2 border-t border-border">
+            <NextNodeRow
+              value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+              allNodes={allNodes}
+              currentKey={node.node_key}
+              onChange={(v) => onUpdateConfig({ next_node_key: v })}
+              label="All Required Fields Extracted"
+            />
+            <NextNodeRow
+              value={(cfg as { missing_fields_node_key?: string }).missing_fields_node_key ?? ""}
+              allNodes={allNodes}
+              currentKey={node.node_key}
+              onChange={(v) => onUpdateConfig({ missing_fields_node_key: v })}
+              label="Missing Required Fields"
+            />
+          </div>
+        </div>
+      );
+
+    case "ai_decision":
+      return (
+        <div className="space-y-4">
+          <AiDecisionForm
+            config={cfg}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={onUpdateConfig}
+          />
+          <div className="pt-2 border-t border-border">
+            <NextNodeRow
+              value={(cfg as { fallback_node_key?: string }).fallback_node_key ?? ""}
+              allNodes={allNodes}
+              currentKey={node.node_key}
+              onChange={(v) => onUpdateConfig({ fallback_node_key: v })}
+              label="Fallback / Ambiguous Advance To"
+            />
+          </div>
+        </div>
+      );
+
+    case "ai_summarize":
+      return (
+        <div className="space-y-4">
+          <AiSummarizeForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label="Advances To"
+          />
+        </div>
+      );
+
     case "send_email":
       return (
         <div className="space-y-4">
@@ -360,13 +453,18 @@ export function NodeConfigForm({
     case "whatsapp_payment":
       return (
         <div className="space-y-4">
-          <WhatsAppPaymentForm config={cfg} onChange={onUpdateConfig} />
+          <WhatsAppPaymentForm
+            config={cfg}
+            onChange={onUpdateConfig}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+          />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
             allNodes={allNodes}
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label="On Payment Completion"
+            label="Default Next Step"
           />
         </div>
       );
@@ -396,6 +494,76 @@ export function NodeConfigForm({
             t={t}
           />
           <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
+        </div>
+      );
+
+    case "whatsapp_form":
+      return (
+        <div className="space-y-4">
+          <WhatsAppFormForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "catalog":
+      return (
+        <div className="space-y-4">
+          <CatalogForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "book_appointment":
+      return (
+        <div className="space-y-4">
+          <BookAppointmentForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "add_to_group":
+      return (
+        <div className="space-y-4">
+          <AddToGroupForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "remove_from_group":
+      return (
+        <div className="space-y-4">
+          <RemoveFromGroupForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label={t("advancesTo")}
+          />
         </div>
       );
 
@@ -445,11 +613,21 @@ function CollectInputForm({
 
   return (
     <div className="space-y-4">
-      <TextRow
+      <PromptOrTextInput
+        mode={((cfg as any).text_mode as "static" | "prompt") || "static"}
+        text={cfg.prompt_text ?? ""}
+        prompt={(cfg as any).prompt ?? ""}
+        fallbackText={(cfg as any).fallback_text ?? ""}
         label={t("promptToCustomer")}
-        value={cfg.prompt_text ?? ""}
-        onChange={(v) => onUpdateConfig({ prompt_text: v })}
-        rows={2}
+        allNodes={allNodes}
+        onChange={(patch) =>
+          onUpdateConfig({
+            text_mode: patch.text_mode,
+            prompt_text: patch.text ?? cfg.prompt_text,
+            prompt: patch.prompt,
+            fallback_text: patch.fallback_text,
+          })
+        }
       />
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -614,11 +792,14 @@ function SendButtonsForm({
         headerFilename={cfg.header_filename}
         onChange={(patch) => onUpdateConfig(patch)}
       />
-      <TextRow
+      <PromptOrTextInput
+        mode={((cfg as any).text_mode as "static" | "prompt") || "static"}
+        text={cfg.text ?? ""}
+        prompt={(cfg as any).prompt ?? ""}
+        fallbackText={(cfg as any).fallback_text ?? ""}
         label={t("bodyText")}
-        value={cfg.text ?? ""}
-        onChange={(v) => onUpdateConfig({ text: v })}
-        rows={3}
+        allNodes={allNodes}
+        onChange={(patch) => onUpdateConfig(patch)}
       />
       <TextRow
         label={t("footerText")}
@@ -816,11 +997,14 @@ function SendListForm({
         headerFilename={cfg.header_filename}
         onChange={(patch) => onUpdateConfig(patch)}
       />
-      <TextRow
+      <PromptOrTextInput
+        mode={((cfg as any).text_mode as "static" | "prompt") || "static"}
+        text={cfg.text ?? ""}
+        prompt={(cfg as any).prompt ?? ""}
+        fallbackText={(cfg as any).fallback_text ?? ""}
         label={t("bodyText")}
-        value={cfg.text ?? ""}
-        onChange={(v) => onUpdateConfig({ text: v })}
-        rows={3}
+        allNodes={allNodes}
+        onChange={(patch) => onUpdateConfig(patch)}
       />
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextRow
@@ -950,9 +1134,17 @@ function SendListForm({
 // ============================================================
 
 interface ConditionCfg {
-  subject?: "var" | "tag" | "contact_field";
+  subject?: "var" | "tag" | "contact_field" | "channel";
   subject_key?: string;
-  operator?: "equals" | "contains" | "present" | "absent";
+  operator?:
+    | "equals"
+    | "contains"
+    | "present"
+    | "absent"
+    | "greater_than"
+    | "less_than"
+    | "greater_or_equal"
+    | "less_or_equal";
   value?: string;
   true_next?: string;
   false_next?: string;
@@ -981,7 +1173,13 @@ function ConditionForm({
 
   const subject = cfg.subject ?? "var";
   const operator = cfg.operator ?? "equals";
-  const showValue = operator === "equals" || operator === "contains";
+  const showValue =
+    operator === "equals" ||
+    operator === "contains" ||
+    operator === "greater_than" ||
+    operator === "less_than" ||
+    operator === "greater_or_equal" ||
+    operator === "less_or_equal";
 
   return (
     <>
@@ -1078,6 +1276,10 @@ function ConditionForm({
               <SelectItem value="absent">{t("isAbsent")}</SelectItem>
               <SelectItem value="equals">{t("equals")}</SelectItem>
               <SelectItem value="contains">{t("contains")}</SelectItem>
+              <SelectItem value="greater_than">Greater than (&gt;)</SelectItem>
+              <SelectItem value="less_than">Less than (&lt;)</SelectItem>
+              <SelectItem value="greater_or_equal">Greater or equal (&gt;=)</SelectItem>
+              <SelectItem value="less_or_equal">Less or equal (&lt;=)</SelectItem>
             </SelectContent>
           </Select>
         </div>

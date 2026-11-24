@@ -571,10 +571,15 @@
       "pageCount": "Página {page} de {total}",
       "deleteContactTitle": "Excluir contato",
       "deleteContactDesc": "Tem certeza de que deseja excluir {name}? Esta ação não pode ser desfeita.",
+      "deleteConfirmTitle": "Excluir contato",
+      "deleteConfirmDescription": "Tem certeza de que deseja excluir {name}? Esta ação não pode ser desfeita.",
       "cancel": "Cancelar",
+      "cancelAction": "Cancelar",
       "deleteBtn": "Excluir",
+      "deleteAction": "Excluir",
       "deleteBulkTitle": "Excluir contatos",
       "deleteBulkDesc": "Tem certeza de que deseja excluir os {count} contatos selecionados? Esta ação não pode ser desfeita.",
+      "deleteBulkDescription": "Tem certeza de que deseja excluir os {count} contatos selecionados? Esta ação não pode ser desfeita.",
       "toastFailedLoad": "Falha ao carregar os contatos",
       "toastFailedDelete": "Falha ao excluir o contato",
       "toastDeleted": "Contato excluído",
@@ -2017,7 +2022,7 @@
       "profile": "Seu perfil",
       "security": "Login e segurança",
       "appearance": "Aparência",
-      "whatsapp": "WhatsApp",
+      "channels": "Canais e integrações",
       "templates": "Modelos",
       "quick-replies": "Respostas rápidas",
       "fields": "Campos e tags",
@@ -2483,7 +2488,8 @@
       "createFlows": "criar fluxos",
       "createPipelines": "criar pipelines",
       "createDeals": "criar negócios",
-      "sendMessages": "enviar mensagens"
+      "sendMessages": "enviar mensagens",
+      "manageCustomFields": "gerenciar campos personalizados"
     }
   },
   "Metadata": {

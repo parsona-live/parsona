@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -13,10 +14,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Mail, Server, ExternalLink, Sparkles } from 'lucide-react';
+import { Mail, Server, ExternalLink, Sparkles, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFlowEditor } from '../flow-editor-state';
 import { ChannelIcon } from '@/components/channels/channel-badge';
+import { NodeKeySelect } from './fields';
+import type { BuilderNode } from '../shared';
 
 // ============================================================
 // AI Response Action Form (From User Mockup)
@@ -567,6 +570,19 @@ export function WebhookForm({
           Supports interpolation: {'{{contact.*}}'}, {'{{vars.*}}'}.
         </p>
       </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Save Response to Variable (Optional)</Label>
+        <Input
+          value={(config.save_response_var as string) || ''}
+          onChange={(e) => onChange({ save_response_var: e.target.value })}
+          placeholder="e.g. api_response"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-slate-500">
+          Accessible in downstream nodes as <code>{"{{vars.api_response}}"}</code> and status code as <code>{"{{vars.webhook_status}}"}</code>.
+        </p>
+      </div>
     </div>
   );
 }
@@ -621,14 +637,22 @@ export function UpdateContactForm({
 export function WhatsAppPaymentForm({
   config,
   onChange,
+  allNodes,
+  currentKey,
 }: {
   config: Record<string, unknown>;
   onChange: (patch: Record<string, unknown>) => void;
+  allNodes?: BuilderNode[];
+  currentKey?: string;
 }) {
-  const amount = typeof config.amount === 'number' ? config.amount : 100;
+  const amount = config.amount !== undefined ? String(config.amount) : '100';
   const currency = (config.currency as string) || 'INR';
   const itemName = (config.item_name as string) || 'Product Order';
   const provider = (config.provider as string) || 'razorpay';
+  const paymentLink = (config.payment_link as string) || '';
+  const waitForPayment = Boolean(config.wait_for_payment);
+  const cancelNext = (config.cancel_next as string) || '';
+  const successNext = (config.success_next as string) || '';
 
   return (
     <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
@@ -636,10 +660,9 @@ export function WhatsAppPaymentForm({
         <div className="space-y-1">
           <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Amount</Label>
           <Input
-            type="number"
-            min="1"
             value={amount}
-            onChange={(e) => onChange({ amount: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ amount: e.target.value })}
+            placeholder="100 or {{vars.total}}"
             className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
           />
         </div>
@@ -673,9 +696,83 @@ export function WhatsAppPaymentForm({
           <SelectContent>
             <SelectItem value="razorpay">Razorpay Payment Link</SelectItem>
             <SelectItem value="whatsapp_pay">WhatsApp Pay (Native)</SelectItem>
+            <SelectItem value="custom">Custom Link</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Payment Link (Optional Static URL)</Label>
+        <Input
+          value={paymentLink}
+          onChange={(e) => onChange({ payment_link: e.target.value })}
+          placeholder="Leave blank to auto-generate via Razorpay"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-slate-500">
+          Leave blank to generate a dynamic tracked Razorpay Payment Link per customer.
+        </p>
+      </div>
+
+      <div className="flex items-start gap-2 pt-1 pb-1">
+        <Checkbox
+          id="wait_for_payment"
+          checked={waitForPayment}
+          onCheckedChange={(checked) => onChange({ wait_for_payment: Boolean(checked) })}
+          className="mt-0.5"
+        />
+        <div className="space-y-0.5">
+          <Label htmlFor="wait_for_payment" className="text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+            Wait for Payment Webhook
+          </Label>
+          <p className="text-[10px] text-slate-500">
+            Pause flow execution until Razorpay notifies of successful payment, then advance to success step.
+          </p>
+        </div>
+      </div>
+
+      {waitForPayment && (
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Success Next Step</Label>
+            {allNodes ? (
+              <NodeKeySelect
+                value={successNext || null}
+                nodes={allNodes}
+                excludeKey={currentKey}
+                onChange={(v) => onChange({ success_next: v || '' })}
+                placeholder="Select step..."
+              />
+            ) : (
+              <Input
+                value={successNext}
+                onChange={(e) => onChange({ success_next: e.target.value })}
+                placeholder="e.g. step_confirm"
+                className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+              />
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-rose-700 dark:text-rose-400">Cancel Next Step</Label>
+            {allNodes ? (
+              <NodeKeySelect
+                value={cancelNext || null}
+                nodes={allNodes}
+                excludeKey={currentKey}
+                onChange={(v) => onChange({ cancel_next: v || '' })}
+                placeholder="Select step..."
+              />
+            ) : (
+              <Input
+                value={cancelNext}
+                onChange={(e) => onChange({ cancel_next: e.target.value })}
+                placeholder="e.g. step_cancel"
+                className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -692,7 +789,9 @@ export function CreateDealForm({
   onChange: (patch: Record<string, unknown>) => void;
 }) {
   const title = (config.title as string) || 'New Deal';
-  const value = typeof config.value === 'number' ? config.value : 0;
+  const value = config.value !== undefined ? String(config.value) : '0';
+  const pipelineId = (config.pipeline_id as string) || '';
+  const stageId = (config.stage_id as string) || '';
 
   return (
     <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
@@ -704,15 +803,275 @@ export function CreateDealForm({
           placeholder="e.g. Enterprise Plan - {{contact.name}}"
           className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
         />
+        <p className="text-[10px] text-muted-foreground">Supports variables like <code>{"{{contact.name}}"}</code> or <code>{"{{vars.requirement}}"}</code></p>
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Deal Value</Label>
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Estimated Value</Label>
         <Input
-          type="number"
-          min="0"
           value={value}
-          onChange={(e) => onChange({ value: parseFloat(e.target.value) || 0 })}
+          onChange={(e) => onChange({ value: e.target.value })}
+          placeholder="e.g. 5000 or {{vars.budget}}"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-muted-foreground">Supports numeric values or variables like <code>{"{{vars.budget}}"}</code></p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Pipeline ID (Optional)</Label>
+          <Input
+            value={pipelineId}
+            onChange={(e) => onChange({ pipeline_id: e.target.value })}
+            placeholder="Auto (Default Pipeline)"
+            className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Stage ID (Optional)</Label>
+          <Input
+            value={stageId}
+            onChange={(e) => onChange({ stage_id: e.target.value })}
+            placeholder="Auto (Initial Stage)"
+            className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+          />
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-500">
+        Leave Pipeline and Stage blank to automatically assign to the account's primary sales pipeline and entry stage.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+// WhatsApp Form Node Form
+// ============================================================
+
+export function WhatsAppFormForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const flowId = (config.flow_id as string) || '';
+  const buttonText = (config.button_text as string) || 'Complete Form';
+  const bodyText = (config.body_text as string) || 'Please fill out this form to continue:';
+  const screenId = (config.screen_id as string) || '';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Meta Flow ID</Label>
+        <Input
+          value={flowId}
+          onChange={(e) => onChange({ flow_id: e.target.value })}
+          placeholder="e.g. 123456789012345"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-muted-foreground">ID of the published WhatsApp Flow in Meta Business Manager</p>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Message Body</Label>
+        <Textarea
+          value={bodyText}
+          onChange={(e) => onChange({ body_text: e.target.value })}
+          placeholder="Please fill out this quick form:"
+          rows={2}
+          className="text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Button CTA Label</Label>
+          <Input
+            value={buttonText}
+            onChange={(e) => onChange({ button_text: e.target.value })}
+            placeholder="Open Form"
+            className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Initial Screen (Optional)</Label>
+          <Input
+            value={screenId}
+            onChange={(e) => onChange({ screen_id: e.target.value })}
+            placeholder="e.g. SCREEN_ONE"
+            className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Catalog Node Form
+// ============================================================
+
+export function CatalogForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const catalogId = (config.catalog_id as string) || '';
+  const productRetailerId = (config.product_retailer_id as string) || '';
+  const bodyText = (config.body_text as string) || 'Explore our latest products and catalog below:';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Message Body</Label>
+        <Textarea
+          value={bodyText}
+          onChange={(e) => onChange({ body_text: e.target.value })}
+          placeholder="Explore our latest collection:"
+          rows={2}
+          className="text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Catalog ID (Optional)</Label>
+        <Input
+          value={catalogId}
+          onChange={(e) => onChange({ catalog_id: e.target.value })}
+          placeholder="e.g. catalog_12345"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-muted-foreground">ID of the connected WhatsApp Commerce catalog</p>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Featured Product SKU / Retailer ID (Optional)</Label>
+        <Input
+          value={productRetailerId}
+          onChange={(e) => onChange({ product_retailer_id: e.target.value })}
+          placeholder="e.g. SKU-9872"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-muted-foreground">Specify to highlight a single product instead of the entire catalog</p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Book Appointment Node Form
+// ============================================================
+
+export function BookAppointmentForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const bookingUrl = (config.booking_url as string) || '';
+  const promptText = (config.prompt_text as string) || 'Book your meeting slot here:';
+  const serviceType = (config.service_type as string) || 'cal_com';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Booking Service</Label>
+        <Select value={serviceType} onValueChange={(val) => onChange({ service_type: val })}>
+          <SelectTrigger className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cal_com">Cal.com</SelectItem>
+            <SelectItem value="calendly">Calendly</SelectItem>
+            <SelectItem value="custom">Custom URL</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Booking URL</Label>
+        <Input
+          value={bookingUrl}
+          onChange={(e) => onChange({ booking_url: e.target.value })}
+          placeholder="https://cal.com/your-team/30min"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[10px] text-muted-foreground">Contact name, email, and phone are automatically appended as query parameters</p>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Prompt Text</Label>
+        <Textarea
+          value={promptText}
+          onChange={(e) => onChange({ prompt_text: e.target.value })}
+          placeholder="Select a convenient time for your consultation:"
+          rows={2}
+          className="text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Add / Remove From Group Forms
+// ============================================================
+
+export function AddToGroupForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const groupId = (config.group_id as string) || '';
+  const groupName = (config.group_name as string) || '';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Contact Group ID</Label>
+        <Input
+          value={groupId}
+          onChange={(e) => onChange({ group_id: e.target.value })}
+          placeholder="UUID or group identifier"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Group Name (Label)</Label>
+        <Input
+          value={groupName}
+          onChange={(e) => onChange({ group_name: e.target.value })}
+          placeholder="e.g. VIP Customers / Leads"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+    </div>
+  );
+}
+
+export function RemoveFromGroupForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const groupId = (config.group_id as string) || '';
+
+  return (
+    <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Contact Group ID</Label>
+        <Input
+          value={groupId}
+          onChange={(e) => onChange({ group_id: e.target.value })}
+          placeholder="UUID of group to remove contact from"
           className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
         />
       </div>
@@ -852,8 +1211,29 @@ export function TriggerNodeForm({
         <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Starting Step</Label>
         <Select
           value={startingStep}
-          onValueChange={(val) => {
-            onChange({ starting_step: val });
+          onValueChange={(val: string | null) => {
+            const step = val || 'new_contact';
+            onChange({ starting_step: step });
+            if (step === 'ai_intent') {
+              const intentConfig = {
+                intent_name: (config.intent_name as string) || (state.trigger_config?.intent_name as string) || '',
+                intent_description: (config.intent_description as string) || (state.trigger_config?.intent_description as string) || '',
+                positive_examples: (config.positive_examples as string[]) || (state.trigger_config?.positive_examples as string[]) || [],
+                negative_examples: (config.negative_examples as string[]) || (state.trigger_config?.negative_examples as string[]) || [],
+                confidence_threshold: typeof config.confidence_threshold === 'number' ? config.confidence_threshold : 0.75,
+                priority: typeof config.priority === 'number' ? config.priority : 0,
+              };
+              onChange(intentConfig);
+              setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: intentConfig }));
+            } else if (step === 'keyword' || step === 'contact_from_ad') {
+              setState((s) => ({
+                ...s,
+                trigger_type: 'keyword',
+                trigger_config: { keywords, ...(step === 'contact_from_ad' ? { ad: true } : {}) },
+              }));
+            } else {
+              setState((s) => ({ ...s, trigger_type: 'first_inbound_message', trigger_config: {} }));
+            }
           }}
         >
           <SelectTrigger className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card">
@@ -862,10 +1242,135 @@ export function TriggerNodeForm({
           <SelectContent>
             <SelectItem value="new_contact">New contact</SelectItem>
             <SelectItem value="keyword">Text contains specific keywords</SelectItem>
+            <SelectItem value="ai_intent">AI Intent — Natural Language</SelectItem>
             <SelectItem value="contact_from_ad">Contact from Ad</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {startingStep === 'ai_intent' && (
+        <div className="space-y-3 p-3 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                Intent Name *
+              </Label>
+              <Input
+                value={(config.intent_name as string) || (state.trigger_config?.intent_name as string) || ''}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                  const patch = { intent_name: val };
+                  onChange(patch);
+                  setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+                }}
+                placeholder="e.g. appointment_booking"
+                className="h-8 text-xs font-mono border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                Priority
+              </Label>
+              <Input
+                type="number"
+                value={typeof config.priority === 'number' ? config.priority : (state.trigger_config?.priority as number) ?? 0}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 0;
+                  const patch = { priority: val };
+                  onChange(patch);
+                  setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+                }}
+                className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+              Confidence Threshold (0.1 - 1.0)
+            </Label>
+            <Input
+              type="number"
+              step="0.05"
+              min="0.1"
+              max="1.0"
+              value={typeof config.confidence_threshold === 'number' ? config.confidence_threshold : (state.trigger_config?.confidence_threshold as number) ?? 0.75}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value) || 0.75;
+                const patch = { confidence_threshold: val };
+                onChange(patch);
+                setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+              }}
+              className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+              Intent Description (AI Routing Criteria) *
+            </Label>
+            <Textarea
+              value={(config.intent_description as string) || (state.trigger_config?.intent_description as string) || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                const patch = { intent_description: val };
+                onChange(patch);
+                setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+              }}
+              placeholder="e.g. Trigger when a customer wants to schedule, book, or reserve an appointment."
+              rows={2}
+              className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+              Positive Examples (Comma-separated)
+            </Label>
+            <Input
+              value={
+                Array.isArray(config.positive_examples)
+                  ? config.positive_examples.join(', ')
+                  : Array.isArray(state.trigger_config?.positive_examples)
+                    ? (state.trigger_config.positive_examples as string[]).join(', ')
+                    : ''
+              }
+              onChange={(e) => {
+                const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                const patch = { positive_examples: list };
+                onChange(patch);
+                setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+              }}
+              placeholder="book appointment, slot chahiye, schedule demo"
+              className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+              Negative Examples (Messages to reject)
+            </Label>
+            <Input
+              value={
+                Array.isArray(config.negative_examples)
+                  ? config.negative_examples.join(', ')
+                  : Array.isArray(state.trigger_config?.negative_examples)
+                    ? (state.trigger_config.negative_examples as string[]).join(', ')
+                    : ''
+              }
+              onChange={(e) => {
+                const list = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                const patch = { negative_examples: list };
+                onChange(patch);
+                setState((s) => ({ ...s, trigger_type: 'ai_intent', trigger_config: { ...s.trigger_config, ...patch } }));
+              }}
+              placeholder="already booked, cancel, pricing kitna hai"
+              className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+        </div>
+      )}
 
       {startingStep === 'keyword' && (
         <div className="space-y-1.5">
@@ -1062,6 +1567,481 @@ export function AgentHandoverForm({
         <Label htmlFor="handover-active" className="text-xs font-medium cursor-pointer text-slate-700 dark:text-slate-300">
           Active
         </Label>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AI Message Form
+// ============================================================
+
+export function AiMessageForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const mode = (config.mode as 'static' | 'generated') || 'generated';
+  const prompt = (config.prompt as string) || '';
+  const staticText = (config.static_text as string) || '';
+  const fallbackText = (config.fallback_text as string) || 'I understand. How else can I assist you?';
+  const languageStyle = (config.language_style as string) || 'conversational Hinglish/English';
+  const maxTokens = typeof config.max_tokens === 'number' ? config.max_tokens : 300;
+  const contextSources = Array.isArray(config.context_sources)
+    ? (config.context_sources as string[])
+    : ['contact', 'conversation', 'memories'];
+
+  const toggleSource = (source: string) => {
+    const updated = contextSources.includes(source)
+      ? contextSources.filter((s) => s !== source)
+      : [...contextSources, source];
+    onChange({ context_sources: updated });
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">Response Mode</Label>
+        <Select
+          value={mode}
+          onValueChange={(val: string | null) => onChange({ mode: (val || 'generated') as 'static' | 'generated' })}
+        >
+          <SelectTrigger className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="generated">AI Generated (Context-Aware)</SelectItem>
+            <SelectItem value="static">Static Text Message</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {mode === 'generated' ? (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              AI System Prompt & Instructions
+            </Label>
+            <Textarea
+              value={prompt}
+              onChange={(e) => onChange({ prompt: e.target.value })}
+              placeholder="e.g. Acknowledge the user's booking request warmly. Confirm their appointment date and ask if they prefer morning or evening slots. Keep it concise."
+              rows={4}
+              className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Supports interpolation like <code className="bg-muted px-1 rounded">&#123;&#123;contact.name&#125;&#125;</code> or <code className="bg-muted px-1 rounded">&#123;&#123;vars.booking_date&#125;&#125;</code>.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Tone & Language Style
+            </Label>
+            <Input
+              value={languageStyle}
+              onChange={(e) => onChange({ language_style: e.target.value })}
+              placeholder="e.g. conversational Hinglish/English, empathetic, professional"
+              className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Context Sources
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'contact', label: 'Contact Profile & Tags' },
+                { id: 'conversation', label: 'Recent Message History' },
+                { id: 'memories', label: 'Customer Memories & Notes' },
+                { id: 'orders', label: 'Recent Orders & Deals' },
+              ].map(({ id, label }) => (
+                <label key={id} className="flex items-center gap-2 cursor-pointer text-[11px]">
+                  <Checkbox
+                    checked={contextSources.includes(id)}
+                    onCheckedChange={() => toggleSource(id)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              Max Response Tokens
+            </Label>
+            <Input
+              type="number"
+              min={50}
+              max={1000}
+              step={50}
+              value={maxTokens}
+              onChange={(e) => onChange({ max_tokens: parseInt(e.target.value, 10) || 300 })}
+              className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            Static Text
+          </Label>
+          <Textarea
+            value={staticText}
+            onChange={(e) => onChange({ static_text: e.target.value })}
+            placeholder="Enter the static message..."
+            rows={3}
+            className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+          />
+        </div>
+      )}
+
+      <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Safe Fallback Message (on timeout/error)
+        </Label>
+        <Textarea
+          value={fallbackText}
+          onChange={(e) => onChange({ fallback_text: e.target.value })}
+          placeholder="I understand. How else can I assist you?"
+          rows={2}
+          className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Sent if the AI model times out or encounters an unrecoverable generation error.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AI Extract Form
+// ============================================================
+
+export function AiExtractForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const instructions = (config.extraction_instructions as string) || '';
+  const fields = Array.isArray(config.fields)
+    ? (config.fields as Array<{ name: string; type?: string; description?: string; required?: boolean }>)
+    : [];
+
+  const handleAddField = () => {
+    const updated = [
+      ...fields,
+      {
+        name: `field_${fields.length + 1}`,
+        type: 'string',
+        description: '',
+        required: true,
+      },
+    ];
+    onChange({ fields: updated });
+  };
+
+  const handleUpdateField = (index: number, patch: Partial<{ name: string; type: string; description: string; required: boolean }>) => {
+    const updated = [...fields];
+    updated[index] = { ...updated[index], ...patch };
+    onChange({ fields: updated });
+  };
+
+  const handleRemoveField = (index: number) => {
+    const updated = fields.filter((_, i) => i !== index);
+    onChange({ fields: updated });
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Extraction Instructions
+        </Label>
+        <Textarea
+          value={instructions}
+          onChange={(e) => onChange({ extraction_instructions: e.target.value })}
+          placeholder="e.g. Extract key appointment details from the user's message."
+          rows={2}
+          className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            Fields to Extract ({fields.length})
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddField}
+            className="h-7 text-[11px] gap-1"
+          >
+            <Plus className="h-3 w-3" /> Add Field
+          </Button>
+        </div>
+
+        {fields.length === 0 ? (
+          <p className="text-[11px] text-slate-400 italic">No fields configured. Click &quot;Add Field&quot; above.</p>
+        ) : (
+          <div className="space-y-2.5">
+            {fields.map((f, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-card/50 p-2.5 space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={f.name}
+                    onChange={(e) => handleUpdateField(idx, { name: e.target.value })}
+                    placeholder="Field name (e.g. service_type)"
+                    className="h-7 text-xs font-mono bg-white dark:bg-card flex-1"
+                  />
+                  <Select
+                    value={f.type || 'string'}
+                    onValueChange={(val: string | null) => handleUpdateField(idx, { type: val || 'string' })}
+                  >
+                    <SelectTrigger className="h-7 w-28 text-xs bg-white dark:bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="date">date</SelectItem>
+                      <SelectItem value="email">email</SelectItem>
+                      <SelectItem value="phone">phone</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveField(idx)}
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                <Input
+                  value={f.description || ''}
+                  onChange={(e) => handleUpdateField(idx, { description: e.target.value })}
+                  placeholder="Extraction guidance (e.g. Specific service requested by customer)"
+                  className="h-7 text-xs bg-white dark:bg-card"
+                />
+
+                <label className="flex items-center gap-2 cursor-pointer text-[11px]">
+                  <Checkbox
+                    checked={f.required !== false}
+                    onCheckedChange={(c) => handleUpdateField(idx, { required: Boolean(c) })}
+                  />
+                  <span>Required (triggers missing fields branch if absent)</span>
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AI Decision Form
+// ============================================================
+
+export function AiDecisionForm({
+  config,
+  allNodes,
+  currentKey,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const prompt = (config.prompt as string) || '';
+  const branches = Array.isArray(config.branches)
+    ? (config.branches as Array<{ key?: string; branch_key?: string; description: string; next_node_key?: string }>)
+    : [];
+
+  const handleAddBranch = () => {
+    const key = `branch_${branches.length + 1}`;
+    onChange({
+      branches: [
+        ...branches,
+        { branch_key: key, key, description: 'Condition description', next_node_key: '' },
+      ],
+    });
+  };
+
+  const handleUpdateBranch = (index: number, patch: Partial<{ key?: string; branch_key?: string; description?: string; next_node_key?: string }>) => {
+    const updated = [...branches];
+    const prev = updated[index];
+    const newKey = patch.branch_key ?? patch.key ?? prev.branch_key ?? prev.key ?? `branch_${index + 1}`;
+    updated[index] = { ...prev, ...patch, branch_key: newKey, key: newKey };
+    onChange({ branches: updated });
+  };
+
+  const handleRemoveBranch = (index: number) => {
+    const updated = branches.filter((_, i) => i !== index);
+    onChange({ branches: updated });
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Decision Evaluation Prompt
+        </Label>
+        <Textarea
+          value={prompt}
+          onChange={(e) => onChange({ prompt: e.target.value })}
+          placeholder="e.g. Classify whether the customer wants to schedule a product demo, request custom pricing, or speak with support."
+          rows={3}
+          className="text-xs resize-y border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            Decision Branches ({branches.length})
+          </Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddBranch}
+            className="h-7 text-[11px] gap-1"
+          >
+            <Plus className="h-3 w-3" /> Add Branch
+          </Button>
+        </div>
+
+        {branches.map((b, idx) => (
+          <div
+            key={idx}
+            className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-card/50 p-2.5 space-y-2"
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                value={b.branch_key || b.key || ''}
+                onChange={(e) => handleUpdateBranch(idx, { branch_key: e.target.value, key: e.target.value })}
+                placeholder="Branch key (e.g. demo)"
+                className="h-7 text-xs font-mono bg-white dark:bg-card w-28 shrink-0"
+              />
+              <Input
+                value={b.description}
+                onChange={(e) => handleUpdateBranch(idx, { description: e.target.value })}
+                placeholder="Condition description (e.g. Customer wants a live demo)"
+                className="h-7 text-xs bg-white dark:bg-card flex-1"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemoveBranch(idx)}
+                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground w-20 shrink-0">Advance to:</span>
+              <NodeKeySelect
+                value={b.next_node_key || null}
+                nodes={allNodes}
+                excludeKey={currentKey}
+                onChange={(v) => handleUpdateBranch(idx, { next_node_key: v || '' })}
+                placeholder="(Stop flow)"
+                className="h-7 flex-1"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AI Summarize Form
+// ============================================================
+
+export function AiSummarizeForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const targetVar = (config.target_var as string) || 'summary';
+  const focus = (config.focus as string) || 'all';
+  const maxWords = typeof config.max_words === 'number' ? config.max_words : 100;
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Target Variable Name
+        </Label>
+        <Input
+          value={targetVar}
+          onChange={(e) => onChange({ target_var: e.target.value })}
+          placeholder="e.g. summary"
+          className="h-8 text-xs font-mono border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Result will be stored in <code className="bg-muted px-1 rounded">&#123;&#123;vars.{targetVar || 'summary'}&#125;&#125;</code> for downstream nodes.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Focus Area
+        </Label>
+        <Select
+          value={focus}
+          onValueChange={(val: string | null) => onChange({ focus: val || 'all' })}
+        >
+          <SelectTrigger className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Complete Context & Needs</SelectItem>
+            <SelectItem value="inquiry">Customer Inquiries & Questions</SelectItem>
+            <SelectItem value="complaint">Complaints & Blockers</SelectItem>
+            <SelectItem value="action_items">Action Items & Next Steps</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Maximum Words
+        </Label>
+        <Input
+          type="number"
+          min={20}
+          max={500}
+          step={20}
+          value={maxWords}
+          onChange={(e) => onChange({ max_words: parseInt(e.target.value, 10) || 100 })}
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
       </div>
     </div>
   );

@@ -21,6 +21,9 @@ import {
   Share2,
   ArrowRight,
   Clock,
+  CreditCard,
+  Calendar,
+  Award,
 } from "lucide-react";
 
 import { useTranslations } from "next-intl";
@@ -76,7 +79,7 @@ interface TemplateSummary {
   slug: string;
   name: string;
   description: string;
-  icon: "MessageSquare" | "HelpCircle" | "UserPlus";
+  icon: string;
   trigger_type: string;
   node_count: number;
 }
@@ -91,11 +94,14 @@ interface LibraryTemplate {
   created_at: string;
 }
 
-const TEMPLATE_ICONS = {
+const TEMPLATE_ICONS: Record<string, any> = {
   MessageSquare,
   HelpCircle,
   UserPlus,
-} as const;
+  CreditCard,
+  Calendar,
+  Award,
+};
 
 const LIBRARY_CATEGORIES = [
   "All",

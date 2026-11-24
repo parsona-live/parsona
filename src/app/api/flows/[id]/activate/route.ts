@@ -73,7 +73,7 @@ export async function POST(
     const [{ data: flow }, { data: nodes }] = await Promise.all([
       admin
         .from('flows')
-        .select('name, trigger_type, trigger_config, entry_node_id')
+        .select('*')
         .eq('id', id)
         .maybeSingle(),
       admin
@@ -84,12 +84,38 @@ export async function POST(
     if (!flow) {
       return NextResponse.json({ error: t('common.notFound') }, { status: 404 })
     }
+
+    // Auto-enrich trigger and entry_node_id from canvas nodes if present
+    const triggerNode = nodes?.find((n) => n.node_type === 'trigger')
+    let effTriggerType = flow.trigger_type
+    let effTriggerConfig = { ...(flow.trigger_config || {}) }
+    let effEntryId =
+      flow.entry_node_id || triggerNode?.node_key || nodes?.[0]?.node_key || null
+
+    if (triggerNode) {
+      const tc = (triggerNode.config || {}) as Record<string, any>
+      if (tc.starting_step === 'ai_intent' || tc.intent_name) {
+        effTriggerType = 'ai_intent'
+        effTriggerConfig = { ...effTriggerConfig, ...tc, starting_step: 'ai_intent' }
+      } else if (tc.starting_step === 'keyword' || tc.starting_step === 'contact_from_ad') {
+        effTriggerType = 'keyword'
+        effTriggerConfig = {
+          ...effTriggerConfig,
+          ...tc,
+          keywords: tc.keywords || effTriggerConfig.keywords || [],
+        }
+      } else if (tc.starting_step === 'new_contact') {
+        effTriggerType = 'first_inbound_message'
+        effTriggerConfig = { ...effTriggerConfig, ...tc }
+      }
+    }
+
     const issues = validateFlowForActivation(
-      flow as {
-        name: string
-        trigger_type: 'keyword' | 'first_inbound_message' | 'manual'
-        trigger_config: Record<string, unknown>
-        entry_node_id: string | null
+      {
+        name: flow.name,
+        trigger_type: effTriggerType as any,
+        trigger_config: effTriggerConfig,
+        entry_node_id: effEntryId,
       },
       (nodes ?? []) as Array<{
         node_key: string
@@ -107,6 +133,44 @@ export async function POST(
         { status: 422 },
       )
     }
+
+    // Persist enriched entry_node_id and trigger configuration upon activation
+    const updatePayload: Record<string, unknown> = {
+      status,
+      entry_node_id: effEntryId,
+      trigger_type: effTriggerType,
+      trigger_config: effTriggerConfig,
+      updated_at: new Date().toISOString(),
+    }
+    let { data: updated, error } = await admin
+      .from('flows')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .maybeSingle()
+
+    // Fallback if DB check constraint on trigger_type hasn't run migration 080
+    if (
+      error &&
+      (error.message.includes('flows_trigger_type_check') ||
+        error.message.includes('trigger_type'))
+    ) {
+      updatePayload.trigger_type = 'keyword'
+      const retry = await admin
+        .from('flows')
+        .update(updatePayload)
+        .eq('id', id)
+        .select()
+        .maybeSingle()
+      updated = retry.data
+      error = retry.error
+    }
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ flow: updated })
   }
 
   const { data: updated, error } = await admin
@@ -119,19 +183,17 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  if (status !== 'active') {
-    const { error: runsErr } = await admin
-      .from('flow_runs')
-      .update({
-        status: 'cancelled',
-        ended_at: new Date().toISOString(),
-        end_reason: `flow_${status}`,
-      })
-      .eq('flow_id', id)
-      .eq('status', 'active')
-    if (runsErr) {
-      console.error('[flows] cancel active runs failed:', runsErr.message)
-    }
+  const { error: runsErr } = await admin
+    .from('flow_runs')
+    .update({
+      status: 'cancelled',
+      ended_at: new Date().toISOString(),
+      end_reason: `flow_${status}`,
+    })
+    .eq('flow_id', id)
+    .eq('status', 'active')
+  if (runsErr) {
+    console.error('[flows] cancel active runs failed:', runsErr.message)
   }
 
   return NextResponse.json({ flow: updated })

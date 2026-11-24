@@ -151,7 +151,17 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Process events asynchronously with after() so Meta gets sub-50ms 200 OK
+  // 3. Drain pending events immediately for instant realtime inbox updates
+  try {
+    await Promise.race([
+      drainInboundQueue(db, { batchSize: 20 }),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ])
+  } catch (err) {
+    console.error('[Meta Webhook] Immediate queue drain warning:', err)
+  }
+
+  // Fallback in after() to catch any remaining or delayed queue items
   after(async () => {
     try {
       await drainInboundQueue(db, { batchSize: 20 })

@@ -64,6 +64,9 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "http_fetch":
       case "book_appointment":
       case "ai_response":
+      case "ai_message":
+      case "ai_extract":
+      case "ai_summarize":
       case "catalog":
       case "whatsapp_form":
       case "create_deal": {
@@ -79,10 +82,44 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "ai_decision": {
+        const dCfg = cfg as {
+          branches?: Array<{ branch_key?: string; key?: string; next_node_key: string }>;
+          fallback_next?: string;
+          fallback_node_key?: string;
+        };
+        const branches = Array.isArray(dCfg.branches) ? dCfg.branches : [];
+        for (let bIdx = 0; bIdx < branches.length; bIdx++) {
+          const b = branches[bIdx];
+          const bKey = b.branch_key || b.key || `${bIdx + 1}`;
+          if (b.next_node_key && knownKeys.has(b.next_node_key)) {
+            edges.push({
+              id: `${node.node_key}--branch_${bKey}--${b.next_node_key}`,
+              source: node.node_key,
+              target: b.next_node_key,
+              sourceHandle: `branch_${bKey}`,
+              label: bKey,
+            });
+          }
+        }
+        const fallback = dCfg.fallback_next || dCfg.fallback_node_key;
+        if (fallback && knownKeys.has(fallback)) {
+          edges.push({
+            id: `${node.node_key}--fallback--${fallback}`,
+            source: node.node_key,
+            target: fallback,
+            sourceHandle: "fallback",
+            label: "Fallback",
+          });
+        }
+        break;
+      }
+
       case "whatsapp_payment": {
         const pCfg = cfg as {
           next_node_key?: string;
           success_next?: string;
+          cancel_next?: string;
           failure_next?: string;
         };
         const next = pCfg.success_next || pCfg.next_node_key;
@@ -93,6 +130,15 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             target: next,
             sourceHandle: "success",
             label: "Success",
+          });
+        }
+        if (pCfg.cancel_next && knownKeys.has(pCfg.cancel_next)) {
+          edges.push({
+            id: `${node.node_key}--cancel--${pCfg.cancel_next}`,
+            source: node.node_key,
+            target: pCfg.cancel_next,
+            sourceHandle: "cancel",
+            label: "Cancelled",
           });
         }
         if (pCfg.failure_next && knownKeys.has(pCfg.failure_next)) {
@@ -271,14 +317,36 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
     case "http_fetch":
     case "book_appointment":
     case "ai_response":
+    case "ai_message":
+    case "ai_extract":
+    case "ai_summarize":
     case "catalog":
     case "whatsapp_form":
     case "create_deal":
       return [{ id: "next", label: "Next" }];
 
+    case "ai_decision": {
+      const dCfg = cfg as {
+        branches?: Array<{ branch_key?: string; key?: string; description?: string }>;
+        fallback_next?: string;
+        fallback_node_key?: string;
+      };
+      const branches = Array.isArray(dCfg.branches) ? dCfg.branches : [];
+      const handles = branches.map((b, idx) => {
+        const bKey = b.branch_key || b.key || `${idx + 1}`;
+        return {
+          id: `branch_${bKey}`,
+          label: bKey,
+        };
+      });
+      handles.push({ id: "fallback", label: "Fallback" });
+      return handles;
+    }
+
     case "whatsapp_payment":
       return [
         { id: "success", label: "Success" },
+        { id: "cancel", label: "Cancelled" },
         { id: "failure", label: "Failed" },
       ];
 
@@ -397,14 +465,40 @@ export function applyEdgeConnection(
     case "http_fetch":
     case "book_appointment":
     case "ai_response":
+    case "ai_message":
+    case "ai_extract":
+    case "ai_summarize":
     case "catalog":
     case "whatsapp_form":
     case "create_deal":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
 
+    case "ai_decision": {
+      const dCfg = node.config as {
+        branches?: Array<{ branch_key?: string; key?: string; next_node_key: string }>;
+        fallback_next?: string;
+        fallback_node_key?: string;
+      };
+      if (sourceHandle === "fallback") {
+        return { fallback_next: targetKey, fallback_node_key: targetKey };
+      }
+      if (sourceHandle.startsWith("branch_")) {
+        const branchKey = sourceHandle.slice("branch_".length);
+        const branches = (dCfg.branches || []).map((b, idx) => {
+          const bKey = b.branch_key || b.key || `${idx + 1}`;
+          return bKey === branchKey
+            ? { ...b, branch_key: bKey, key: bKey, next_node_key: targetKey }
+            : b;
+        });
+        return { branches };
+      }
+      return null;
+    }
+
     case "whatsapp_payment":
       if (sourceHandle === "success") return { success_next: targetKey };
+      if (sourceHandle === "cancel") return { cancel_next: targetKey };
       if (sourceHandle === "failure") return { failure_next: targetKey };
       if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
@@ -549,6 +643,9 @@ function patchedConfigWithoutKey(
     case "http_fetch":
     case "book_appointment":
     case "ai_response":
+    case "ai_message":
+    case "ai_extract":
+    case "ai_summarize":
     case "catalog":
     case "whatsapp_form":
     case "create_deal": {
@@ -557,15 +654,48 @@ function patchedConfigWithoutKey(
       return { ...cfg, next_node_key: "" };
     }
 
+    case "ai_decision": {
+      const dCfg = cfg as {
+        branches?: Array<{ branch_key?: string; key?: string; next_node_key: string }>;
+        fallback_next?: string;
+        fallback_node_key?: string;
+      };
+      let changed = false;
+      const branches = (dCfg.branches || []).map((b, idx) => {
+        const bKey = b.branch_key || b.key || `${idx + 1}`;
+        if (b.next_node_key === deletedKey) {
+          changed = true;
+          return { ...b, branch_key: bKey, key: bKey, next_node_key: "" };
+        }
+        return b;
+      });
+      let fallbackNext = dCfg.fallback_next || dCfg.fallback_node_key;
+      let fallbackChanged = false;
+      if (fallbackNext === deletedKey) {
+        fallbackNext = "";
+        fallbackChanged = true;
+        changed = true;
+      }
+      return changed
+        ? {
+            ...cfg,
+            branches,
+            ...(fallbackChanged ? { fallback_next: "", fallback_node_key: "" } : {}),
+          }
+        : null;
+    }
+
     case "whatsapp_payment": {
-      const pCfg = cfg as { success_next?: string; failure_next?: string; next_node_key?: string };
+      const pCfg = cfg as { success_next?: string; cancel_next?: string; failure_next?: string; next_node_key?: string };
       const sMatch = pCfg.success_next === deletedKey;
+      const cMatch = pCfg.cancel_next === deletedKey;
       const fMatch = pCfg.failure_next === deletedKey;
       const nMatch = pCfg.next_node_key === deletedKey;
-      if (!sMatch && !fMatch && !nMatch) return null;
+      if (!sMatch && !cMatch && !fMatch && !nMatch) return null;
       return {
         ...cfg,
         ...(sMatch ? { success_next: "" } : {}),
+        ...(cMatch ? { cancel_next: "" } : {}),
         ...(fMatch ? { failure_next: "" } : {}),
         ...(nMatch ? { next_node_key: "" } : {}),
       };

@@ -232,6 +232,10 @@ export async function isDeliverableUrl(
   const allowPrivateHosts = normalizedHostSet(options.allowPrivateHosts)
   if (allowPrivateHosts.has(lower)) return true
 
+  if (process.env.ALLOW_LOCAL_WEBHOOKS === 'true') {
+    if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1') return true;
+  }
+
   if (isIP(host)) return !isPrivateOrReservedIp(host);
 
   if (

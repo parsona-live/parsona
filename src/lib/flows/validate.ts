@@ -41,7 +41,7 @@ export interface ValidationIssue {
 
 interface FlowInput {
   name: string;
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "ai_intent";
   trigger_config: Record<string, unknown>;
   entry_node_id: string | null;
 }
@@ -282,6 +282,25 @@ function validateTrigger(
           message: t("blankKeywords", { count: blanks }),
         });
       }
+    }
+  } else if (trigger_type === "ai_intent") {
+    const intentName = typeof trigger_config.intent_name === "string" ? trigger_config.intent_name.trim() : "";
+    if (!intentName) {
+      issues.push({
+        severity: "error",
+        scope: "trigger",
+        field: "trigger_config.intent_name",
+        message: "AI Intent name is required (e.g. appointment_booking, pricing_inquiry)",
+      });
+    }
+    const intentDesc = typeof trigger_config.intent_description === "string" ? trigger_config.intent_description.trim() : "";
+    if (!intentDesc) {
+      issues.push({
+        severity: "warning",
+        scope: "trigger",
+        field: "trigger_config.intent_description",
+        message: "Add a clear description of what this intent handles for accurate semantic matching",
+      });
     }
   }
   // first_inbound_message / manual have no config; nothing to validate.
@@ -1007,12 +1026,20 @@ function validateNode(
       const cfg = node.config as {
         subject?: "var" | "tag" | "contact_field";
         subject_key?: string;
-        operator?: "equals" | "contains" | "present" | "absent";
+        operator?:
+          | "equals"
+          | "contains"
+          | "present"
+          | "absent"
+          | "greater_than"
+          | "less_than"
+          | "greater_or_equal"
+          | "less_or_equal";
         value?: string;
         true_next?: string;
         false_next?: string;
       };
-      if (!cfg.subject || !["var", "tag", "contact_field"].includes(cfg.subject)) {
+      if (!cfg.subject || !["var", "tag", "contact_field", "channel"].includes(cfg.subject)) {
         issues.push({
           severity: "error",
           scope: "node",
@@ -1032,7 +1059,16 @@ function validateNode(
       }
       if (
         !cfg.operator ||
-        !["equals", "contains", "present", "absent"].includes(cfg.operator)
+        ![
+          "equals",
+          "contains",
+          "present",
+          "absent",
+          "greater_than",
+          "less_than",
+          "greater_or_equal",
+          "less_or_equal",
+        ].includes(cfg.operator)
       ) {
         issues.push({
           severity: "error",
@@ -1042,7 +1078,14 @@ function validateNode(
           message: t("conditionNeedsOperator"),
         });
       } else if (
-        (cfg.operator === "equals" || cfg.operator === "contains") &&
+        [
+          "equals",
+          "contains",
+          "greater_than",
+          "less_than",
+          "greater_or_equal",
+          "less_or_equal",
+        ].includes(cfg.operator) &&
         (cfg.value === undefined || cfg.value === "")
       ) {
         issues.push({
@@ -1200,6 +1243,169 @@ function validateNode(
       break;
     }
 
+    case "ai_message": {
+      const cfg = node.config as { mode?: string; text?: string; prompt?: string; next_node_key?: string; failure_next?: string };
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("fieldRequired", { field: "next_node_key" }),
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      if (cfg.mode === "static" && !cfg.text?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "text",
+          message: "Message text is required in static mode",
+        });
+      } else if (cfg.mode !== "static" && !cfg.prompt?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "prompt",
+          message: "Prompt instruction is required for AI message generation",
+        });
+      }
+      if (cfg.failure_next && !knownKeys.has(cfg.failure_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "failure_next",
+          message: `Connects to missing node "${cfg.failure_next}"`,
+        });
+      }
+      break;
+    }
+
+    case "ai_extract": {
+      const cfg = node.config as { fields?: Array<{ name?: string }>; next_node_key?: string; missing_fields_next?: string };
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: t("fieldRequired", { field: "next_node_key" }),
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      if (!Array.isArray(cfg.fields) || cfg.fields.length === 0) {
+        issues.push({
+          severity: "warning",
+          scope: "node",
+          node_key: node.node_key,
+          field: "fields",
+          message: "Configure at least one field to extract",
+        });
+      }
+      if (cfg.missing_fields_next && !knownKeys.has(cfg.missing_fields_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "missing_fields_next",
+          message: `Connects to missing node "${cfg.missing_fields_next}"`,
+        });
+      }
+      break;
+    }
+
+    case "ai_decision": {
+      const cfg = node.config as {
+        prompt?: string;
+        branches?: Array<{ branch_key?: string; key?: string; next_node_key?: string }>;
+        fallback_next?: string;
+        fallback_node_key?: string;
+      };
+      if (!cfg.prompt?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "prompt",
+          message: "Decision prompt is required",
+        });
+      }
+      if (!Array.isArray(cfg.branches) || cfg.branches.length === 0) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "branches",
+          message: "At least one decision branch is required",
+        });
+      } else {
+        for (let bIdx = 0; bIdx < cfg.branches.length; bIdx++) {
+          const b = cfg.branches[bIdx];
+          const bKey = b.branch_key || b.key || `branch_${bIdx + 1}`;
+          if (b.next_node_key && !knownKeys.has(b.next_node_key)) {
+            issues.push({
+              severity: "error",
+              scope: "node",
+              node_key: node.node_key,
+              field: `branch:${bKey}`,
+              message: `Branch "${bKey}" connects to missing node "${b.next_node_key}"`,
+            });
+          }
+        }
+      }
+      const fallback = cfg.fallback_next || cfg.fallback_node_key;
+      if (fallback && !knownKeys.has(fallback)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "fallback_next",
+          message: `Fallback connects to missing node "${fallback}"`,
+        });
+      }
+      break;
+    }
+
+    case "ai_summarize": {
+      const cfg = node.config as { target_var?: string; next_node_key?: string };
+      if (!cfg.target_var?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "target_var",
+          message: "Target variable name is required to store the summary",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      break;
+    }
+
     case "add_to_group":
     case "remove_from_group":
     case "update_contact":
@@ -1212,7 +1418,7 @@ function validateNode(
     case "input_flow":
     case "whatsapp_form":
     case "create_deal": {
-      const cfg = node.config as { next_node_key?: string; success_next?: string; failure_next?: string };
+      const cfg = node.config as { next_node_key?: string; success_next?: string; cancel_next?: string; failure_next?: string };
       if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
         issues.push({
           severity: "error",
@@ -1229,6 +1435,15 @@ function validateNode(
           node_key: node.node_key,
           field: "success_next",
           message: `Connects to missing node "${cfg.success_next}"`,
+        });
+      }
+      if (cfg.cancel_next && !knownKeys.has(cfg.cancel_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "cancel_next",
+          message: `Connects to missing node "${cfg.cancel_next}"`,
         });
       }
       if (cfg.failure_next && !knownKeys.has(cfg.failure_next)) {
@@ -1299,24 +1514,49 @@ function outgoingEdges(node: NodeInput): string[] {
     case "assign_label":
     case "send_email":
     case "delay":
-    case "webhook":
-    case "http_fetch":
     case "book_appointment":
     case "ai_response":
+    case "ai_message":
+    case "ai_extract":
+    case "ai_summarize":
     case "catalog":
     case "whatsapp_form":
     case "create_deal": {
       const cfg = node.config as { next_node_key?: string };
       return cfg.next_node_key ? [cfg.next_node_key] : [];
     }
+    case "webhook":
+    case "http_fetch": {
+      const cfg = node.config as { next_node_key?: string; failure_next?: string };
+      const out: string[] = [];
+      if (cfg.next_node_key) out.push(cfg.next_node_key);
+      if (cfg.failure_next) out.push(cfg.failure_next);
+      return out;
+    }
+    case "ai_decision": {
+      const cfg = node.config as {
+        branches?: Array<{ next_node_key?: string }>;
+        fallback_next?: string;
+        fallback_node_key?: string;
+      };
+      const out: string[] = [];
+      for (const b of cfg.branches ?? []) {
+        if (b.next_node_key) out.push(b.next_node_key);
+      }
+      const fallback = cfg.fallback_next || cfg.fallback_node_key;
+      if (fallback) out.push(fallback);
+      return out;
+    }
     case "whatsapp_payment": {
       const cfg = node.config as {
         success_next?: string;
+        cancel_next?: string;
         failure_next?: string;
         next_node_key?: string;
       };
       const out: string[] = [];
       if (cfg.success_next) out.push(cfg.success_next);
+      if (cfg.cancel_next) out.push(cfg.cancel_next);
       if (cfg.failure_next) out.push(cfg.failure_next);
       if (cfg.next_node_key) out.push(cfg.next_node_key);
       return out;

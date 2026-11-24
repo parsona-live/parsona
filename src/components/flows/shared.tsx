@@ -295,6 +295,30 @@ export const NODE_META: Record<
     color: 'text-muted-foreground',
     category: 'flow',
   },
+  ai_message: {
+    slugSeed: 'AI message',
+    icon: Sparkles,
+    color: 'text-purple-400',
+    category: 'messaging',
+  },
+  ai_extract: {
+    slugSeed: 'AI extract',
+    icon: FileText,
+    color: 'text-indigo-400',
+    category: 'logic',
+  },
+  ai_decision: {
+    slugSeed: 'AI decision',
+    icon: GitFork,
+    color: 'text-amber-400',
+    category: 'logic',
+  },
+  ai_summarize: {
+    slugSeed: 'AI summarize',
+    icon: FileText,
+    color: 'text-teal-400',
+    category: 'logic',
+  },
 };
 
 /**
@@ -357,6 +381,10 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   whatsapp_form: { l: 0.62, c: 0.16, h: 260 },
   create_deal: { l: 0.62, c: 0.16, h: 160 },
   close_conversation: { l: 0.55, c: 0.12, h: 150 },
+  ai_message: { l: 0.58, c: 0.22, h: 305 },
+  ai_extract: { l: 0.62, c: 0.16, h: 260 },
+  ai_decision: { l: 0.70, c: 0.16, h: 55 },
+  ai_summarize: { l: 0.65, c: 0.12, h: 185 },
 };
 
 export interface NodeColors {
@@ -677,6 +705,26 @@ export function summarizeNode(
     }
     case 'close_conversation': {
       return 'Close conversation';
+    }
+    case 'ai_message': {
+      const prompt = typeof cfg.prompt === 'string' ? cfg.prompt : '';
+      return prompt ? truncate(prompt, 50) : 'Generate contextual AI message';
+    }
+    case 'ai_extract': {
+      const fields = Array.isArray(cfg.fields) ? cfg.fields : [];
+      return fields.length > 0
+        ? `Extract ${fields.length} field${fields.length === 1 ? '' : 's'}`
+        : 'AI entity extraction';
+    }
+    case 'ai_decision': {
+      const branches = Array.isArray(cfg.branches) ? cfg.branches : [];
+      return branches.length > 0
+        ? `AI decision (${branches.length} branches)`
+        : 'AI decision routing';
+    }
+    case 'ai_summarize': {
+      const targetVar = typeof cfg.target_var === 'string' ? cfg.target_var : 'summary';
+      return `Summarize context → vars.${targetVar}`;
     }
     default:
       return null;
