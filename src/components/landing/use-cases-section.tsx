@@ -5,16 +5,8 @@ import Image from 'next/image'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_ACCENT } from './shared'
 import { FadeUp, StaggerGroup, StaggerItem, TextReveal } from './motion'
 import { ShimmerLink } from '@/components/ui/shimmer-button'
-import { GlowCard, type GlowColor } from '@/components/ui/spotlight-card'
 
-const ROW_TWO_CARDS: {
-  title: string
-  description: string
-  image: string
-  alt: string
-  chips: string[]
-  glowColor: GlowColor
-}[] = [
+const ROW_TWO_CARDS = [
   {
     title: 'Clinics and services',
     description:
@@ -22,7 +14,6 @@ const ROW_TWO_CARDS: {
     image: '/images/use-cases/clinics-services.jpg',
     alt: 'Smiling receptionist holding a tablet at a modern wellness clinic front desk',
     chips: ['Appointments', 'Reminders'],
-    glowColor: 'forest',
   },
   {
     title: 'Agencies',
@@ -31,7 +22,6 @@ const ROW_TWO_CARDS: {
     image: '/images/use-cases/agencies.jpg',
     alt: 'Two agency teammates collaborating together at a shared screen in a bright studio',
     chips: ['Multi-brand', 'Roles'],
-    glowColor: 'lavender',
   },
   {
     title: 'Coaching & education',
@@ -40,7 +30,6 @@ const ROW_TWO_CARDS: {
     image: '/images/use-cases/coaching-education.jpg',
     alt: 'Mentor guiding students over laptops in a bright modern coaching studio',
     chips: ['Admissions', 'Demo calls', 'Fee reminders'],
-    glowColor: 'forest',
   },
 ]
 
@@ -76,15 +65,7 @@ export function UseCasesSection() {
           >
             {/* 1. D2C & Retail — Wide Horizontal Split Bento Card (7 cols) */}
             <StaggerItem className="col-span-7 max-[980px]:col-span-1 flex">
-              <GlowCard
-                customSize
-                surface="light"
-                glowColor="lavender"
-                radius={18}
-                borderSize={1}
-                spotlightSize={300}
-                className="w-full flex-1 grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] max-[720px]:grid-cols-1 gap-5 rounded-[18px] p-[14px] shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]"
-              >
+              <article className="group w-full flex-1 grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] max-[720px]:grid-cols-1 gap-5 bg-white border border-[var(--border)] rounded-[18px] p-[14px] overflow-hidden shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]">
                 <div className="relative w-full h-full min-h-[260px] max-[720px]:min-h-0 max-[720px]:aspect-[4/3] rounded-[12px] overflow-hidden border border-[var(--border)] bg-[var(--surface-secondary)]">
                   <Image
                     src="/images/use-cases/d2c-retail.jpg"
@@ -123,20 +104,12 @@ export function UseCasesSection() {
                     ))}
                   </div>
                 </div>
-              </GlowCard>
+              </article>
             </StaggerItem>
 
             {/* 2. Real Estate — Featured Photo Bento Card (5 cols) */}
             <StaggerItem className="col-span-5 max-[980px]:col-span-1 flex">
-              <GlowCard
-                customSize
-                surface="green"
-                glowColor="forest"
-                radius={18}
-                borderSize={1}
-                spotlightSize={280}
-                className="w-full flex-1 flex flex-col rounded-[18px] pt-[14px] px-[14px] pb-6 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]"
-              >
+              <article className="group w-full flex-1 flex flex-col bg-[var(--surface-green)] border border-[var(--border)] rounded-[18px] pt-[14px] px-[14px] pb-6 overflow-hidden shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]">
                 <div className="relative w-full aspect-[16/10] rounded-[12px] overflow-hidden border border-[var(--border)] bg-white">
                   <Image
                     src="/images/use-cases/real-estate.jpg"
@@ -172,21 +145,13 @@ export function UseCasesSection() {
                     </span>
                   ))}
                 </div>
-              </GlowCard>
+              </article>
             </StaggerItem>
 
             {/* 3, 4, 5. Clinics, Agencies, Coaching & Education (4 cols each) */}
             {ROW_TWO_CARDS.map((card) => (
               <StaggerItem key={card.title} className="col-span-4 max-[980px]:col-span-1 flex">
-                <GlowCard
-                  customSize
-                  surface="light"
-                  glowColor={card.glowColor}
-                  radius={18}
-                  borderSize={1}
-                  spotlightSize={260}
-                  className="w-full flex-1 flex flex-col rounded-[18px] pt-[14px] px-[14px] pb-6 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]"
-                >
+                <article className="group w-full flex-1 flex flex-col bg-white border border-[var(--border)] rounded-[18px] pt-[14px] px-[14px] pb-6 overflow-hidden shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-dropdown)]">
                   <div className="relative w-full aspect-[4/3] rounded-[12px] overflow-hidden border border-[var(--border)] bg-[var(--surface-secondary)]">
                     <Image
                       src={card.image}
@@ -215,21 +180,13 @@ export function UseCasesSection() {
                       </span>
                     ))}
                   </div>
-                </GlowCard>
+                </article>
               </StaggerItem>
             ))}
 
             {/* 6. Salons, Travel, Automotive & Local Teams — Full-Width Dark Bento Strip (12 cols) */}
             <StaggerItem className="col-span-12 max-[980px]:col-span-1">
-              <GlowCard
-                customSize
-                surface="dark"
-                glowColor="lavender"
-                radius={20}
-                borderSize={1.5}
-                spotlightSize={360}
-                className="w-full text-white rounded-[20px] p-8 max-[720px]:p-6 shadow-[var(--shadow-brand)] flex items-center justify-between gap-8 max-[980px]:flex-col max-[980px]:items-start"
-              >
+              <article className="w-full bg-[var(--footer-background)] text-white border border-[var(--footer-border)] rounded-[20px] p-8 max-[720px]:p-6 shadow-[var(--shadow-brand)] flex items-center justify-between gap-8 max-[980px]:flex-col max-[980px]:items-start">
                 <div className="max-w-[680px]">
                   <span
                     className={`inline-block ${MONO_FONT} font-medium text-[11px] uppercase tracking-[0.07em] px-2.5 py-1 rounded-full bg-[var(--footer-surface)] text-[var(--accent-primary)] mb-3`}
@@ -264,7 +221,7 @@ export function UseCasesSection() {
                 >
                   Join the waitlist →
                 </ShimmerLink>
-              </GlowCard>
+              </article>
             </StaggerItem>
           </StaggerGroup>
         </div>

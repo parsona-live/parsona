@@ -6,7 +6,6 @@ import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SHIMMER_OUTLINE, SHIMMER_PRIM
 import { EASE, FadeUp, TextReveal, useDownScrollReveal } from './motion'
 import { InboxConsoleDemo } from './inbox-console-demo'
 import { ShimmerLink } from '@/components/ui/shimmer-button'
-import { RibbonFieldGradient } from '@/components/ui/ribbon-field-gradient'
 
 export function HeroSection() {
   const {
@@ -17,43 +16,22 @@ export function HeroSection() {
 
   return (
     <section className="relative pt-14 pb-10 max-[720px]:pt-10 overflow-hidden bg-[var(--background)]">
-      {/* Animated Parsona Ribbon Field Gradient + Architectural Grid (Hero header only, fades clean before dashboard preview) */}
+      {/* Subtle monochrome architectural grid on #EBEDF1 */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 inset-x-0 h-[650px] max-[720px]:h-[580px] overflow-hidden"
+        className="pointer-events-none absolute top-0 inset-x-0 h-[620px] max-[720px]:h-[540px] overflow-hidden"
       >
-        <RibbonFieldGradient />
-
-        {/* Soft Forest Green & Lavender ambient corner accents inside hero stage */}
         <div
-          className="absolute top-[190px] -left-[120px] w-[480px] h-[440px] rounded-full blur-[110px] opacity-22 max-[720px]:opacity-14"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(11,59,46,0.9) 0%, rgba(24,121,78,0.35) 48%, transparent 74%)',
-          }}
-        />
-        <div
-          className="absolute top-[110px] -right-[110px] w-[500px] h-[440px] rounded-full blur-[110px] opacity-45 max-[720px]:opacity-25"
-          style={{
-            background:
-              'radial-gradient(circle, #CFC3FF 0%, rgba(185,166,245,0.45) 48%, transparent 74%)',
-          }}
-        />
-
-        {/* Masked architectural hairline grid */}
-        <div
-          className="absolute inset-0 opacity-60"
+          className="absolute inset-0 opacity-65"
           style={{
             backgroundImage:
-              'linear-gradient(to right, rgba(11,59,46,0.045) 1px, transparent 1px), linear-gradient(to bottom, rgba(11,59,46,0.045) 1px, transparent 1px)',
+              'linear-gradient(to right, rgba(212,216,223,0.55) 1px, transparent 1px), linear-gradient(to bottom, rgba(212,216,223,0.55) 1px, transparent 1px)',
             backgroundSize: '44px 44px',
             maskImage: 'radial-gradient(ellipse 80% 65% at 50% 24%, #000 18%, transparent 100%)',
             WebkitMaskImage:
               'radial-gradient(ellipse 80% 65% at 50% 24%, #000 18%, transparent 100%)',
           }}
         />
-
-        {/* Minimal geometric orbital arcs & alignment ticks */}
         <svg
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[1360px] h-[560px] opacity-55 max-[980px]:opacity-25"
           viewBox="0 0 1360 560"
@@ -61,27 +39,9 @@ export function HeroSection() {
         >
           <circle cx="680" cy="270" r="290" stroke="#D4D8DF" strokeWidth="1" strokeDasharray="4 6" />
           <circle cx="680" cy="270" r="430" stroke="#D4D8DF" strokeWidth="1" />
-          <path d="M230 120h12M236 114v12" stroke="#9FC2B4" strokeWidth="1.2" />
-          <path d="M1118 140h12M1124 134v12" stroke="#B9A6F5" strokeWidth="1.2" />
-          <circle cx="970" cy="270" r="3.5" fill="#CFC3FF" stroke="#43336F" strokeWidth="1" />
-          <circle cx="390" cy="270" r="3" fill="#FFFFFF" stroke="#0B3B2E" strokeWidth="1.2" />
+          <path d="M230 120h12M236 114v12" stroke="#ACADB1" strokeWidth="1.2" />
+          <path d="M1118 140h12M1124 134v12" stroke="#ACADB1" strokeWidth="1.2" />
         </svg>
-
-        {/* Smooth top highlight & bottom transition into solid #EBEDF1 above dashboard console */}
-        <div
-          className="absolute inset-x-0 top-0 h-20"
-          style={{
-            background:
-              'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%)',
-          }}
-        />
-        <div
-          className="absolute inset-x-0 bottom-0 h-48"
-          style={{
-            background:
-              'linear-gradient(to bottom, rgba(235,237,241,0) 0%, rgba(235,237,241,0.78) 58%, #EBEDF1 100%)',
-          }}
-        />
       </div>
 
       <div className="relative z-10 max-w-[1280px] mx-auto px-8 max-[720px]:px-5">
@@ -120,7 +80,7 @@ export function HeroSection() {
             <p className="mt-6 text-[18px] max-[720px]:text-[16.5px] text-[var(--text-body)] max-w-[695px] mx-auto leading-[1.6] text-pretty">
               Parsona brings WhatsApp, Instagram, Facebook and phone calls into one shared team
               inbox. AI agents handle customer messages and calls, while your team can manage
-              leads, collaborate and automate follow-ups using built-in CRM and workflow
+              leads, collaborate and automate follow-ups using built-in CRM.
             </p>
           </FadeUp>
 
