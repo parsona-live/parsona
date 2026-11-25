@@ -3,12 +3,18 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
-import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
+import { EASE, FadeUp, TextReveal, useDownScrollReveal } from './motion'
 import { InboxConsoleDemo } from './inbox-console-demo'
 import { ShimmerLink } from '@/components/ui/shimmer-button'
 import { RibbonFieldGradient } from '@/components/ui/ribbon-field-gradient'
 
 export function HeroSection() {
+  const {
+    ref: proofBarRef,
+    isVisible: proofBarVisible,
+    instant: proofBarInstant,
+  } = useDownScrollReveal<HTMLDivElement>(true)
+
   return (
     <section className="relative pt-14 pb-10 max-[720px]:pt-10 overflow-hidden bg-[var(--background)]">
       {/* Animated Parsona Ribbon Field Gradient + Architectural Grid (Hero header only, fades clean before dashboard preview) */}
@@ -175,10 +181,10 @@ export function HeroSection() {
 
         {/* Trust / Waitlist Social Proof Bar */}
         <motion.div
+          ref={proofBarRef}
           initial={{ opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={VIEWPORT}
-          transition={{ duration: 0.52, ease: EASE }}
+          animate={proofBarVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+          transition={proofBarInstant ? { duration: 0 } : { duration: 0.52, ease: EASE }}
           className="mt-10 max-[720px]:mt-8 flex items-center justify-between gap-5 flex-wrap px-6 py-4 max-[720px]:py-5 bg-white border border-[var(--border)] rounded-[16px] shadow-[var(--shadow-card)] max-[720px]:flex-col max-[720px]:items-center max-[720px]:text-center max-[720px]:gap-4"
         >
           <div className="flex items-center gap-4 flex-wrap max-[720px]:flex-col max-[720px]:items-center max-[720px]:gap-3">
@@ -193,9 +199,12 @@ export function HeroSection() {
                 <motion.span
                   key={avatar.initials}
                   initial={{ opacity: 0, scale: 0.75, x: -8 }}
-                  whileInView={{ opacity: 1, scale: 1, x: 0 }}
-                  viewport={VIEWPORT}
-                  transition={{ duration: 0.38, delay: 0.06 * i, ease: EASE }}
+                  animate={
+                    proofBarVisible ? { opacity: 1, scale: 1, x: 0 } : { opacity: 0, scale: 0.75, x: -8 }
+                  }
+                  transition={
+                    proofBarInstant ? { duration: 0 } : { duration: 0.38, delay: 0.06 * i, ease: EASE }
+                  }
                   className={`w-10 h-10 max-[720px]:w-9 max-[720px]:h-9 rounded-full border-2 border-white grid place-items-center ${MONO_FONT} font-semibold text-[11.5px]`}
                   style={{ backgroundColor: avatar.bg, color: avatar.text }}
                 >

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { EASE, VIEWPORT } from './motion'
+import { EASE, useDownScrollReveal } from './motion'
 import { ParsonaLogoMark } from '@/components/ui/parsona-logo'
 
 export const DISPLAY_FONT = '[font-family:var(--font-display)]'
@@ -63,12 +63,14 @@ export function SectionPill({
   bgClass = 'bg-white',
   dotClass = 'bg-[var(--brand-primary)]',
 }: SectionPillProps) {
+  const { ref, isVisible, instant } = useDownScrollReveal<HTMLDivElement>(true)
+
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 12, scale: 0.96 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={VIEWPORT}
-      transition={{ duration: 0.45, ease: EASE }}
+      animate={isVisible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 12, scale: 0.96 }}
+      transition={instant ? { duration: 0 } : { duration: 0.45, ease: EASE }}
       className={`justify-self-center inline-flex items-center gap-[10px] py-1.5 pr-4 pl-3 mb-7 max-[720px]:mb-5 rounded-full border border-[var(--border)] text-[var(--text-secondary)] ${MONO_FONT} font-medium text-[12px] tracking-[0.06em] uppercase shadow-[var(--shadow-card)] ${bgClass}`}
     >
       <i className={`w-[8px] h-[8px] rounded-full shrink-0 ${dotClass}`} />
@@ -95,17 +97,23 @@ export function HighlightBubble({
   trigger = 'inView',
   delay = 0.16,
 }: HighlightBubbleProps) {
+  const { ref, isVisible, instant } = useDownScrollReveal<HTMLSpanElement>(trigger === 'inView')
+  const show = trigger === 'mount' || isVisible
+
   return (
     <motion.span
+      ref={trigger === 'inView' ? ref : undefined}
       initial={{ opacity: 0, y: 12, scale: 0.94 }}
-      {...(trigger === 'mount'
-        ? { animate: { opacity: 1, y: 0, scale: 1 } }
-        : { whileInView: { opacity: 1, y: 0, scale: 1 }, viewport: VIEWPORT })}
-      transition={{
-        duration: 0.48,
-        delay,
-        ease: EASE,
-      }}
+      animate={show ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 12, scale: 0.94 }}
+      transition={
+        instant
+          ? { duration: 0 }
+          : {
+              duration: 0.48,
+              delay,
+              ease: EASE,
+            }
+      }
       className={`inline-block ${bgClass} px-[0.22em] pb-[0.04em] rounded-[0.25em] [box-decoration-break:clone] [-webkit-box-decoration-break:clone]`}
     >
       {children}

@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill } from './shared'
-import { FadeUp, TextReveal } from './motion'
+import { FadeUp, TextReveal, useDownScrollReveal } from './motion'
 
 /* ------------------------------------------------------------------ */
 /* Data                                                                */
@@ -151,40 +151,23 @@ const KEYFRAMES = `
 @keyframes channels-ping{0%{transform:scale(.85);opacity:.5}100%{transform:scale(2);opacity:0}}
 `
 
-// Replays whenever the section scrolls into view.
-function useInView<T extends Element>(threshold = 0.12) {
-  const ref = useRef<T | null>(null)
-  const [inView, setInView] = useState(
-    () => typeof window !== 'undefined' && typeof IntersectionObserver === 'undefined',
-  )
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        setInView(entry.isIntersecting)
-      },
-      { threshold },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [threshold])
-  return [ref, inView] as const
-}
-
 /* ------------------------------------------------------------------ */
 /* Section                                                             */
 /* ------------------------------------------------------------------ */
 
 export function ChannelsSection() {
-  const [listRef, listIn] = useInView<HTMLUListElement>()
-  const [tlRef, tlIn] = useInView<HTMLDivElement>()
+  const { ref: listRef, isVisible: listIn, instant: listInstant } =
+    useDownScrollReveal<HTMLUListElement>(true, 0.12)
+  const { ref: tlRef, isVisible: tlIn, instant: tlInstant } =
+    useDownScrollReveal<HTMLDivElement>(true, 0.12)
   // Hover / tap a channel to spotlight its activity in the timeline.
   const [focus, setFocus] = useState<ChannelName | null>(null)
 
-  const rise = (on: boolean) =>
+  const rise = (on: boolean, instant: boolean) =>
     on
-      ? 'animate-[channels-rise_0.5s_ease-out_both] motion-reduce:animate-none'
+      ? instant
+        ? 'opacity-100'
+        : 'animate-[channels-rise_0.5s_ease-out_both] motion-reduce:animate-none'
       : 'opacity-0 motion-reduce:opacity-100'
 
   return (
@@ -221,8 +204,8 @@ export function ChannelsSection() {
                   return (
                     <li
                       key={ch.name}
-                      className={`rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)] overflow-hidden ${ch.borderClass} ${rise(listIn)}`}
-                      style={{ animationDelay: `${i * 100}ms` }}
+                      className={`rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-card)] overflow-hidden ${ch.borderClass} ${rise(listIn, listInstant)}`}
+                      style={listInstant ? undefined : { animationDelay: `${i * 100}ms` }}
                     >
                       <button
                         type="button"
@@ -288,7 +271,9 @@ export function ChannelsSection() {
                   aria-hidden="true"
                   className={`absolute left-[11px] top-[22px] bottom-[22px] w-[2px] bg-[var(--border)] origin-top ${
                     tlIn
-                      ? 'animate-[channels-line_1.1s_ease-out_both] motion-reduce:animate-none'
+                      ? tlInstant
+                        ? 'scale-y-100'
+                        : 'animate-[channels-line_1.1s_ease-out_both] motion-reduce:animate-none'
                       : 'scale-y-0 motion-reduce:scale-y-100'
                   }`}
                 />
@@ -298,8 +283,8 @@ export function ChannelsSection() {
                   return (
                     <li
                       key={idx}
-                      className={rise(tlIn)}
-                      style={{ animationDelay: `${150 + idx * 140}ms` }}
+                      className={rise(tlIn, tlInstant)}
+                      style={tlInstant ? undefined : { animationDelay: `${150 + idx * 140}ms` }}
                     >
                       <div
                         className={`relative py-[14px] pl-10 transition-opacity duration-300 ${
@@ -311,10 +296,12 @@ export function ChannelsSection() {
                             ev.preview ? 'border-dashed' : ''
                           } ${
                             tlIn
-                              ? 'animate-[channels-pop_0.45s_ease-out_both] motion-reduce:animate-none'
+                              ? tlInstant
+                                ? 'scale-100'
+                                : 'animate-[channels-pop_0.45s_ease-out_both] motion-reduce:animate-none'
                               : 'scale-0 motion-reduce:scale-100'
                           }`}
-                          style={{ animationDelay: `${150 + idx * 140}ms` }}
+                          style={tlInstant ? undefined : { animationDelay: `${150 + idx * 140}ms` }}
                           aria-hidden="true"
                         />
                         <time className={`${MONO_FONT} text-[12px] text-[var(--text-secondary)]`}>

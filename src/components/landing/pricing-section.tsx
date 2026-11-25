@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { DISPLAY_FONT, HighlightBubble, MONO_FONT, SectionPill, SHIMMER_OUTLINE, SHIMMER_PRIMARY } from './shared'
-import { EASE, FadeUp, TextReveal, VIEWPORT } from './motion'
+import { EASE, FadeUp, TextReveal, useDownScrollReveal } from './motion'
 import { ShimmerLink } from '@/components/ui/shimmer-button'
 
 interface PricingTier {
@@ -89,6 +89,55 @@ function CheckIcon() {
     >
       <path d="M5 13l4 4L19 7" />
     </svg>
+  )
+}
+
+function PricingCardWrapper({
+  cardIndex,
+  popular,
+  children,
+}: {
+  cardIndex: number
+  popular?: boolean
+  children: React.ReactNode
+}) {
+  const { ref, isVisible, instant } = useDownScrollReveal<HTMLElement>(true)
+  const [settled, setSettled] = useState(false)
+
+  return (
+    <MotionConfig reducedMotion={instant && !settled ? 'always' : 'user'}>
+      <motion.article
+        ref={ref}
+        initial="hidden"
+        animate={isVisible ? 'visible' : 'hidden'}
+        onAnimationComplete={() => {
+          if (isVisible) setSettled(true)
+        }}
+        variants={{
+          hidden: { opacity: 0, y: 28, scale: 0.98 },
+          visible: {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            transition: instant
+              ? { duration: 0 }
+              : {
+                  duration: 0.5,
+                  delay: cardIndex * 0.1,
+                  ease: EASE,
+                  when: 'beforeChildren',
+                },
+          },
+        }}
+        className={`relative flex flex-col rounded-[18px] p-8 max-[720px]:p-6 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 bg-white ${
+          popular
+            ? 'border-[1.5px] border-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/15 shadow-[var(--shadow-brand)]'
+            : 'border border-[var(--border)] shadow-[var(--shadow-card)] hover:border-[var(--border-strong)]'
+        }`}
+      >
+        {children}
+      </motion.article>
+    </MotionConfig>
   )
 }
 
@@ -178,33 +227,12 @@ export function PricingSection() {
           <div className="mt-12 grid grid-cols-3 max-[980px]:grid-cols-1 gap-6 items-stretch">
             {PRICING_TIERS.map((tier, cardIndex) => {
               const price = isYearly ? tier.yearlyPrice : tier.monthlyPrice
-              const baseDelay = cardIndex * 0.1
 
               return (
-                <motion.article
+                <PricingCardWrapper
                   key={tier.name}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={VIEWPORT}
-                  variants={{
-                    hidden: { opacity: 0, y: 28, scale: 0.98 },
-                    visible: {
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                      transition: {
-                        duration: 0.5,
-                        delay: baseDelay,
-                        ease: EASE,
-                        when: 'beforeChildren',
-                      },
-                    },
-                  }}
-                  className={`relative flex flex-col rounded-[18px] p-8 max-[720px]:p-6 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 bg-white ${
-                    tier.popular
-                      ? 'border-[1.5px] border-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/15 shadow-[var(--shadow-brand)]'
-                      : 'border border-[var(--border)] shadow-[var(--shadow-card)] hover:border-[var(--border-strong)]'
-                  }`}
+                  cardIndex={cardIndex}
+                  popular={tier.popular}
                 >
                   {tier.popular && (
                     <motion.span
@@ -362,7 +390,7 @@ export function PricingSection() {
                       {tier.ctaLabel}
                     </ShimmerLink>
                   </motion.div>
-                </motion.article>
+                </PricingCardWrapper>
               )
             })}
           </div>
