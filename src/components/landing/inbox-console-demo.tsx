@@ -124,8 +124,8 @@ const INITIAL_CONTACTS: ContactThread[] = [
     appointmentStatus: 'Confirmed',
     leadStage: 'Appointment Booked',
     connectedChannels: [
-      { channel: 'WhatsApp', label: 'abu bakar', sublabel: '+91 98123 45678', active: true },
-      { channel: 'Instagram', label: 'abu bakar', sublabel: '@abubakar.com' },
+      { channel: 'WhatsApp', label: 'Pooja Khanna', sublabel: '+91 98123 45678', active: true },
+      { channel: 'Instagram', label: 'Pooja Khanna', sublabel: '@pooja.khanna' },
     ],
     aiDraftSuggestion:
       'Ji Pooja ji, Krishna Skin & Hair Clinic, Noida mein aapki 27 Nov, 4:00 PM ki appointment confirmed hai. Consultation se 10 min pehle pahunchne ki koshish karein.',

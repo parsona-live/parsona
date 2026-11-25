@@ -5,16 +5,16 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button relative z-0 overflow-hidden inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button relative z-0 overflow-hidden inline-flex shrink-0 items-center justify-center rounded-[10px] border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary-hover active:bg-[var(--brand-active)]",
+          "bg-primary text-primary-foreground hover:bg-primary-hover shadow-[var(--shadow-brand)]",
         outline:
-          "border-border bg-card text-primary hover:bg-primary-soft hover:border-primary/40 aria-expanded:bg-primary-soft aria-expanded:text-primary dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-card text-primary shadow-[var(--shadow-card)] hover:bg-muted hover:border-primary/40 aria-expanded:bg-muted aria-expanded:text-primary dark:border-input",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-muted aria-expanded:bg-muted aria-expanded:text-secondary-foreground",
         accent:
           "bg-[var(--accent-primary)] text-[#30245A] hover:bg-[var(--accent-hover)]",
         ghost:
@@ -56,13 +56,30 @@ function Button({
   VariantProps<typeof buttonVariants> & {
     shimmer?: boolean
   }) {
+  const hasCustomBg =
+    typeof className === "string" &&
+    /(?:^|\s)!?bg-(?!transparent\b|primary(?:\/\d+)?\b|card\b|white\b|secondary\b)/.test(
+      className
+    )
+
   const showShimmer =
     shimmer &&
+    !hasCustomBg &&
     variant !== "ghost" &&
     variant !== "link" &&
+    variant !== "destructive" &&
     !String(size).startsWith("icon")
 
   const isLightSurface = variant === "outline" || variant === "secondary"
+
+  const backdropClass =
+    variant === "outline"
+      ? "bg-card group-hover/button:bg-muted"
+      : variant === "secondary"
+        ? "bg-secondary group-hover/button:bg-muted"
+        : variant === "accent"
+          ? "bg-[var(--accent-primary)] group-hover/button:bg-[var(--accent-hover)]"
+          : "bg-primary group-hover/button:bg-primary-hover"
 
   return (
     <ButtonPrimitive
@@ -75,33 +92,44 @@ function Button({
         <span
           aria-hidden="true"
           style={{ "--spread": "90deg", "--speed": "3s" } as React.CSSProperties}
-          className="pointer-events-none block absolute inset-0 rounded-[inherit] p-[1px] opacity-85 [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [mask-composite:exclude] [-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] [-webkit-mask-composite:xor]"
+          className="pointer-events-none block -z-30 blur-[2px] absolute inset-0 overflow-visible [container-type:size]"
         >
-          <span className="block absolute inset-0 overflow-visible [container-type:size]">
-            <span className="block absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1]">
-              <span
-                className={cn(
-                  "block animate-spin-around absolute -inset-full w-auto rotate-0",
-                  isLightSurface
-                    ? "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,rgba(11,59,46,0.55)_var(--spread),transparent_var(--spread))]"
-                    : "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,rgba(207,195,255,0.85)_var(--spread),transparent_var(--spread))]"
-                )}
-              />
-            </span>
+          <span className="block absolute inset-0 h-[100cqh] animate-shimmer-slide [aspect-ratio:1] [border-radius:0] [mask:none]">
+            <span
+              className={cn(
+                "block animate-spin-around absolute -inset-full w-auto rotate-0 [translate:0_0]",
+                variant === "accent"
+                  ? "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,#ffffff_var(--spread),transparent_var(--spread))]"
+                  : isLightSurface
+                    ? "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,var(--primary)_var(--spread),transparent_var(--spread))] dark:[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,#CFC3FF_var(--spread),transparent_var(--spread))]"
+                    : "[background:conic-gradient(from_calc(270deg-(var(--spread)*0.5)),transparent_0,#CFC3FF_var(--spread),transparent_var(--spread))]"
+              )}
+            />
           </span>
         </span>
       )}
       {children}
       {showShimmer && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "pointer-events-none block inset-0 absolute size-full rounded-[inherit] transition-all duration-300",
-            isLightSurface
-              ? "shadow-[inset_0_-4px_8px_rgba(11,59,46,0.06)] group-hover/button:shadow-[inset_0_-4px_8px_rgba(11,59,46,0.12)]"
-              : "shadow-[inset_0_-6px_10px_#ffffff1f] group-hover/button:shadow-[inset_0_-5px_10px_#ffffff38]"
-          )}
-        />
+        <>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none block inset-0 absolute size-full rounded-[inherit] transition-all duration-300 ease-in-out",
+              isLightSurface
+                ? "shadow-[inset_0_-6px_10px_rgba(11,59,46,0.05)] group-hover/button:shadow-[inset_0_-6px_10px_rgba(11,59,46,0.11)] group-active/button:shadow-[inset_0_-8px_10px_rgba(11,59,46,0.14)]"
+                : variant === "accent"
+                  ? "shadow-[inset_0_-6px_10px_rgba(48,36,90,0.08)] group-hover/button:shadow-[inset_0_-6px_10px_rgba(48,36,90,0.14)]"
+                  : "shadow-[inset_0_-8px_10px_#ffffff1f] group-hover/button:shadow-[inset_0_-6px_10px_#ffffff3f] group-active/button:shadow-[inset_0_-10px_10px_#ffffff3f]"
+            )}
+          />
+          <span
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none block absolute -z-20 inset-px rounded-[inherit] transition-colors duration-200",
+              backdropClass
+            )}
+          />
+        </>
       )}
     </ButtonPrimitive>
   )
