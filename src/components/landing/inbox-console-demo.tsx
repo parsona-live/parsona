@@ -124,7 +124,7 @@ const INITIAL_CONTACTS: ContactThread[] = [
     appointmentStatus: 'Confirmed',
     leadStage: 'Appointment Booked',
     connectedChannels: [
-      { channel: 'WhatsApp', label: 'Pooja Khanna', sublabel: '+91 98123 45678', active: true },
+      { channel: 'WhatsApp', label: 'abu bakar', sublabel: '+91 98123 45678', active: true },
       { channel: 'Instagram', label: 'Pooja Khanna', sublabel: '@pooja.khanna' },
     ],
     aiDraftSuggestion:
