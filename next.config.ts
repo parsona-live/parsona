@@ -40,9 +40,9 @@ const SECURITY_HEADERS = [
     value: [
       "default-src 'self'",
       // Next.js needs 'unsafe-inline' for its inline hydration script
-      // and 'unsafe-eval' in dev + some production optimisations.
-      // Nonce-based CSP is a later project.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // and 'unsafe-eval' in dev + some production optimisations, plus
+      // Cloudflare Web Analytics beacon when hosted on Cloudflare.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
       // Tailwind + inline style attributes on lots of components.
       "style-src 'self' 'unsafe-inline'",
       // Supabase public-bucket avatars, contact avatars (arbitrary
@@ -53,9 +53,8 @@ const SECURITY_HEADERS = [
       // and Supabase public-bucket audio/video the inbox renders.
       "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
-      // Supabase REST + realtime (WSS). All Meta API calls happen
-      // server-side, so graph.facebook.com does not belong here.
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      // Supabase REST + realtime (WSS) and Cloudflare Web Analytics telemetry.
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
