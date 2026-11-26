@@ -3,12 +3,16 @@ import { loadAiConfig } from './config'
 import { buildConversationContext } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
-import { buildSystemPrompt, sanitizeAiReply } from './defaults'
+import { buildSystemPrompt, sanitizeAiReply, extractFlowTriggerDirective, isPureGreeting } from './defaults'
 import { buildContactContextCapsule } from './context-capsule'
 import { logContactActivity } from '@/lib/contacts/timeline'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
-import { latestUserMessage } from './query'
+import { latestUserMessage, buildContextualQuery } from './query'
+import {
+  loadActiveFlowCatalog,
+  triggerFlowForContact,
+} from '@/lib/flows/engine'
 import {
   engineSendText,
   loadAccountMetaCredentials,
@@ -183,22 +187,23 @@ export async function dispatchInboundToAiReply(
       await showTypingIndicator(db, accountId, inboundMessageId)
     }
 
-    // Ground the reply in the account's knowledge base (best-effort).
-    const knowledge = await retrieveKnowledge(
-      db,
-      accountId,
-      config,
-      latestUserMessage(messages),
-    )
-
-    const capsule = await buildContactContextCapsule(db, contactId, {
-      maxActivities: 8,
-      currentChannel: conv.channel || 'whatsapp',
-      conversationId,
-    }).catch((err) => {
-      console.warn('[auto-reply] Failed to build context capsule:', err)
-      return null
-    })
+    // Ground the reply in the account's knowledge base using contextual retrieval query.
+    const contextualQuery = buildContextualQuery(messages)
+    const [knowledge, flows, capsule] = await Promise.all([
+      retrieveKnowledge(db, accountId, config, contextualQuery),
+      loadActiveFlowCatalog(db, accountId).catch((err) => {
+        console.warn('[ai auto-reply] Failed to load active flow catalog:', err)
+        return []
+      }),
+      buildContactContextCapsule(db, contactId, {
+        maxActivities: 8,
+        currentChannel: conv.channel || 'whatsapp',
+        conversationId,
+      }).catch((err) => {
+        console.warn('[auto-reply] Failed to build context capsule:', err)
+        return null
+      }),
+    ])
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
@@ -207,6 +212,7 @@ export async function dispatchInboundToAiReply(
       contactName: capsule?.name || undefined,
       capsuleContext: capsule?.renderedPromptContext || null,
       currentChannel: conv.channel || 'whatsapp',
+      flows,
     })
 
     const { text, handoff, usage } = await generateReply({
@@ -229,7 +235,78 @@ export async function dispatchInboundToAiReply(
       usage,
     })
 
-    const cleanText = sanitizeAiReply(text)
+    // Parse flow trigger directive (e.g. [TRIGGER_FLOW: appointment_booking])
+    const { cleanText: textWithoutTrigger, triggeredFlow: rawTriggeredFlow } = extractFlowTriggerDirective(text)
+    const cleanText = sanitizeAiReply(textWithoutTrigger)
+
+    // Guard against LLM hallucinating an action flow trigger on a pure greeting ("Hi", "Hello", etc.)
+    let triggeredFlow = rawTriggeredFlow
+    if (triggeredFlow && isPureGreeting(latestUserMessage(messages))) {
+      const matchedFlow = flows.find(
+        (f) => f.id === triggeredFlow || f.name.toLowerCase() === triggeredFlow!.toLowerCase(),
+      )
+      const isGreetingFlow = Boolean(
+        matchedFlow &&
+          (/greet|welcome|intro/i.test(matchedFlow.name) ||
+            /greet|welcome/i.test(matchedFlow.intentName || '')),
+      )
+      if (!isGreetingFlow) {
+        console.log(
+          `[ai auto-reply] Suppressed AI flow trigger "${triggeredFlow}" on pure greeting "${latestUserMessage(messages)}"`,
+        )
+        triggeredFlow = null
+      }
+    }
+
+    // Autonomous Flow Triggering Path:
+    // When the LLM decides an active flow should handle the customer's request:
+    if (triggeredFlow && !handoff) {
+      console.log(`[ai auto-reply] AI autonomous flow trigger: "${triggeredFlow}" for contact ${contactId}`)
+
+      // Claim reply slot if needed
+      await db.rpc('claim_ai_reply_slot', {
+        conversation_id: conversationId,
+        max_replies: config.autoReplyMaxPerConversation,
+      })
+
+      // Send the conversational confirmation/intro text if present
+      if (cleanText) {
+        if (conv.channel === 'instagram' || conv.channel === 'facebook') {
+          await dispatchOutboundMessage({
+            db,
+            accountId,
+            userId: configOwnerUserId,
+            conversationId,
+            contactId,
+            text: cleanText,
+            aiGenerated: true,
+            senderType: 'bot',
+          }).catch((err) => console.warn('[ai auto-reply] Failed to dispatch intro text before flow:', err))
+        } else {
+          await engineSendText({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId,
+            contactId,
+            text: cleanText,
+            aiGenerated: true,
+          }).catch((err) => console.warn('[ai auto-reply] Failed to send intro text before flow:', err))
+        }
+      }
+
+      // Execute the interactive flow entry node directly!
+      const flowOutcome = await triggerFlowForContact(db, {
+        accountId,
+        contactId,
+        conversationId,
+        flowIdOrName: triggeredFlow,
+        configOwnerUserId,
+        triggerSource: 'ai_intent',
+      })
+
+      console.log(`[ai auto-reply] triggerFlowForContact outcome for "${triggeredFlow}":`, flowOutcome)
+      return
+    }
 
     if (handoff || !cleanText) {
       // The model can't (or shouldn't) answer — stop auto-replying on

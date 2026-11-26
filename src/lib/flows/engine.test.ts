@@ -99,6 +99,7 @@ import {
   isTerminal,
   evaluateConditionPredicate,
   interpolateVars,
+  extractInteractiveSelectionVars,
 } from "./engine";
 import type {
   engineSendInteractiveButtons,
@@ -767,5 +768,70 @@ describe("interpolateVars variable syntax support", () => {
   it("handles empty or missing variables gracefully without breaking", () => {
     expect(interpolateVars("Welcome {{vars.missing}}!", {})).toBe("Welcome !");
     expect(interpolateVars("", { name: "test" })).toBe("");
+  });
+});
+
+describe("extractInteractiveSelectionVars", () => {
+  it("captures selected_card_title and custom set_vars when a carousel card button is tapped", () => {
+    const carouselNode = {
+      id: "n-1",
+      flow_id: "f-1",
+      node_key: "send_carousel",
+      node_type: "send_carousel",
+      title: "Doctors",
+      ui_position: { x: 0, y: 0 },
+      config: {
+        text: "Meet our doctors",
+        cards: [
+          {
+            header_image_url: "https://example.com/nisha.jpg",
+            body_text: "Dr. Nisha Tupkar\nSpeciality: Gynaecologist\nConsultation Fee: ₹500",
+            buttons: [
+              {
+                reply_id: "book_nisha",
+                title: "Book Appointment",
+                next_node_key: "launch_booking",
+                set_vars: { doctor: "Dr. Nisha Tupkar", fee: "500" },
+              },
+            ],
+          },
+          {
+            header_image_url: "https://example.com/yash.jpg",
+            body_text: "Dr. Yash Tupkar\nQualification: MBBS, MD",
+            buttons: [
+              {
+                reply_id: "book_yash",
+                title: "Book Appointment",
+                next_node_key: "launch_booking",
+              },
+            ],
+          },
+        ],
+      },
+      created_at: "",
+      updated_at: "",
+    } as any;
+
+    const captured = extractInteractiveSelectionVars(carouselNode, {
+      kind: "interactive_reply",
+      reply_id: "book_nisha",
+      reply_title: "Book Appointment",
+      meta_message_id: "wamid-1",
+    });
+
+    expect(captured.selected_card_title).toBe("Dr. Nisha Tupkar");
+    expect(captured.selected_button_title).toBe("Book Appointment");
+    expect(captured.selected_reply_id).toBe("book_nisha");
+    expect(captured.doctor).toBe("Dr. Nisha Tupkar");
+    expect(captured.fee).toBe("500");
+
+    // Second card without explicit set_vars still captures selected_card_title automatically
+    const capturedYash = extractInteractiveSelectionVars(carouselNode, {
+      kind: "interactive_reply",
+      reply_id: "book_yash",
+      reply_title: "Book Appointment",
+      meta_message_id: "wamid-2",
+    });
+    expect(capturedYash.selected_card_title).toBe("Dr. Yash Tupkar");
   });
 });

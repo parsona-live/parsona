@@ -71,6 +71,7 @@ import {
   BookAppointmentForm,
   AddToGroupForm,
   RemoveFromGroupForm,
+  TriggerFlowForm,
 } from "./action-node-forms";
 
 interface NodeConfigFormProps {
@@ -271,6 +272,14 @@ export function NodeConfigForm({
           />
           <TranslationsSection node={node} onUpdateConfig={onUpdateConfig} />
         </div>
+      );
+
+    case "trigger_flow":
+      return (
+        <TriggerFlowForm
+          config={cfg as Record<string, unknown>}
+          onChange={onUpdateConfig}
+        />
       );
 
     case "trigger":

@@ -145,6 +145,35 @@ const COMMON_STOPWORDS = new Set([
 ]);
 
 /**
+ * Separates positive intent description from negative/exclusion clauses such as
+ * "Do not trigger for booking, location, fees...".
+ */
+function splitIntentDescription(desc: string): { positive: string; excluded: string } {
+  if (!desc) return { positive: '', excluded: '' };
+  const exclusionMatch = desc.match(
+    /(?:^|[.;\n])\s*(?:do\s+not\s+trigger|don'?t\s+trigger|never\s+trigger|avoid\s+triggering|exclude|not\s+for)\b[\s\S]*/i,
+  );
+  if (!exclusionMatch || exclusionMatch.index === undefined) {
+    return { positive: desc, excluded: '' };
+  }
+  return {
+    positive: desc.slice(0, exclusionMatch.index).trim(),
+    excluded: exclusionMatch[0].trim(),
+  };
+}
+
+/**
+ * Whole-word / whole-phrase check using Unicode boundaries so short words
+ * like "hi" do not match inside unrelated words like "chahiye" or "this".
+ */
+function containsWholePhrase(haystack: string, needle: string): boolean {
+  if (!haystack || !needle) return false;
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u');
+  return regex.test(haystack);
+}
+
+/**
  * Computes semantic similarity between text and configured intent.
  * Evaluates intent description, positive examples, and negative examples.
  */
@@ -156,12 +185,18 @@ export function scoreSemanticIntent(
   if (!norm) return { score: 0, reason: 'empty_text' };
 
   const words = new Set(norm.split(' ').filter(Boolean));
+  const msgNonStopWords = norm.split(' ').filter((w) => w.length > 1 && !COMMON_STOPWORDS.has(w));
 
   // 1. Check explicitly configured Negative Examples first
   if (config.negative_examples && config.negative_examples.length > 0) {
     for (const neg of config.negative_examples) {
       const normNeg = normalizeConversationalText(neg);
-      if (normNeg && (norm === normNeg || norm.includes(normNeg) || normNeg.includes(norm))) {
+      if (
+        normNeg &&
+        (norm === normNeg ||
+          containsWholePhrase(norm, normNeg) ||
+          (msgNonStopWords.length > 0 && containsWholePhrase(normNeg, norm)))
+      ) {
         return { score: 0.05, reason: 'matched_negative_example' };
       }
     }
@@ -180,13 +215,16 @@ export function scoreSemanticIntent(
         return { score: 0.99, reason: 'exact_positive_example_match' };
       }
 
-      // Phrase inclusion: customer message contains the example phrase
-      if (norm.includes(normEx)) {
+      // Phrase inclusion: customer message contains the example phrase as a whole phrase
+      if (containsWholePhrase(norm, normEx)) {
         return { score: 0.95, reason: `contains_positive_example:${normEx}` };
       }
 
-      // Reverse inclusion: example contains message (for short queries like "hi", "pricing", "demo", "book")
-      if (norm.length >= 2 && normEx.includes(norm)) {
+      // Reverse inclusion: example contains message as a whole phrase (for short queries like "pricing", "demo", "book")
+      // Require either a non-stopword token or explicit short intent token so "hi" never matches "chahiye",
+      // and stopwords like "for" or "hai" never match multi-word examples.
+      const hasMeaningfulToken = msgNonStopWords.length > 0 || SHORT_INTENT_WORDS.has(norm);
+      if (norm.length >= 2 && hasMeaningfulToken && containsWholePhrase(normEx, norm)) {
         if (0.92 > maxExampleScore) {
           maxExampleScore = 0.92;
           bestReason = `example_contains_message:${normEx}`;
@@ -219,8 +257,32 @@ export function scoreSemanticIntent(
     }
   }
 
-  // 3. Check built-in Hinglish & English patterns for known intents
-  const intentKey = `${config.intent_name || ''} ${config.intent_description || ''}`.toLowerCase();
+  // 2b. Check configured keywords on ai_intent flows
+  const keywords = (config as unknown as { keywords?: string[] }).keywords;
+  if (Array.isArray(keywords) && keywords.length > 0) {
+    let maxKwScore = 0;
+    let kwReason = '';
+    for (const rawKw of keywords) {
+      const normKw = normalizeConversationalText(rawKw);
+      if (!normKw) continue;
+      if (norm === normKw) {
+        return { score: 0.96, reason: `exact_keyword_match:${normKw}` };
+      }
+      if (containsWholePhrase(norm, normKw) && 0.93 > maxKwScore) {
+        maxKwScore = 0.93;
+        kwReason = `contains_keyword:${normKw}`;
+      }
+    }
+    if (maxKwScore > 0) {
+      return { score: maxKwScore, reason: kwReason };
+    }
+  }
+
+  // Separate positive description from "Do not trigger for ..." exclusion clauses
+  const { positive: posDesc, excluded: exclDesc } = splitIntentDescription(config.intent_description || '');
+
+  // 3. Check built-in Hinglish & English patterns for known intents (positive description only!)
+  const intentKey = `${config.intent_name || ''} ${posDesc}`.toLowerCase();
   for (const [key, patterns] of Object.entries(HINGLISH_INTENT_PATTERNS)) {
     if (intentKey.includes(key)) {
       // Check negative patterns first: if matched, heavily penalize or zero out
@@ -239,10 +301,8 @@ export function scoreSemanticIntent(
     }
   }
 
-  // 4. Token overlap with intent description & name (with stemming & prefixes)
-  const descNorm = normalizeConversationalText(
-    `${config.intent_name || ''} ${config.intent_description || ''}`,
-  );
+  // 4. Token overlap with positive intent description & name (with stemming & prefixes)
+  const descNorm = normalizeConversationalText(`${config.intent_name || ''} ${posDesc}`);
   const descSigWords = descNorm.split(' ').filter((w) => (w.length > 2 || SHORT_INTENT_WORDS.has(w)) && !COMMON_STOPWORDS.has(w));
 
   const msgSigWords = norm.split(' ').filter((w) => (w.length > 2 || SHORT_INTENT_WORDS.has(w)) && !COMMON_STOPWORDS.has(w));
@@ -250,6 +310,16 @@ export function scoreSemanticIntent(
   for (const w of msgSigWords) {
     if (descSigWords.some((dw) => matchesStemOrPrefix(w, dw))) {
       descHits++;
+    }
+  }
+
+  // Penalize if the message hits an exclusion clause (e.g. "Do not trigger for booking, location")
+  // without hitting any positive intent terms.
+  if (exclDesc && descHits === 0 && msgSigWords.length > 0) {
+    const exclNorm = normalizeConversationalText(exclDesc);
+    const exclWords = exclNorm.split(' ').filter((w) => w.length > 2 && !COMMON_STOPWORDS.has(w));
+    if (msgSigWords.some((w) => exclWords.some((ew) => matchesStemOrPrefix(w, ew)))) {
+      return { score: 0.12, reason: 'matched_description_exclusion' };
     }
   }
 
@@ -466,11 +536,11 @@ export async function routeInboundIntent(args: {
     });
   }
 
-  // Sort candidates by score descending, then by configured flow priority
+  // Sort candidates by score descending, then by configured flow priority only on near-exact ties
   candidates.sort((a, b) => {
     const priorityA = a.config.priority ?? (a.flow as any).priority ?? 0;
     const priorityB = b.config.priority ?? (b.flow as any).priority ?? 0;
-    if (Math.abs(b.score - a.score) < 0.1) {
+    if (Math.abs(b.score - a.score) < 0.02) {
       return priorityB - priorityA;
     }
     return b.score - a.score;
@@ -480,15 +550,11 @@ export async function routeInboundIntent(args: {
   const second = candidates[1];
   const threshold = top?.config.confidence_threshold ?? (candidates.length === 1 ? 0.55 : 0.65);
 
-  const topPriority = top?.config.priority ?? (top?.flow as any)?.priority ?? 0;
-  const secondPriority = second?.config.priority ?? (second?.flow as any)?.priority ?? 0;
-  const priorityResolved = topPriority > secondPriority;
-
-  // Check if we have a decisive semantic match (or priority-resolved tie)
+  // Check if we have a decisive semantic match (clear margin over runner-up)
   const isDecisive =
     top &&
     (top.score >= threshold || (candidates.length === 1 && top.score >= 0.50)) &&
-    (!second || top.score - second.score >= 0.12 || priorityResolved);
+    (!second || top.score - second.score >= 0.08);
 
   if (isDecisive) {
     // ============================================================
@@ -506,9 +572,9 @@ export async function routeInboundIntent(args: {
         };
       }
 
-      // If customer is in the SAME flow, check if this is an explicit intent re-trigger
+      // If customer is in the SAME flow, only re-trigger on explicit high-confidence intent (>= 0.92)
       if (activeRun.flow_id === top.flow.id) {
-        if (top.score >= 0.85) {
+        if (top.score >= 0.92) {
           return {
             decision: 'trigger',
             selectedFlow: top.flow,
@@ -610,6 +676,20 @@ export async function routeInboundIntent(args: {
       }
     } catch (err) {
       console.warn('[intent-router] Fallback classifier error:', err);
+    }
+
+    // Priority tiebreak fallback: if Stage 3 AI Classifier was unavailable/unconfigured
+    // and top candidates both cleared threshold with a strict priority winner, pick top.flow.
+    const topPriority = top?.config.priority ?? (top?.flow as any)?.priority ?? 0;
+    const secondPriority = second?.config.priority ?? (second?.flow as any)?.priority ?? 0;
+    if (top && top.score >= threshold && (!second || topPriority > secondPriority)) {
+      return {
+        decision: activeRun ? 'interrupted_pause' : 'trigger',
+        selectedFlow: top.flow,
+        confidence: top.score,
+        reasonCode: 'priority_tiebreak_fallback',
+        stage: 'arbitration',
+      };
     }
   }
 

@@ -70,6 +70,8 @@ export interface SendButtonsNodeConfig extends PromptTextConfig {
     title: string;
     /** node_key the runner advances to when this button is tapped. */
     next_node_key: string;
+    /** Optional variables to set in run.vars when this button is tapped. */
+    set_vars?: Record<string, string>;
   }>;
 }
 
@@ -90,6 +92,8 @@ export interface SendListNodeConfig extends PromptTextConfig {
       title: string;
       description?: string;
       next_node_key: string;
+      /** Optional variables to set in run.vars when this row is tapped. */
+      set_vars?: Record<string, string>;
     }>;
   }>;
 }
@@ -202,6 +206,8 @@ export interface CarouselCardButtonConfig {
   title: string;
   /** node_key to advance to when tapped. */
   next_node_key: string;
+  /** Optional variables to set in run.vars when this button is tapped (e.g. { doctor: "Dr. Nisha Tupkar" }). */
+  set_vars?: Record<string, string>;
 }
 
 export interface CarouselCardConfig {
@@ -230,6 +236,21 @@ export interface HandoffNodeConfig {
    * node fires. Leave unset to flip the status without assignment.
    */
   assign_to?: string;
+}
+
+/**
+ * Hands off the conversation from the current flow to another active flow,
+ * forwarding selected variables (e.g. { doctor: "{{vars.selected_card_title}}" }).
+ */
+export interface TriggerFlowNodeConfig {
+  /** Target flow ID (UUID) or exact flow name. */
+  target_flow_id: string;
+  /** Optional display name of the target flow for UI clarity. */
+  target_flow_name?: string;
+  /** Variables to pass to the target flow; values support {{vars.X}} interpolation. */
+  pass_vars?: Record<string, string>;
+  /** If true, forwards all non-system vars from the current run to the target flow. */
+  pass_all_vars?: boolean;
 }
 
 /**
@@ -578,6 +599,7 @@ export type FlowNodeConfig =
   | { node_type: "whatsapp_payment"; config: WhatsAppPaymentNodeConfig }
   | { node_type: "catalog"; config: CatalogNodeConfig }
   | { node_type: "input_flow"; config: InputFlowNodeConfig }
+  | { node_type: "trigger_flow"; config: TriggerFlowNodeConfig }
   | { node_type: "whatsapp_form"; config: WhatsAppFormNodeConfig }
   | { node_type: "create_deal"; config: CreateDealNodeConfig }
   | { node_type: "close_conversation"; config: CloseConversationNodeConfig }
@@ -802,11 +824,23 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "ai_extract",
   "ai_decision",
   "ai_summarize",
+  "trigger_flow",
 ]);
 
 export const MAX_NODES_PER_ADVANCE = 25;
 
 export const MAX_AUTO_ADVANCING_CHAIN = MAX_NODES_PER_ADVANCE - 1;
+
+export interface FlowCatalogItem {
+  id: string;
+  name: string;
+  description?: string;
+  triggerType: string;
+  triggerSummary: string;
+  keywords?: string[];
+  intentName?: string;
+  intentDescription?: string;
+}
 
 export function assertNever(x: never): never {
   throw new Error(`Unhandled node type: ${JSON.stringify(x)}`);

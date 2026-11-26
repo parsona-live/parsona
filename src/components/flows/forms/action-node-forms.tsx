@@ -2066,4 +2066,174 @@ export function AiSummarizeForm({
   );
 }
 
+/**
+ * Trigger Another Flow Form:
+ * Hands off the conversation to a target flow with optional variable forwarding
+ * (e.g. passing `doctor: "{{vars.selected_card_title}}"` from a Doctors carousel).
+ */
+export function TriggerFlowForm({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
+}) {
+  const [flows, setFlows] = useState<Array<{ id: string; name: string; status: string }>>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/flows")
+      .then((res) => (res.ok ? res.json() : { flows: [] }))
+      .then((data) => {
+        if (mounted && Array.isArray(data.flows)) {
+          setFlows(data.flows);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const targetFlowId = (config.target_flow_id as string) ?? "";
+  const targetFlowName = (config.target_flow_name as string) ?? "";
+  const passAllVars = Boolean(config.pass_all_vars);
+  const passVars = (config.pass_vars as Record<string, string>) || {};
+  const entries = Object.entries(passVars);
+
+  const handleSetVar = (idx: number, key: string, value: string) => {
+    const next: Record<string, string> = {};
+    entries.forEach(([k, v], i) => {
+      if (i === idx) {
+        if (key.trim() || value) next[key] = value;
+      } else {
+        next[k] = v;
+      }
+    });
+    onChange({ pass_vars: next });
+  };
+
+  const handleAddVar = () => {
+    onChange({
+      pass_vars: {
+        ...passVars,
+        [`var_${entries.length + 1}`]: "{{vars.selected_card_title}}",
+      },
+    });
+  };
+
+  const handleRemoveVar = (keyToRemove: string) => {
+    const next = { ...passVars };
+    delete next[keyToRemove];
+    onChange({ pass_vars: next });
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          Target Flow
+        </Label>
+        {flows.length > 0 ? (
+          <Select
+            value={targetFlowId || "__custom__"}
+            onValueChange={(val) => {
+              if (val === "__custom__") return;
+              const found = flows.find((f) => f.id === val);
+              onChange({
+                target_flow_id: val,
+                target_flow_name: found?.name || targetFlowName,
+              });
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card">
+              <SelectValue placeholder="Choose a target flow..." />
+            </SelectTrigger>
+            <SelectContent>
+              {flows.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.name} ({f.status})
+                </SelectItem>
+              ))}
+              <SelectItem value="__custom__">Enter Flow ID / Name manually…</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Input
+          value={targetFlowId || targetFlowName}
+          onChange={(e) =>
+            onChange({
+              target_flow_id: e.target.value,
+              target_flow_name: e.target.value,
+            })
+          }
+          placeholder="Target Flow ID or exact Name (e.g. Appointment Booking)"
+          className="h-8 text-xs border-slate-200 dark:border-slate-800 bg-white dark:bg-card"
+        />
+      </div>
+
+      <div className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-800 p-2.5 bg-slate-50/50 dark:bg-slate-900/30">
+        <div>
+          <Label className="text-xs font-medium">Forward All Flow Variables</Label>
+          <p className="text-[11px] text-muted-foreground">
+            Automatically copy collected vars to the target flow
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={passAllVars}
+          onChange={(e) => onChange({ pass_all_vars: e.target.checked })}
+          className="h-4 w-4 accent-purple-600 rounded cursor-pointer"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+            Pass Specific Variables ({entries.length})
+          </Label>
+          <Button type="button" variant="outline" size="sm" onClick={handleAddVar} className="h-7 text-xs">
+            + Add Mapping
+          </Button>
+        </div>
+        {entries.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            Example: <code>doctor</code> → <code>{"{{vars.selected_card_title}}"}</code>
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {entries.map(([k, v], idx) => (
+              <div key={idx} className="flex items-center gap-1.5">
+                <Input
+                  value={k}
+                  onChange={(e) => handleSetVar(idx, e.target.value, v)}
+                  placeholder="var name (e.g. doctor)"
+                  className="h-7 text-xs flex-1"
+                />
+                <span className="text-muted-foreground">=</span>
+                <Input
+                  value={v}
+                  onChange={(e) => handleSetVar(idx, k, e.target.value)}
+                  placeholder="{{vars.selected_card_title}}"
+                  className="h-7 text-xs flex-[1.4]"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveVar(k)}
+                  className="h-7 px-1.5 text-rose-500"
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 

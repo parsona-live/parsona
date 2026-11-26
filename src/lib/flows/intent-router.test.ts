@@ -66,6 +66,121 @@ describe('scoreSemanticIntent', () => {
     const result = scoreSemanticIntent('I have an appointment tomorrow', bookingConfig);
     expect(result.score).toBeLessThan(0.4);
   });
+
+  it('does NOT trigger appointment booking on "Hi" even when Hinglish examples contain "chahiye"', () => {
+    const hospitalConfig: AiIntentTriggerConfig = {
+      intent_name: 'appointment_booking',
+      intent_description: 'Detect a new appointment booking request across different languages.',
+      positive_examples: [
+        'I want to book a doctor appointment',
+        'Can I schedule a checkup?',
+        'Book an appointment for tomorrow',
+        'Mujhe doctor se milna hai',
+        'Kal ke liye appointment chahiye',
+        'मुझे डॉक्टर को दिखाना है',
+      ],
+      negative_examples: ['Cancel my appointment', 'What are the hospital timings?'],
+      confidence_threshold: 0.75,
+    };
+
+    const hiResult = scoreSemanticIntent('Hi', hospitalConfig);
+    expect(hiResult.score).toBeLessThan(0.3);
+
+    // Real booking intent still matches strongly
+    expect(scoreSemanticIntent('Book', hospitalConfig).score).toBeGreaterThanOrEqual(0.75);
+    expect(scoreSemanticIntent('Kal ke liye appointment chahiye', hospitalConfig).score).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('arbitrates accurately across Doctors Details (priority 5), Appointment Booking (priority 0), and location (priority 0)', async () => {
+    const mkFlow = (id: string, name: string, cfg: AiIntentTriggerConfig): FlowRow => ({
+      id,
+      account_id: 'acc-1',
+      user_id: 'user-1',
+      name,
+      description: null,
+      status: 'active',
+      trigger_type: 'ai_intent' as any,
+      trigger_config: cfg as any,
+      entry_node_id: 'trigger_1',
+      fallback_policy: {} as any,
+      execution_count: 0,
+      last_executed_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    const doctorsFlow = mkFlow('flow-docs', 'Doctors Details', {
+      intent_name: 'view_doctors',
+      priority: 5,
+      confidence_threshold: 0.82,
+      keywords: ['doctors', 'doctor list', 'available doctors', 'doctor details', 'specialists', 'doctor profile'],
+      positive_examples: [],
+      negative_examples: [],
+      intent_description:
+        "Identify users who want to explore the clinic's doctors, doctor profiles, specialties, or available doctors. Match meaning rather than exact keywords and support English, Hindi, and Hinglish. Do not trigger for booking, symptoms, medical advice, fees, location, opening hours, cancellations, or unrelated requests.",
+    } as any);
+
+    const bookingFlow = mkFlow('flow-book', 'Appointment Booking', {
+      intent_name: 'appointment_booking',
+      priority: 0,
+      confidence_threshold: 0.75,
+      keywords: ['book appointment', 'appointment', 'doctor appointment', 'consultation', 'schedule', 'appointment book karna'],
+      positive_examples: [],
+      negative_examples: [],
+      intent_description:
+        'Detect a new appointment booking request across different languages. Trigger only when the user wants to make a new appointment. Do not trigger for appointment cancellation, rescheduling, general queries, or medical advice.',
+    } as any);
+
+    const locationFlow = mkFlow('flow-loc', 'location', {
+      intent_name: 'office_location',
+      priority: 0,
+      confidence_threshold: 0.75,
+      keywords: [],
+      positive_examples: ['location'],
+      negative_examples: [],
+      intent_description: 'when user want the location of office then run this it can send the location to the user',
+    } as any);
+
+    const flows = [doctorsFlow, bookingFlow, locationFlow];
+    const baseArgs = {
+      db: {} as any,
+      accountId: 'acc-1',
+      contactId: 'c-1',
+      conversationId: 'conv-1',
+      channel: 'whatsapp',
+      isFirstInbound: false,
+      activeRun: null,
+      flows,
+    };
+
+    const resBooking = await routeInboundIntent({
+      ...baseArgs,
+      message: { kind: 'text', text: 'Ha ek appointment book kar do', meta_message_id: 'm1' },
+    });
+    expect(resBooking.decision).toBe('trigger');
+    expect(resBooking.selectedFlow?.id).toBe('flow-book');
+
+    const resShortBook = await routeInboundIntent({
+      ...baseArgs,
+      message: { kind: 'text', text: 'Book', meta_message_id: 'm2' },
+    });
+    expect(resShortBook.decision).toBe('trigger');
+    expect(resShortBook.selectedFlow?.id).toBe('flow-book');
+
+    const resLocation = await routeInboundIntent({
+      ...baseArgs,
+      message: { kind: 'text', text: 'Location', meta_message_id: 'm3' },
+    });
+    expect(resLocation.decision).toBe('trigger');
+    expect(resLocation.selectedFlow?.id).toBe('flow-loc');
+
+    const resDoctors = await routeInboundIntent({
+      ...baseArgs,
+      message: { kind: 'text', text: 'Show available doctors', meta_message_id: 'm4' },
+    });
+    expect(resDoctors.decision).toBe('trigger');
+    expect(resDoctors.selectedFlow?.id).toBe('flow-docs');
+  });
 });
 
 describe('routeInboundIntent Arbitration', () => {

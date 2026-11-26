@@ -5,7 +5,8 @@ import { loadAiConfig } from '@/lib/ai/config'
 import { retrieveKnowledge } from '@/lib/ai/knowledge'
 import { generateReply } from '@/lib/ai/generate'
 import { buildSystemPrompt } from '@/lib/ai/defaults'
-import { latestUserMessage } from '@/lib/ai/query'
+import { buildContextualQuery } from '@/lib/ai/query'
+import { loadActiveFlowCatalog } from '@/lib/flows/engine'
 import { AiError, type ChatMessage } from '@/lib/ai/types'
 import { getT } from '@/lib/i18n/translate'
 
@@ -75,20 +76,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const query = latestUserMessage(messages)
-    const knowledge = await retrieveKnowledge(
-      supabase,
-      accountId,
-      config,
-      query,
-    )
+    const query = buildContextualQuery(messages)
+    const [knowledge, flows] = await Promise.all([
+      retrieveKnowledge(supabase, accountId, config, query),
+      loadActiveFlowCatalog(supabase, accountId).catch(() => []),
+    ])
     if (process.env.NODE_ENV !== 'production' || process.env.DEBUG_AI) {
-      console.log(`[ai/playground] query: "${query}" -> retrieved ${knowledge.length} knowledge chunk(s)`)
+      console.log(`[ai/playground] query: "${query}" -> retrieved ${knowledge.length} knowledge chunk(s), ${flows.length} active flow(s)`)
     }
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      flows,
     })
 
     const { text, handoff } = await generateReply({ config, systemPrompt, messages })

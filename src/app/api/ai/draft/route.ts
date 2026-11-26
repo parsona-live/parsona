@@ -7,7 +7,7 @@ import { retrieveKnowledge } from '@/lib/ai/knowledge'
 import { generateReply } from '@/lib/ai/generate'
 import { buildSystemPrompt, sanitizeAiReply } from '@/lib/ai/defaults'
 import { buildContactContextCapsule } from '@/lib/ai/context-capsule'
-import { latestUserMessage } from '@/lib/ai/query'
+import { buildContextualQuery } from '@/lib/ai/query'
 import { logAiUsage } from '@/lib/ai/usage'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       supabase,
       accountId,
       config,
-      latestUserMessage(messages),
+      buildContextualQuery(messages),
     )
 
     let capsule = null

@@ -199,6 +199,12 @@ export const NODE_META: Record<
     color: 'text-amber-400',
     category: 'flow',
   },
+  trigger_flow: {
+    slugSeed: 'Trigger flow',
+    icon: Zap,
+    color: 'text-purple-400',
+    category: 'flow',
+  },
   add_to_group: {
     slugSeed: 'Add to group',
     icon: UserPlus,
@@ -383,6 +389,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   close_conversation: { l: 0.55, c: 0.12, h: 150 },
   ai_message: { l: 0.58, c: 0.22, h: 305 },
   ai_extract: { l: 0.62, c: 0.16, h: 260 },
+  trigger_flow: { l: 0.58, c: 0.22, h: 280 },
   ai_decision: { l: 0.70, c: 0.16, h: 55 },
   ai_summarize: { l: 0.65, c: 0.12, h: 185 },
 };
@@ -637,6 +644,13 @@ export function summarizeNode(
     case 'agent_handover': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';
       return note.length > 0 ? truncate(note) : 'Handover to human agent';
+    }
+    case 'trigger_flow': {
+      const target =
+        (typeof cfg.target_flow_name === 'string' && cfg.target_flow_name.trim()) ||
+        (typeof cfg.target_flow_id === 'string' && cfg.target_flow_id.trim()) ||
+        '';
+      return target ? `Trigger: ${truncate(target, 35)}` : 'Trigger another flow';
     }
     case 'trigger': {
       const step = cfg.starting_step === 'new_contact' ? 'New contact' : 'Keyword match';

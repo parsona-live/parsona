@@ -576,6 +576,25 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
       active: true,
     },
   },
+  trigger_flow: {
+    type: 'trigger_flow',
+    category: 'actions',
+    label: 'Trigger Another Flow',
+    blurb: 'Hand off to another flow and forward variables',
+    icon: Zap,
+    isTerminal: true,
+    color: {
+      solid: 'oklch(0.58 0.22 280)',
+      soft: 'oklch(0.58 0.22 280 / 0.12)',
+      ring: 'oklch(0.58 0.22 280 / 0.4)',
+      text: 'oklch(0.45 0.22 280)',
+    },
+    defaultConfig: {
+      target_flow_id: '',
+      pass_all_vars: false,
+      pass_vars: {},
+    },
+  },
   handoff: {
     type: 'handoff',
     category: 'actions',
@@ -771,6 +790,7 @@ export const SIDEBAR_ACTIONS_NODES: FlowNodeType[] = [
   'whatsapp_payment',
   'catalog',
   'agent_handover',
+  'trigger_flow',
   'input_flow',
   'condition',
   'whatsapp_form',

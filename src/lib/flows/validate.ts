@@ -1173,6 +1173,20 @@ function validateNode(
       // beyond their existence. Never flag missing next_node_key.
       break;
 
+    case "trigger_flow": {
+      const cfg = node.config as { target_flow_id?: string; target_flow_name?: string };
+      if (!cfg.target_flow_id?.trim() && !cfg.target_flow_name?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "target_flow_id",
+          message: "Select a target flow to trigger.",
+        });
+      }
+      break;
+    }
+
     case "trigger": {
       const cfg = node.config as { starting_step?: string; next_node_key?: string };
       if (!cfg.starting_step) {
@@ -1604,6 +1618,7 @@ function outgoingEdges(node: NodeInput): string[] {
       return out;
     }
     case "handoff":
+    case "trigger_flow":
     case "end":
     default:
       return [];

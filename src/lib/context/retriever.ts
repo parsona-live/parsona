@@ -81,8 +81,8 @@ export async function assembleCustomerContext(
     contact = cData as Contact
   }
 
-  // 2. Concurrently fetch memories, business events, summaries, and latest intelligence
-  const [memoriesRes, eventsRes, summaryRes, intelligenceRes] = await Promise.all([
+  // 2. Concurrently fetch memories, business events, summaries, intelligence, and recent flow runs
+  const [memoriesRes, eventsRes, summaryRes, intelligenceRes, flowRunsRes] = await Promise.all([
     getActiveCustomerMemories(db, accountId, contactId),
     queryContactEvents(db, accountId, contactId, { limit: maxEvents }),
     options.conversationId
@@ -100,12 +100,30 @@ export async function assembleCustomerContext(
       .order('evaluated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    Promise.resolve(
+      db
+        .from('flow_runs')
+        .select('id, flow_id, status, current_node_key, vars, updated_at, flows(name)')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+        .limit(3),
+    ).catch(() => ({ data: null })),
   ])
 
   const memories = (memoriesRes || []).slice(0, maxMemories)
   const businessEvents = eventsRes || []
   const summary = (summaryRes.data as ConversationSummary) || null
   const intelligence = (intelligenceRes.data as ContactIntelligenceSnapshot) || null
+  const flowRuns = (flowRunsRes?.data || []).map((fr: any) => ({
+    id: fr.id,
+    flowId: fr.flow_id,
+    flowName: fr.flows?.name || fr.flow_id,
+    status: fr.status,
+    currentNodeKey: fr.current_node_key,
+    vars: (fr.vars || {}) as Record<string, unknown>,
+    updatedAt: fr.updated_at,
+  }))
 
   // 3. Render structured, secured prompt block
   const renderedPromptBlock = renderContextCapsulePrompt({
@@ -116,6 +134,7 @@ export async function assembleCustomerContext(
     businessEvents,
     summary,
     intelligence,
+    flowRuns,
   })
 
   const retrievalLatency = Date.now() - startTime
@@ -128,8 +147,8 @@ export async function assembleCustomerContext(
       contact_id: contactId,
       conversation_id: options.conversationId || null,
       context_version: 'v2',
-      included_memory_ids: memories.map((m) => m.id),
-      included_event_ids: businessEvents.map((e) => e.id),
+      included_memory_ids: memories.map((m: ContactMemory) => m.id),
+      included_event_ids: businessEvents.map((e: ContactEvent) => e.id),
       included_summary_ids: summary ? [summary.id] : [],
       intelligence_snapshot_id: intelligence?.id || null,
       retrieval_reasons: {
@@ -157,6 +176,16 @@ export async function assembleCustomerContext(
   }
 }
 
+interface FlowRunSummary {
+  id: string
+  flowId: string
+  flowName: string
+  status: string
+  currentNodeKey?: string | null
+  vars?: Record<string, unknown> | null
+  updatedAt?: string | null
+}
+
 interface RenderContextParams {
   contact: Contact
   resolved?: CustomerResolutionResult | null
@@ -165,6 +194,7 @@ interface RenderContextParams {
   businessEvents: ContactEvent[]
   summary: ConversationSummary | null
   intelligence: ContactIntelligenceSnapshot | null
+  flowRuns?: FlowRunSummary[] | null
 }
 
 function renderContextCapsulePrompt(params: RenderContextParams): string {
@@ -240,6 +270,32 @@ function renderContextCapsulePrompt(params: RenderContextParams): string {
       if (v !== null && v !== undefined && v !== '') {
         sections.push(`  * ${k}: "${typeof v === 'object' ? JSON.stringify(v) : String(v)}"`)
       }
+    }
+  }
+
+  // Section 5b: Interactive Customer Flows & Collected Data
+  if (params.flowRuns && params.flowRuns.length > 0) {
+    sections.push('- **Interactive Customer Flows & Collected Data (DO NOT RE-ASK FOR DATA ALREADY COLLECTED)**:')
+    for (const fr of params.flowRuns) {
+      const cleanVars: string[] = []
+      if (fr.vars) {
+        for (const [k, v] of Object.entries(fr.vars)) {
+          if (
+            !k.startsWith('contact.') &&
+            k !== 'contact' &&
+            k !== 'metadata' &&
+            k !== 'locale' &&
+            k !== 'language' &&
+            v !== null &&
+            v !== undefined &&
+            v !== ''
+          ) {
+            cleanVars.push(`${k}="${typeof v === 'object' ? JSON.stringify(v) : String(v)}"`)
+          }
+        }
+      }
+      const varsStr = cleanVars.length > 0 ? cleanVars.join(', ') : 'no variables yet'
+      sections.push(`  * Flow "${fr.flowName}" [Status: ${fr.status}]: Variables: { ${varsStr} }`)
     }
   }
 

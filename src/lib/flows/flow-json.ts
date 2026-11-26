@@ -817,6 +817,22 @@ Every node in the "nodes" array MUST have:
 ------------------------------------------------------------
 5. FLOW CONTROL & HANDOFF
 ------------------------------------------------------------
+• "trigger_flow"
+  Use Case: Hand off cleanly from the current flow to another active flow while forwarding variables (e.g. passing "doctor": "{{vars.selected_card_title}}" or button "set_vars" into Appointment Booking).
+  Note: Carousel/button taps automatically populate {{vars.selected_card_title}}, {{vars.selected_button_title}}, and any custom button "set_vars" object.
+  Schema:
+  {
+    "node_key": "launch_booking",
+    "node_type": "trigger_flow",
+    "config": {
+      "target_flow_id": "Appointment Booking",
+      "pass_all_vars": false,
+      "pass_vars": {
+        "doctor": "{{vars.selected_card_title}}"
+      }
+    }
+  }
+
 • "handoff" (or "agent_handover")
   Use Case: Pause the flow automation and assign the thread to human agents in the CRM Inbox.
   Schema:

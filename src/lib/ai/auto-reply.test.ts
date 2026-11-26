@@ -10,6 +10,8 @@ const h = vi.hoisted(() => ({
   engineSendText: vi.fn(),
   loadAccountMetaCredentials: vi.fn(),
   sendTypingIndicator: vi.fn(),
+  loadActiveFlowCatalog: vi.fn(),
+  triggerFlowForContact: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
@@ -32,6 +34,10 @@ vi.mock('@/lib/flows/meta-send', () => ({
 }))
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTypingIndicator: h.sendTypingIndicator,
+}))
+vi.mock('@/lib/flows/engine', () => ({
+  loadActiveFlowCatalog: h.loadActiveFlowCatalog,
+  triggerFlowForContact: h.triggerFlowForContact,
 }))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
@@ -164,6 +170,12 @@ beforeEach(() => {
     accessToken: 'tok',
   })
   h.sendTypingIndicator.mockResolvedValue(undefined)
+  h.loadActiveFlowCatalog.mockResolvedValue([])
+  h.triggerFlowForContact.mockResolvedValue({
+    consumed: true,
+    flow_run_id: 'run-1',
+    outcome: 'started',
+  })
 })
 
 describe('dispatchInboundToAiReply — eligibility gates', () => {
@@ -395,5 +407,80 @@ describe('dispatchInboundToAiReply — handoff', () => {
     expect(pause?.isNull).toEqual([])
     expect(assign?.payload).toEqual({ assigned_agent_id: 'agent-7' })
     expect(assign?.isNull).toEqual(['assigned_agent_id'])
+  })
+})
+
+describe('dispatchInboundToAiReply — autonomous flow triggering', () => {
+  it('injects active flows into systemPrompt and triggers the flow when [TRIGGER_FLOW: ...] is emitted', async () => {
+    h.loadActiveFlowCatalog.mockResolvedValue([
+      {
+        id: 'flow-apt-123',
+        name: 'Appointment Booking',
+        description: 'Schedules consultation slots',
+        triggerType: 'ai_intent',
+        triggerSummary: 'AI Intent: "booking". Trigger phrases: book, slot, appointment',
+      },
+    ])
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'Hi mujhe appointment slot chahiye tha' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'Bilkul! Chaliye aapka slot book karte hain. [TRIGGER_FLOW: flow-apt-123]',
+      handoff: false,
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    // 1. System prompt included the active flow catalog
+    const genCall = h.generateReply.mock.calls[0]?.[0]
+    expect(genCall.systemPrompt).toContain('Flow "Appointment Booking" (ID: flow-apt-123)')
+    expect(genCall.systemPrompt).toContain('[TRIGGER_FLOW:')
+
+    // 2. Clean intro text sent to customer (without the directive tag)
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Bilkul! Chaliye aapka slot book karte hain.',
+      }),
+    )
+
+    // 3. Flow triggered directly for the contact
+    expect(h.triggerFlowForContact).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        accountId: ARGS.accountId,
+        contactId: ARGS.contactId,
+        conversationId: ARGS.conversationId,
+        flowIdOrName: 'flow-apt-123',
+        triggerSource: 'ai_intent',
+      }),
+    )
+  })
+
+  it('suppresses [TRIGGER_FLOW: ...] when the customer only sent a pure greeting like "Hi" or "Hello"', async () => {
+    h.loadActiveFlowCatalog.mockResolvedValue([
+      {
+        id: 'flow-apt-123',
+        name: 'Appointment Booking',
+        description: 'Schedules consultation slots',
+        triggerType: 'ai_intent',
+        triggerSummary: 'AI Intent: "booking". Trigger phrases: book, slot, appointment',
+      },
+    ])
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'Hello' },
+    ])
+    h.generateReply.mockResolvedValue({
+      text: 'Hello! How can I help you today? [TRIGGER_FLOW: flow-apt-123]',
+      handoff: false,
+    })
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.triggerFlowForContact).not.toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Hello! How can I help you today?',
+      }),
+    )
   })
 })

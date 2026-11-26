@@ -105,6 +105,8 @@ import {
   type BookAppointmentNodeConfig,
   type AddToGroupNodeConfig,
   type RemoveFromGroupNodeConfig,
+  type TriggerFlowNodeConfig,
+  type FlowCatalogItem,
   AUTO_ADVANCING_NODE_TYPES,
   MAX_NODES_PER_ADVANCE,
 } from "./types";
@@ -266,6 +268,82 @@ export function matchReplyByText(
   }
 
   return null;
+}
+
+/**
+ * Extracts contextual metadata & custom button `set_vars` when a customer taps
+ * an interactive button, list row, or carousel card button (e.g. capturing
+ * `selected_card_title` such as "Dr. Nisha Tupkar" and `set_vars.doctor`).
+ */
+export function extractInteractiveSelectionVars(
+  node: FlowNodeRow,
+  message: ParsedInbound,
+): Record<string, unknown> {
+  const vars: Record<string, unknown> = {};
+  const isReplyId = message.kind === "interactive_reply";
+  const target = (isReplyId ? message.reply_id : message.kind === "text" ? message.text : "")
+    .trim()
+    .toLowerCase();
+  if (!target) return vars;
+
+  if (node.node_type === "send_buttons") {
+    const cfg = node.config as unknown as SendButtonsNodeConfig;
+    const hit = isReplyId
+      ? cfg.buttons?.find((b) => b.reply_id === message.reply_id)
+      : cfg.buttons?.find((b) => b.reply_id?.toLowerCase() === target || b.title?.trim().toLowerCase() === target);
+    if (hit) {
+      vars.selected_reply_id = hit.reply_id;
+      vars.selected_button_title = hit.title;
+      if (hit.set_vars && typeof hit.set_vars === "object") {
+        Object.assign(vars, hit.set_vars);
+      }
+    }
+  } else if (node.node_type === "send_list") {
+    const cfg = node.config as unknown as SendListNodeConfig;
+    for (const section of cfg.sections ?? []) {
+      const hit = isReplyId
+        ? section.rows?.find((r) => r.reply_id === message.reply_id)
+        : section.rows?.find((r) => r.reply_id?.toLowerCase() === target || r.title?.trim().toLowerCase() === target);
+      if (hit) {
+        vars.selected_reply_id = hit.reply_id;
+        vars.selected_button_title = hit.title;
+        if (hit.set_vars && typeof hit.set_vars === "object") {
+          Object.assign(vars, hit.set_vars);
+        }
+        break;
+      }
+    }
+  } else if (node.node_type === "send_carousel") {
+    const cfg = node.config as unknown as SendCarouselNodeConfig;
+    for (const card of cfg.cards ?? []) {
+      const hit = isReplyId
+        ? card.buttons?.find((b) => b.reply_id === message.reply_id)
+        : card.buttons?.find((b) => b.reply_id?.toLowerCase() === target || b.title?.trim().toLowerCase() === target);
+      if (hit) {
+        vars.selected_reply_id = hit.reply_id;
+        vars.selected_button_title = hit.title;
+        const cardTitle =
+          (card as unknown as { title?: string }).title?.trim() ||
+          (card.body_text || "")
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .find(Boolean) ||
+          "";
+        if (cardTitle) {
+          vars.selected_card_title = cardTitle;
+        }
+        if (card.body_text) {
+          vars.selected_card_body = card.body_text;
+        }
+        if (hit.set_vars && typeof hit.set_vars === "object") {
+          Object.assign(vars, hit.set_vars);
+        }
+        break;
+      }
+    }
+  }
+
+  return vars;
 }
 
 /**
@@ -1728,6 +1806,64 @@ async function advanceFromNodeKey(
       }
       currentKey = cfg.next_node_key || "";
       continue;
+    }
+    if (node.node_type === "trigger_flow") {
+      const cfg = node.config as unknown as TriggerFlowNodeConfig;
+      const targetFlowRef = (cfg.target_flow_id || cfg.target_flow_name || "").trim();
+      const depth = typeof run.vars.__subflow_depth === "number" ? run.vars.__subflow_depth : 0;
+
+      if (!targetFlowRef || depth >= 3) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: !targetFlowRef ? "trigger_flow_missing_target" : "trigger_flow_max_depth_exceeded",
+          depth,
+        });
+        await endRun(db, run.id, "failed", "trigger_flow_error");
+        return { outcome: "completed" };
+      }
+
+      // Build forwarded variables for the target flow
+      const forwardedVars: Record<string, unknown> = {
+        __subflow_depth: depth + 1,
+        __parent_flow_id: run.flow_id,
+      };
+      if (cfg.pass_all_vars) {
+        for (const [k, v] of Object.entries(run.vars || {})) {
+          if (!k.startsWith("__") && !k.startsWith("contact.") && k !== "contact" && k !== "metadata") {
+            forwardedVars[k] = v;
+          }
+        }
+      }
+      if (cfg.pass_vars && typeof cfg.pass_vars === "object") {
+        for (const [k, rawVal] of Object.entries(cfg.pass_vars)) {
+          if (k.trim()) {
+            forwardedVars[k.trim()] =
+              typeof rawVal === "string" ? interpolateVars(rawVal, run.vars) : rawVal;
+          }
+        }
+      }
+
+      await logEvent(db, run.id, "node_entered", node.node_key, {
+        action: "trigger_flow_handoff",
+        target_flow: targetFlowRef,
+        passed_keys: Object.keys(forwardedVars).filter((k) => !k.startsWith("__")),
+      });
+
+      // End the current flow run cleanly before starting the target flow
+      await endRun(db, run.id, "completed", "handed_off_to_subflow");
+
+      if (run.contact_id && run.conversation_id) {
+        await triggerFlowForContact(db, {
+          accountId: run.account_id,
+          contactId: run.contact_id,
+          conversationId: run.conversation_id,
+          flowIdOrName: targetFlowRef,
+          configOwnerUserId: run.user_id,
+          triggerSource: "flow_to_flow",
+          initialVars: forwardedVars,
+        });
+      }
+
+      return { outcome: "completed" };
     }
     if (node.node_type === "send_email") {
       const cfg = node.config as unknown as SendEmailNodeConfig;
@@ -3289,8 +3425,14 @@ async function handleReplyForActiveRun(
   }
 
   if (matched) {
-    if (!(await claimReplyTransition(db, run, matched))) {
+    const selectionVars = extractInteractiveSelectionVars(currentNode, message);
+    const hasSelectionVars = Object.keys(selectionVars).length > 0;
+    const nextVars = hasSelectionVars ? { ...(run.vars || {}), ...selectionVars } : undefined;
+    if (!(await claimReplyTransition(db, run, matched, nextVars ? { vars: nextVars } : {}))) {
       return lostReplyRace(db, run, currentNode.node_key);
+    }
+    if (nextVars) {
+      run.vars = nextVars;
     }
     const outcome = await advanceFromNodeKey(db, run, matched, nodes, message);
     return {
@@ -3491,6 +3633,7 @@ async function startNewRun(
   flow: FlowRow,
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
+  extraInitialVars?: Record<string, unknown>,
 ): Promise<DispatchInboundResult> {
   // run_once check
   if (flow.run_once && input.contactId) {
@@ -3588,6 +3731,9 @@ async function startNewRun(
 
   initialVars.locale = detectedLocale;
   initialVars.language = detectedLocale;
+  if (extraInitialVars && Object.keys(extraInitialVars).length > 0) {
+    initialVars = { ...initialVars, ...extraInitialVars };
+  }
 
   // Resolve entry node key: check flow.entry_node_id, then trigger node, then start, or first node in graph
   let entryNodeKey = flow.entry_node_id;
@@ -3735,4 +3881,138 @@ export async function resumeFlowRunOnEvent(args: {
 
   const outcome = await advanceFromNodeKey(db, run, nextKey, nodes);
   return { success: true, outcome: outcome.outcome };
+}
+
+/**
+ * Loads a normalized, high-signal catalog of all active flows for an account.
+ * Fed directly into AI auto-reply system prompts to provide flow awareness.
+ */
+export async function loadActiveFlowCatalog(
+  db: AdminClient,
+  accountId: string,
+): Promise<FlowCatalogItem[]> {
+  const flows = await loadEnrichedActiveFlows(db, accountId);
+  return flows.map((f) => {
+    let triggerSummary = "";
+    const tc = (f.trigger_config || {}) as Record<string, unknown>;
+    if (f.trigger_type === "ai_intent") {
+      const intentName = (tc.intent_name as string) || f.name;
+      const intentDesc = (tc.intent_description as string) || "Matches inquiries or requests for this topic";
+      triggerSummary = `AI Intent: "${intentName}". Description: ${intentDesc}`;
+      if (Array.isArray(tc.positive_examples) && tc.positive_examples.length > 0) {
+        triggerSummary += `. Trigger phrases: ${tc.positive_examples.slice(0, 4).join(", ")}`;
+      }
+    } else if (f.trigger_type === "keyword") {
+      const kw = Array.isArray(tc.keywords) ? (tc.keywords as string[]).join(", ") : "";
+      triggerSummary = `Keywords: ${kw || "None specified"}`;
+    } else {
+      triggerSummary = `Trigger type: ${f.trigger_type}`;
+    }
+    return {
+      id: f.id,
+      name: f.name,
+      description: f.description || undefined,
+      triggerType: f.trigger_type,
+      triggerSummary,
+      keywords: Array.isArray(tc.keywords) ? (tc.keywords as string[]) : undefined,
+      intentName: (tc.intent_name as string) || undefined,
+      intentDescription: (tc.intent_description as string) || undefined,
+    };
+  });
+}
+
+/**
+ * Triggers an interactive flow for a contact directly (e.g. from an AI autonomous directive).
+ * Resolves by flow ID or flow name, ends any conflicting prior run, and executes the entry node.
+ */
+export async function triggerFlowForContact(
+  db: AdminClient,
+  args: {
+    accountId: string;
+    contactId: string;
+    conversationId: string;
+    flowIdOrName: string;
+    configOwnerUserId?: string;
+    triggerSource?: string;
+    initialVars?: Record<string, unknown>;
+  },
+): Promise<DispatchInboundResult> {
+  const { accountId, contactId, conversationId, flowIdOrName, configOwnerUserId, triggerSource, initialVars } = args;
+
+  if (!accountId || !contactId || !flowIdOrName) {
+    return { consumed: false, outcome: "no_match" };
+  }
+
+  // 1. Resolve target flow by ID or name
+  let targetFlow: FlowRow | null = null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(flowIdOrName.trim());
+  if (isUuid) {
+    targetFlow = await loadFlow(db, flowIdOrName.trim());
+  } else {
+    // Try exact or case-insensitive match on name
+    const { data: matched } = await db
+      .from("flows")
+      .select("*")
+      .eq("account_id", accountId)
+      .eq("status", "active")
+      .ilike("name", flowIdOrName.trim())
+      .limit(1)
+      .maybeSingle();
+    targetFlow = matched as FlowRow | null;
+
+    if (!targetFlow) {
+      // Fuzzy contains match
+      const { data: fuzzy } = await db
+        .from("flows")
+        .select("*")
+        .eq("account_id", accountId)
+        .eq("status", "active")
+        .ilike("name", `%${flowIdOrName.trim()}%`)
+        .limit(1)
+        .maybeSingle();
+      targetFlow = fuzzy as FlowRow | null;
+    }
+  }
+
+  if (!targetFlow || targetFlow.status !== "active") {
+    console.warn(`[flows] triggerFlowForContact: Active flow "${flowIdOrName}" not found for account ${accountId}`);
+    return { consumed: false, outcome: "no_match" };
+  }
+
+  // 2. Check if an active run already exists for this contact
+  const activeRun = await loadActiveRunForContact(db, accountId, contactId, conversationId);
+  if (activeRun) {
+    if (activeRun.flow_id === targetFlow.id) {
+      console.log(`[flows] triggerFlowForContact: Contact ${contactId} already in active run ${activeRun.id} for flow "${targetFlow.name}"`);
+      return { consumed: true, flow_run_id: activeRun.id, outcome: "started" };
+    }
+    // Supersede other active run
+    await endRun(db, activeRun.id, "completed", "superseded_by_ai_trigger");
+  }
+
+  // 3. Load all nodes
+  const nodes = await loadAllNodes(db, targetFlow.id);
+  if (nodes.size === 0) {
+    console.warn(`[flows] triggerFlowForContact: Flow "${targetFlow.name}" has no nodes`);
+    return { consumed: false, outcome: "no_match" };
+  }
+
+  // 4. Construct synthetic message for entry
+  const syntheticMessage: ParsedInbound = {
+    kind: "text",
+    text: triggerSource || `AI Triggered: ${targetFlow.name}`,
+    meta_message_id: `ai_trig_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+  };
+
+  const input: DispatchInboundInput = {
+    accountId,
+    userId: configOwnerUserId || targetFlow.user_id,
+    contactId,
+    conversationId,
+    channel: "whatsapp",
+    message: syntheticMessage,
+  };
+
+  // 5. Start new run (forwarding initialVars before entry node advances)
+  return startNewRun(db, targetFlow, input, nodes, initialVars);
 }

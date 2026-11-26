@@ -5,6 +5,7 @@ import type {
   AiResponseLength,
   AiPersona,
 } from './types'
+import type { FlowCatalogItem } from '@/lib/flows/types'
 
 // ============================================================
 // Tunables + prompt scaffold for the AI reply assistant.
@@ -103,6 +104,40 @@ export const AI_PROVIDER_DEFAULT_EMBEDDING_MODEL: Record<AiProvider, string> = {
  */
 export const HANDOFF_SENTINEL = '[[HANDOFF]]'
 
+/**
+ * Sentinel pattern the AI emits to trigger an interactive WhatsApp flow.
+ * e.g. [TRIGGER_FLOW: appointment_booking] or [TRIGGER_FLOW: 550e8400-e29b-41d4-a716-446655440000]
+ */
+export const TRIGGER_FLOW_REGEX = /\[TRIGGER_FLOW:\s*([^\]]+)\]/i
+
+/**
+ * Extracts and separates the flow trigger directive from customer-facing text.
+ */
+export function extractFlowTriggerDirective(text: string | null | undefined): {
+  cleanText: string
+  triggeredFlow: string | null
+} {
+  if (!text) return { cleanText: '', triggeredFlow: null }
+  const match = text.match(TRIGGER_FLOW_REGEX)
+  if (!match) return { cleanText: text, triggeredFlow: null }
+  const triggeredFlow = match[1]?.trim() || null
+  const cleanText = text.replace(TRIGGER_FLOW_REGEX, '').trim()
+  return { cleanText, triggeredFlow }
+}
+
+const PURE_GREETING_REGEX =
+  /^(?:hi+|hello+|hey+|hlo+|hola|namaste|namaskar|pranam|salaam|assalamualaikum|gm|gn|good\s*(?:morning|afternoon|evening|night)|kaise\s*ho|kya\s*hal\s*hai|ok+|okay+|k+|thanks?|thank\s*you|dhanyavaad|shukriya|bye+)[!.,?\s😊👋🙏❤️]*$/i
+
+/**
+ * Returns true when the customer's message is strictly a greeting or simple
+ * acknowledgment with no actionable request. Used to prevent action flows
+ * (like Appointment Booking) from firing on a plain "Hi" or "Hello".
+ */
+export function isPureGreeting(text: string | null | undefined): boolean {
+  if (!text) return false
+  return PURE_GREETING_REGEX.test(text.trim())
+}
+
 /** Cap on generated reply length — keeps WhatsApp replies short and
  *  bounds token spend on the caller's own key. */
 export const MAX_OUTPUT_TOKENS = 1024
@@ -145,6 +180,8 @@ export function buildSystemPrompt(args: {
   currentChannel?: string | null
   /** Explicit flag if known returning customer. */
   isReturningCustomer?: boolean
+  /** Active interactive flows available for autonomous triggering. */
+  flows?: FlowCatalogItem[] | null
 }): string {
   const {
     userPrompt = null,
@@ -155,6 +192,7 @@ export function buildSystemPrompt(args: {
     capsuleContext,
     currentChannel,
     isReturningCustomer,
+    flows,
   } = args
 
   const { persona: parsedPersona, cleanPrompt } = parseAiPersona(userPrompt)
@@ -279,6 +317,29 @@ export function buildSystemPrompt(args: {
     )
   }
 
+  if (flows && flows.length > 0) {
+    const flowDescriptions = flows
+      .map((f, i) => {
+        let desc = `[${i + 1}] Flow "${f.name}" (ID: ${f.id})`
+        if (f.description) desc += ` - ${f.description}`
+        desc += `\n    Triggers: ${f.triggerSummary}`
+        return desc
+      })
+      .join('\n\n')
+
+    parts.push(
+      '### ACTIVE BUSINESS FLOWS & AUTOMATIONS:\n' +
+        'The business has configured the following interactive WhatsApp flows to handle specific customer actions (such as scheduling appointments, booking demo slots, product pricing, qualification questions, etc.):\n\n' +
+        flowDescriptions +
+        '\n\n### CRITICAL FLOW TRIGGERING PROTOCOL:\n' +
+        '- ONLY trigger a flow when the customer\'s LATEST message explicitly expresses intent to perform an action covered by one of the active flows above (e.g. asking to book an appointment, requesting an appointment slot, asking for pricing/catalog, wanting a consultation or demo).\n' +
+        '- NEVER trigger an action, booking, or pricing flow on a pure greeting or small talk (such as "Hi", "Hello", "Hey", "Namaste", "Good morning", "Ok", "Thanks"), even if earlier messages in the conversation discussed that topic. On a simple greeting, just greet them warmly and ask how you can help.\n' +
+        '- When the customer\'s latest message DOES match an active flow, do NOT ask for details (such as date, time, or phone number) manually — trigger the flow using `[TRIGGER_FLOW: <flow_id_or_name>]` so the flow collects them interactively.\n' +
+        '- You may include a brief, warm, natural confirmation before the tag, for example: "Sure! Let\'s book your appointment slot right away. [TRIGGER_FLOW: <id>]" or in Hinglish "Bilkul! Chaliye aapka slot book karte hain. [TRIGGER_FLOW: <id>]".\n' +
+        '- If none of the active flows match what the customer is asking in their latest message, answer helpfully using the knowledge base and business context.',
+    )
+  }
+
   return parts.join('\n\n')
 }
 
@@ -287,10 +348,14 @@ export function buildSystemPrompt(args: {
  * - Strips accidental cross-channel annotations [Via WhatsApp]
  * - Strips accidental internal metadata or instruction leaks
  * - Strips repetitive robotic trailing clichés if the LLM slipped up
+ * - Strips flow trigger sentinels if passed directly to text sanitization
  */
 export function sanitizeAiReply(text: string | null | undefined): string {
   if (!text) return ''
   let cleaned = text.replace(/^\[Via [^\]]+\]\s*/i, '').trim()
+
+  // Remove flow trigger directives if present
+  cleaned = cleaned.replace(/\[TRIGGER_FLOW:\s*[^\]]+\]/gi, '').trim()
 
   // Remove accidental prompt injection or internal metadata echoes
   cleaned = cleaned.replace(/### AUTHORITATIVE CUSTOMER IDENTITY[\s\S]*?(?=\n\n|$)/gi, '').trim()

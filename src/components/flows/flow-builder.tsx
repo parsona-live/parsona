@@ -796,6 +796,7 @@ function AddNodeButton({ onAdd, t }: { onAdd: (type: NodeType) => void; t: Retur
     'ai_decision',
     'ai_summarize',
     'set_tag',
+    'trigger_flow',
     'handoff',
     'end',
   ];
