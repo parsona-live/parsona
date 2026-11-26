@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Info,
   Wand2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useFlowEditor } from "./flow-editor-state";
@@ -194,127 +195,112 @@ export function FlowJsonEditor({ onSwitchToCanvas }: FlowJsonEditorProps) {
 
     setTimeout(() => {
       setAppliedRecently(false);
-      if (onSwitchToCanvas) {
-        onSwitchToCanvas();
-      }
-    }, 400);
+    }, 900);
   };
 
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-card overflow-hidden">
-      {/* Top Toolbar */}
-      <div className="h-12 border-b border-border bg-muted/40 px-4 flex items-center justify-between shrink-0 gap-3">
-        {/* Left: Mode indicator & validation status */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <FileCode className="h-4 w-4 text-purple-500" />
-            <span>Flow JSON Schema</span>
-          </div>
-
-          <div className="h-4 w-px bg-border" />
-
+      {/* Side Panel Header */}
+      <div className="h-12 border-b border-border bg-muted/40 px-3.5 flex items-center justify-between shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileCode className="h-4 w-4 text-purple-500 shrink-0" />
+          <span className="text-xs font-semibold text-foreground truncate">Flow JSON</span>
           {validationStatus.valid ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
               <CheckCircle2 className="h-3 w-3" />
-              <span>Valid ({validationStatus.nodeCount} nodes)</span>
+              <span>{validationStatus.nodeCount} nodes</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md truncate max-w-[320px]">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded truncate max-w-[180px]">
               <AlertCircle className="h-3 w-3 shrink-0" />
               <span className="truncate">{validationStatus.error}</span>
             </span>
           )}
         </div>
+        {onSwitchToCanvas && (
+          <button
+            type="button"
+            onClick={onSwitchToCanvas}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Close JSON side panel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Master Prompt with All Nodes Encyclopedia & Use Cases */}
+      {/* Single-Line Compact Action Toolbar */}
+      <div className="border-b border-border bg-muted/20 px-3 py-1.5 flex items-center justify-between gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 min-w-0">
+          {/* Copy Master Prompt (no sparkles, no "(All Nodes)") */}
           <Button
             type="button"
             size="sm"
             onClick={handleCopyMasterPrompt}
-            className="h-8 gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-2xs transition-all"
-            title="Copy comprehensive Master Prompt with all 22+ node types, use cases, schemas, and instructions for ChatGPT/Claude"
+            className="h-7 px-2.5 text-[11px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-2xs transition-all shrink-0"
+            title="Copy Master Prompt with all node schemas for ChatGPT/Claude"
           >
-            {copiedMasterPrompt ? (
-              <Check className="h-3.5 w-3.5 text-white" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5 text-white" />
-            )}
-            <span>{copiedMasterPrompt ? "Master Prompt Copied!" : "Copy Master Prompt (All Nodes)"}</span>
+            <span>{copiedMasterPrompt ? "Copied!" : "Copy Master Prompt"}</span>
           </Button>
 
-          {/* Copy Raw JSON */}
+          {/* Copy Raw JSON (icon-only) */}
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={handleCopyJson}
-            className="h-8 gap-1.5 text-xs font-medium border-border"
-            title="Copy raw JSON"
+            className="h-7 w-7 border-border shrink-0"
+            title={copiedJson ? "Copied JSON" : "Copy JSON"}
+            aria-label="Copy JSON"
           >
             {copiedJson ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{copiedJson ? "Copied" : "Copy JSON"}</span>
           </Button>
 
-          {/* Format / Prettify */}
+          {/* Format / Prettify (icon-only) */}
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={handlePrettify}
             disabled={!validationStatus.valid}
-            className="h-8 gap-1.5 text-xs font-medium border-border"
-            title="Format JSON with standard 2-space indentation"
+            className="h-7 w-7 border-border shrink-0"
+            title="Format JSON (2-space indent)"
+            aria-label="Format JSON"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            <span>Format</span>
           </Button>
 
-          {/* Auto Layout */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAutoLayout}
-            disabled={!validationStatus.valid}
-            className="h-8 gap-1.5 text-xs font-medium border-border"
-            title="Automatically compute layout positions for all nodes"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span>Auto Layout</span>
-          </Button>
-
-          {/* Reset from Canvas */}
+          {/* Reset from Canvas (icon-only) */}
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleResetToCanvas}
-            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            title="Discard current text and restore from visual canvas"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+            title="Reset from Canvas"
+            aria-label="Reset from Canvas"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Reset</span>
-          </Button>
-
-          {/* Apply to Visual Canvas */}
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleApplyToCanvas}
-            disabled={!validationStatus.valid}
-            className={cn(
-              "h-8 gap-1.5 text-xs font-semibold text-white shadow-2xs transition-all",
-              appliedRecently
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
-            )}
-          >
-            {appliedRecently ? <Check className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 fill-current" />}
-            <span>{appliedRecently ? "Applied!" : "Apply to Canvas"}</span>
           </Button>
         </div>
+
+        {/* Apply */}
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleApplyToCanvas}
+          disabled={!validationStatus.valid}
+          className={cn(
+            "h-7 px-2.5 gap-1 text-[11px] font-semibold text-white shadow-2xs transition-all shrink-0",
+            appliedRecently
+              ? "bg-emerald-600 hover:bg-emerald-700"
+              : "bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+          )}
+          title="Apply JSON changes to visual canvas"
+        >
+          {appliedRecently ? <Check className="h-3 w-3" /> : <Play className="h-3 w-3 fill-current" />}
+          <span>{appliedRecently ? "Applied!" : "Apply"}</span>
+        </Button>
       </div>
 
       {/* Editor Body: Line numbers + Code Textarea */}
@@ -351,14 +337,14 @@ export function FlowJsonEditor({ onSwitchToCanvas }: FlowJsonEditorProps) {
       </div>
 
       {/* Bottom Info Banner */}
-      <div className="h-8 border-t border-border bg-muted/30 px-4 flex items-center justify-between text-[11px] text-muted-foreground shrink-0">
-        <div className="flex items-center gap-2">
-          <Info className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-          <span>
-            Click <strong>Copy Master Prompt</strong> to give ChatGPT/Claude all 22+ node types with use cases and schemas, paste back the JSON, then click <strong>Apply to Canvas</strong>.
+      <div className="border-t border-border bg-muted/30 px-3 py-2 flex flex-col gap-1 text-[11px] text-muted-foreground shrink-0">
+        <div className="flex items-start gap-1.5 leading-snug">
+          <Info className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
+          <span className="whitespace-normal break-words">
+            Click <strong>Copy Master Prompt</strong> for AI, paste back the JSON, then click <strong>Apply</strong>.
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground/80 pl-5">
           <span>Tab: 2 spaces</span>
           <span>Encoding: UTF-8</span>
         </div>

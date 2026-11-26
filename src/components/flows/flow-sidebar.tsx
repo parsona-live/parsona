@@ -62,14 +62,14 @@ export function FlowSidebar({
   }
 
   return (
-    <aside className="relative flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300 z-10 w-72 shrink-0 h-full select-none">
+    <aside className="relative flex flex-col border-r border-border bg-card text-card-foreground transition-all duration-300 z-10 w-64 shrink-0 h-full select-none">
       {/* Top Tabs: Messages vs Actions */}
       <div className="flex items-center border-b border-border bg-card px-2">
         <button
           type="button"
           onClick={() => setActiveTab('messages')}
           className={cn(
-            'flex-1 py-3.5 text-xs font-semibold text-center transition-all relative',
+            'flex-1 py-2.5 text-xs font-semibold text-center transition-all relative',
             activeTab === 'messages'
               ? 'text-foreground border-b-2 border-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -81,7 +81,7 @@ export function FlowSidebar({
           type="button"
           onClick={() => setActiveTab('actions')}
           className={cn(
-            'flex-1 py-3.5 text-xs font-semibold text-center transition-all relative',
+            'flex-1 py-2.5 text-xs font-semibold text-center transition-all relative',
             activeTab === 'actions'
               ? 'text-foreground border-b-2 border-foreground'
               : 'text-muted-foreground hover:text-foreground'
@@ -101,20 +101,20 @@ export function FlowSidebar({
       </div>
 
       {/* Search Input */}
-      <div className="px-3 py-2 border-b border-border">
+      <div className="px-2.5 py-2 border-b border-border bg-muted/20">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Search ${activeTab}...`}
-            className="h-8 pl-8 text-xs bg-muted/60 border-input text-foreground placeholder:text-muted-foreground focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-7.5 pl-8 text-xs rounded bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       </div>
 
       {/* Node List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
         {filteredNodes.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground">
             No matching {activeTab} found
@@ -134,17 +134,32 @@ export function FlowSidebar({
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 onClick={() => onAddNode(type)}
-                className="group flex items-center justify-between px-3.5 py-3 bg-card hover:bg-accent/40 border border-border hover:border-border/80 rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-grab active:cursor-grabbing select-none text-left"
+                className="group flex items-center justify-between px-2.5 py-2 bg-card hover:bg-muted/50 border border-border/80 hover:border-border rounded-md transition-colors cursor-grab active:cursor-grabbing select-none text-left"
               >
-                <div className="flex items-center gap-3 min-w-0 pr-2">
-                  <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
-                  <span className="text-xs font-semibold text-foreground truncate">
-                    {def.label}
-                  </span>
+                <div className="flex items-center gap-2.5 min-w-0 pr-1.5">
+                  <div
+                    className="flex h-7 w-7 items-center justify-center rounded shrink-0"
+                    style={{
+                      backgroundColor: def.color?.soft,
+                      color: def.color?.text || def.color?.solid,
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-foreground truncate leading-tight">
+                      {def.label}
+                    </div>
+                    {def.blurb && (
+                      <div className="text-[10px] text-muted-foreground truncate mt-0.5 leading-tight">
+                        {def.blurb}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* 6-dot drag grip handle on right */}
-                <GripVertical className="h-4 w-4 text-muted-foreground/60 group-hover:text-foreground shrink-0" />
+                {/* Drag grip handle */}
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" />
               </div>
             );
           })
@@ -152,9 +167,9 @@ export function FlowSidebar({
       </div>
 
       {/* Drag-and-drop hint */}
-      <div className="px-3 pb-3 pt-1 border-t border-border">
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
-          Drag a node onto the canvas to place it anywhere, or click to add it at the center.
+      <div className="px-3 py-2 border-t border-border bg-muted/20">
+        <p className="text-[10px] text-muted-foreground leading-snug">
+          Drag onto canvas or click to add.
         </p>
       </div>
     </aside>

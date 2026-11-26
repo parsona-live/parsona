@@ -33,22 +33,28 @@ export async function GET() {
   }
   const { supabase, userId } = guard
 
+  const admin = supabaseAdmin()
+
   // Resolve caller's account_id to scope to the tenant workspace
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from('profiles')
     .select('account_id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
   const accountId = profile?.account_id as string | undefined
 
-  let query = supabase
+  let query = admin
     .from('flows')
-    .select('*')
+    .select(
+      'id, name, description, status, trigger_type, trigger_config, execution_count, last_executed_at, created_at, updated_at, is_template, origin_template_id',
+    )
     .eq('is_template', false)
     .order('created_at', { ascending: false })
 
   if (accountId) {
     query = query.eq('account_id', accountId)
+  } else {
+    query = query.eq('user_id', userId)
   }
 
   const { data, error } = await query

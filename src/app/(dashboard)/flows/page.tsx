@@ -160,36 +160,18 @@ export default function FlowsPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // 1. Primary list: unblock My Flows immediately without waiting for templates/library
     (async () => {
       try {
-        const [flowsRes, tmplRes, libRes] = await Promise.all([
-          fetch("/api/flows"),
-          fetch("/api/flows/templates"),
-          fetch("/api/flows/library"),
-        ]);
-
+        const flowsRes = await fetch("/api/flows");
         if (!flowsRes.ok) {
           throw new Error(`Failed to load flows: ${flowsRes.status}`);
         }
         const flowsJson = (await flowsRes.json()) as { flows: FlowRow[] };
-        // Exclude any templates from client's My Automations
         if (!cancelled) {
           const rawFlows = flowsJson.flows ?? [];
           setFlows(rawFlows.filter((f) => !f.is_template));
-        }
-
-        if (tmplRes.ok) {
-          const tmplJson = (await tmplRes.json()) as {
-            templates: TemplateSummary[];
-          };
-          if (!cancelled) setTemplates(tmplJson.templates ?? []);
-        }
-
-        if (libRes.ok) {
-          const libJson = (await libRes.json()) as {
-            templates: LibraryTemplate[];
-          };
-          if (!cancelled) setLibraryTemplates(libJson.templates ?? []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -200,6 +182,26 @@ export default function FlowsPage() {
         if (!cancelled) setLoading(false);
       }
     })();
+
+    // 2. Secondary data: load templates & library in parallel without blocking primary UI
+    fetch("/api/flows/templates")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((tmplJson) => {
+        if (!cancelled && tmplJson?.templates) {
+          setTemplates(tmplJson.templates);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/flows/library")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((libJson) => {
+        if (!cancelled && libJson?.templates) {
+          setLibraryTemplates(libJson.templates);
+        }
+      })
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };

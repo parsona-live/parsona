@@ -158,21 +158,10 @@ async function queryInputAnalysis(payload: {
   ai_response?: string | null;
   reason?: string;
 }> {
-  try {
-    const res = await fetch('/api/flows/analyze-input', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch {
-    // API failed, use client fallback
-  }
-
   const trimmed = payload.text.trim();
   const lower = trimmed.toLowerCase();
+
+  // Fast-path deterministic checks (0ms, no network round-trip)
   if (/^(cancel|stop|quit|exit|band\s*karo)$/i.test(lower)) {
     return { intent: 'cancel', extracted_value: null };
   }
@@ -184,7 +173,7 @@ async function queryInputAnalysis(payload: {
   }
   if (
     trimmed.includes('?') ||
-    /^(what|how|why|when|where|who|can|could|is|are|check|status)\b/i.test(trimmed)
+    /^(what|how|why|when|where|who|can|could|is|are|check|status|kya|kaise|kab|kahan)\b/i.test(trimmed)
   ) {
     if (payload.allowInterruption !== false) {
       return {
@@ -195,7 +184,53 @@ async function queryInputAnalysis(payload: {
     }
     return { intent: 'unclear_input', extracted_value: null };
   }
-  return { intent: 'valid_input', extracted_value: trimmed };
+
+  // Fast-path local validation so normal answers advance instantaneously
+  const valType = payload.validation || 'any';
+  if (valType === 'email' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { intent: 'valid_input', extracted_value: trimmed };
+  }
+  if (valType === 'phone' && /^[+\d][\d\s\-().]{6,18}$/.test(trimmed)) {
+    return { intent: 'valid_input', extracted_value: trimmed };
+  }
+  if (valType === 'number' && /^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+    return { intent: 'valid_input', extracted_value: trimmed };
+  }
+  if (valType === 'name' && /^[\p{L}\s.'-]{2,60}$/u.test(trimmed)) {
+    return { intent: 'valid_input', extracted_value: trimmed };
+  }
+  if (valType === 'regex' && payload.regex) {
+    try {
+      if (new RegExp(payload.regex).test(trimmed)) {
+        return { intent: 'valid_input', extracted_value: trimmed };
+      }
+    } catch {
+      // ignore invalid regex
+    }
+  }
+  if (valType === 'any' && trimmed.length > 0) {
+    return { intent: 'valid_input', extracted_value: trimmed };
+  }
+
+  // Only hit /api/flows/analyze-input when input needs AI extraction/clarification
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch('/api/flows/analyze-input', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // API failed or timed out, use client fallback
+  }
+
+  return { intent: 'unclear_input', extracted_value: null };
 }
 
 export function FlowChatPreview({
@@ -232,18 +267,48 @@ export function FlowChatPreview({
 
   const triggerConfig = useMemo(() => {
     const nodeCfg = (triggerNode?.config ?? {}) as Record<string, any>;
+    const flowCfg = (flow.trigger_config ?? {}) as Record<string, any>;
     const startingStep =
       nodeCfg.starting_step ||
-      (flow.trigger_type === 'first_inbound_message' ? 'new_contact' : 'keyword');
+      (flow.trigger_type === 'ai_intent'
+        ? 'ai_intent'
+        : flow.trigger_type === 'first_inbound_message'
+          ? 'new_contact'
+          : flow.trigger_type === 'manual'
+            ? 'manual'
+            : 'keyword');
 
-    let keywords: string[] = [];
-    if (Array.isArray(nodeCfg.keywords) && nodeCfg.keywords.length > 0) {
-      keywords = nodeCfg.keywords;
-    } else if (Array.isArray((flow.trigger_config as any)?.keywords) && (flow.trigger_config as any).keywords.length > 0) {
-      keywords = (flow.trigger_config as any).keywords;
-    }
+    const keywords: string[] =
+      Array.isArray(nodeCfg.keywords) && nodeCfg.keywords.length > 0
+        ? nodeCfg.keywords
+        : Array.isArray(flowCfg.keywords)
+          ? flowCfg.keywords
+          : [];
 
-    return { startingStep, keywords };
+    const positiveExamples: string[] =
+      Array.isArray(nodeCfg.positive_examples) && nodeCfg.positive_examples.length > 0
+        ? nodeCfg.positive_examples
+        : Array.isArray(flowCfg.positive_examples)
+          ? flowCfg.positive_examples
+          : [];
+
+    const negativeExamples: string[] =
+      Array.isArray(nodeCfg.negative_examples) && nodeCfg.negative_examples.length > 0
+        ? nodeCfg.negative_examples
+        : Array.isArray(flowCfg.negative_examples)
+          ? flowCfg.negative_examples
+          : [];
+
+    const intentDescription: string =
+      nodeCfg.intent_description || flowCfg.intent_description || '';
+
+    return {
+      startingStep,
+      keywords,
+      positiveExamples,
+      negativeExamples,
+      intentDescription,
+    };
   }, [triggerNode, flow.trigger_type, flow.trigger_config]);
 
   const entryKey = useMemo(() => {
@@ -808,6 +873,29 @@ export function FlowChatPreview({
           ];
         }
 
+        case 'trigger_flow': {
+          setWaitingForInput(null);
+          const targetName =
+            (cfg.target_flow_name as string) || (cfg.target_flow_id as string) || 'Target Flow';
+          const passVars = (cfg.pass_vars as Record<string, string>) || {};
+          const resolvedEntries = Object.entries(passVars).map(
+            ([k, v]) => `${k}="${interpolate(v, vars)}"`,
+          );
+          return [
+            ...currentHistory,
+            {
+              id: `act-${Date.now()}-${Math.random()}`,
+              sender: 'system',
+              actionBadge: {
+                icon: Sparkles,
+                label: `Triggered Flow: "${targetName}"`,
+                detail: resolvedEntries.length > 0 ? resolvedEntries.join(', ') : undefined,
+              },
+              timestamp: time,
+            },
+          ];
+        }
+
         case 'end':
         case 'close_conversation': {
           setWaitingForInput(null);
@@ -843,26 +931,57 @@ export function FlowChatPreview({
     setActiveListModal(null);
   };
 
-  // Check if user input triggers the workflow
+  // Check if user input triggers the workflow (uses whole-word boundaries, never fires on random text)
   const checkTriggerMatch = useCallback(
     (text: string): boolean => {
-      const { startingStep, keywords } = triggerConfig;
+      const { startingStep, keywords, positiveExamples, negativeExamples, intentDescription } =
+        triggerConfig;
       const lower = text.toLowerCase().trim();
       if (!lower) return false;
 
+      const hasWholePhrase = (haystack: string, needle: string) => {
+        const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(haystack);
+      };
+
       if (startingStep === 'keyword' || startingStep === 'contact_from_ad') {
-        if (keywords.length > 0) {
-          return keywords.some((kw) => {
-            const cleanKw = kw.toLowerCase().trim();
-            if (!cleanKw) return false;
-            if (lower === cleanKw) return true;
-            // Match with word boundary or substring
-            const escaped = cleanKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(^|\\b|\\s)${escaped}($|\\b|\\s)`, 'i');
-            return regex.test(lower) || lower.includes(cleanKw);
-          });
+        return keywords.some((kw) => {
+          const cleanKw = kw.toLowerCase().trim();
+          return cleanKw ? lower === cleanKw || hasWholePhrase(lower, cleanKw) : false;
+        });
+      }
+
+      if (startingStep === 'ai_intent') {
+        // Reject negative examples first
+        if (negativeExamples.some((neg) => hasWholePhrase(lower, neg.toLowerCase().trim()))) {
+          return false;
         }
-        // If keyword mode is active but user has not configured any keywords yet, do not trigger
+        // Check keywords & positive examples
+        if (
+          keywords.some((kw) => {
+            const cleanKw = kw.toLowerCase().trim();
+            return cleanKw ? lower === cleanKw || hasWholePhrase(lower, cleanKw) : false;
+          })
+        ) {
+          return true;
+        }
+        if (
+          positiveExamples.some((ex) => {
+            const cleanEx = ex.toLowerCase().trim();
+            if (!cleanEx) return false;
+            return lower === cleanEx || hasWholePhrase(lower, cleanEx) || (lower.length >= 3 && hasWholePhrase(cleanEx, lower));
+          })
+        ) {
+          return true;
+        }
+        // Check positive part of intent_description (ignore "Do not trigger for ..." clauses)
+        const posDesc = intentDescription.split(/(?:do\s+not\s+trigger|don'?t\s+trigger)/i)[0] || '';
+        const msgWords = lower.split(/\s+/).filter((w) => w.length >= 3);
+        const stop = new Set(['hi', 'hello', 'hey', 'the', 'and', 'for', 'you', 'are', 'want', 'need', 'can', 'hai', 'mujhe']);
+        const sigWords = msgWords.filter((w) => !stop.has(w));
+        if (sigWords.length > 0 && posDesc) {
+          return sigWords.some((w) => hasWholePhrase(posDesc.toLowerCase(), w));
+        }
         return false;
       }
 
@@ -873,7 +992,7 @@ export function FlowChatPreview({
 
       return false;
     },
-    [triggerConfig]
+    [triggerConfig, messages]
   );
 
   // Handle user sending text message
@@ -892,10 +1011,10 @@ export function FlowChatPreview({
 
     const newHistory = [...messages, userMsg];
 
-    // Priority 1: Check if this message is a trigger keyword match!
-    const isKeywordMatch = checkTriggerMatch(text);
+    // Priority 1: Only start/restart the flow when the message actually matches the configured trigger!
+    const isTriggerMatch = checkTriggerMatch(text);
 
-    if (isKeywordMatch || (messages.length === 0 && entryKey)) {
+    if (isTriggerMatch) {
       setWaitingForInput(null);
       setPausedNodeKey(null);
       if (entryKey) {

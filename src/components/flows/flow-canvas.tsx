@@ -311,46 +311,108 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
     }
 
     case 'send_carousel': {
-      const body = (cfg.body_text as string) || '';
-      const cards = Array.isArray(cfg.cards) ? (cfg.cards as unknown[]) : [];
+      const body = (cfg.text as string) || (cfg.body_text as string) || '';
+      const cards = Array.isArray(cfg.cards)
+        ? (cfg.cards as Array<{
+            title?: string;
+            body_text?: string;
+            buttons?: Array<{ title?: string }>;
+          }>)
+        : [];
       return (
-        <>
+        <div className="space-y-1.5">
           {body && <BodyText lines={2}>{body}</BodyText>}
           <IconLine icon={GalleryHorizontalEnd}>
             {cards.length} {cards.length === 1 ? 'card' : 'cards'}
           </IconLine>
-          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
-            <span className="text-emerald-600 font-semibold">WA</span> Cards · <span className="text-pink-600 font-semibold">IG/FB</span> Generic
-          </div>
-        </>
+          {cards.length > 0 && (
+            <div className="space-y-1 pt-0.5">
+              {cards.slice(0, 3).map((card, cIdx) => {
+                const titleLine =
+                  card.title?.trim() ||
+                  (card.body_text || '')
+                    .split(/\r?\n/)
+                    .map((l) => l.trim())
+                    .find(Boolean) ||
+                  `Card ${cIdx + 1}`;
+                const btnTitles = (card.buttons || [])
+                  .map((b) => b.title?.trim())
+                  .filter(Boolean);
+                return (
+                  <div
+                    key={cIdx}
+                    className="rounded-md border border-slate-200/80 bg-slate-50/70 px-2 py-1 text-[10px]"
+                  >
+                    <p className="font-semibold text-slate-800 truncate">{titleLine}</p>
+                    {btnTitles.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {btnTitles.map((bt, bIdx) => (
+                          <span
+                            key={bIdx}
+                            className="rounded bg-white border border-slate-200 px-1 py-0.2 text-[9px] text-slate-600"
+                          >
+                            {bt}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {cards.length > 3 && (
+                <p className="text-[10px] text-slate-400">+{cards.length - 3} more cards</p>
+              )}
+            </div>
+          )}
+        </div>
       );
     }
 
     case 'send_buttons': {
       // Button rows render below the body as handle slots.
-      const text = (cfg.text as string) || '';
+      const isPrompt = cfg.text_mode === 'prompt' && cfg.prompt;
+      const text = isPrompt
+        ? `✨ Prompt: ${cfg.prompt}`
+        : ((cfg.text as string) || (cfg.body_text as string) || '');
+      const footer = (cfg.footer_text as string) || '';
       return (
         <>
           {renderHeader()}
+          {isPrompt && (
+            <span className="text-[10px] text-purple-600 font-semibold flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> AI Generated
+            </span>
+          )}
           <BodyText>{text || <Placeholder>Select an option below</Placeholder>}</BodyText>
-          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
-            <span className="text-emerald-600 font-semibold">WA</span> Buttons · <span className="text-pink-600 font-semibold">IG/FB</span> Quick Replies
-          </div>
+          {footer && (
+            <p className="text-[10px] text-slate-400 italic truncate">{footer}</p>
+          )}
         </>
       );
     }
 
     case 'send_list': {
-      const body = (cfg.body_text as string) || '';
+      const body = (cfg.text as string) || (cfg.body_text as string) || '';
       const label = (cfg.button_label as string) || 'View options';
+      const sections = Array.isArray(cfg.sections)
+        ? (cfg.sections as Array<{ title?: string; rows?: Array<{ title?: string }> }>)
+        : [];
+      const rowTitles = sections.flatMap((s) => (s.rows || []).map((r) => r.title).filter(Boolean));
       return (
         <>
           {renderHeader()}
           <BodyText>{body || <Placeholder>Select from list</Placeholder>}</BodyText>
-          <IconLine icon={ListChecks}>{label}</IconLine>
-          <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 font-mono">
-            <span className="text-emerald-600 font-semibold">WA</span> List · <span className="text-pink-600 font-semibold">IG/FB</span> Carousel
-          </div>
+          <IconLine icon={ListChecks}>
+            {label} ({rowTitles.length} {rowTitles.length === 1 ? 'option' : 'options'})
+          </IconLine>
+          {rowTitles.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {rowTitles.slice(0, 4).map((rt, idx) => (
+                <Chip key={idx}>{rt}</Chip>
+              ))}
+              {rowTitles.length > 4 && <Chip>+{rowTitles.length - 4}</Chip>}
+            </div>
+          )}
         </>
       );
     }
@@ -362,6 +424,15 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
         ? `✨ Prompt: ${cfg.prompt}`
         : ((cfg.prompt_text as string) || (cfg.text as string) || (cfg.prompt as string) || (cfg.message as string) || '');
       const varKey = (cfg.var_key as string) || (cfg.variable_name as string) || (cfg.variable as string) || 'input';
+      const validation = (cfg.validation as string) || (cfg.input_type as string) || 'any';
+      const contextBehavior =
+        (cfg.context_behavior as string) || (cfg.skip_if_known === false ? 'ask_always' : 'skip_if_known');
+      const contextLabel =
+        contextBehavior === 'ask_always'
+          ? 'Always ask'
+          : contextBehavior === 'confirm_if_known'
+            ? 'Confirm if known'
+            : 'Skip if known';
       return (
         <>
           {isPrompt && (
@@ -370,7 +441,13 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
             </span>
           )}
           <BodyText lines={3}>{prompt || <Placeholder>Please enter your response…</Placeholder>}</BodyText>
-          <Chip>&#123;&#123;vars.{varKey}&#125;&#125;</Chip>
+          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+            <Chip>&#123;&#123;vars.{varKey}&#125;&#125;</Chip>
+            {validation !== 'any' && <Chip>{validation}</Chip>}
+            <span className="rounded bg-amber-50 border border-amber-200/70 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+              {contextLabel}
+            </span>
+          </div>
         </>
       );
     }
@@ -511,10 +588,44 @@ function NodeBodyVisual({ node }: { node: BuilderNode }) {
 
     case 'send_email': {
       const subject = (cfg.subject as string) || '';
+      const toEmail = (cfg.to_email as string) || '';
       return (
-        <IconLine icon={Mail}>
-          {subject ? `Subject: ${subject}` : 'Configure email'}
-        </IconLine>
+        <div className="space-y-1">
+          <IconLine icon={Mail}>
+            {subject ? `Subject: ${subject}` : 'Configure email'}
+          </IconLine>
+          {toEmail && <Chip>To: {toEmail}</Chip>}
+        </div>
+      );
+    }
+
+    case 'trigger_flow': {
+      const target =
+        (cfg.target_flow_name as string) ||
+        (cfg.target_flow_id as string) ||
+        '';
+      const passVars = (cfg.pass_vars as Record<string, string>) || {};
+      const entries = Object.entries(passVars);
+      return (
+        <div className="space-y-1.5">
+          <IconLine icon={Zap}>
+            {target ? `→ ${target}` : 'Select target flow…'}
+          </IconLine>
+          {entries.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {entries.slice(0, 3).map(([k, v], i) => (
+                <Chip key={i}>
+                  {k}={v}
+                </Chip>
+              ))}
+            </div>
+          )}
+          {Boolean(cfg.pass_all_vars) && (
+            <span className="text-[10px] text-purple-600 font-medium block">
+              Forwards all flow variables
+            </span>
+          )}
+        </div>
       );
     }
 
@@ -1155,15 +1266,35 @@ const NODE_TYPES = { flow: FlowNodeCard };
  * (notably, the pan-to-flash effect). The split is required because
  * useReactFlow() must be called inside a ReactFlowProvider.
  */
-export function FlowCanvas({ onTestNode }: { onTestNode?: (node: BuilderNode) => void }) {
+export function FlowCanvas({
+  onTestNode,
+  selectedNodeKey,
+  onSelectNodeKey,
+}: {
+  onTestNode?: (node: BuilderNode) => void;
+  selectedNodeKey?: string | null;
+  onSelectNodeKey?: (key: string | null) => void;
+}) {
   return (
     <ReactFlowProvider>
-      <FlowCanvasInner onTestNode={onTestNode} />
+      <FlowCanvasInner
+        onTestNode={onTestNode}
+        selectedNodeKey={selectedNodeKey}
+        onSelectNodeKey={onSelectNodeKey}
+      />
     </ReactFlowProvider>
   );
 }
 
-function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => void }) {
+function FlowCanvasInner({
+  onTestNode,
+  selectedNodeKey: controlledSelectedKey,
+  onSelectNodeKey,
+}: {
+  onTestNode?: (node: BuilderNode) => void;
+  selectedNodeKey?: string | null;
+  onSelectNodeKey?: (key: string | null) => void;
+}) {
   const t = useTranslations('Flows.builder');
   const {
     state,
@@ -1180,10 +1311,20 @@ function FlowCanvasInner({ onTestNode }: { onTestNode?: (node: BuilderNode) => v
   const builderNodes = state.nodes;
   const entryNodeId = state.entry_node_id;
 
-  // Side-panel state — which node's form is open. Canvas-only UI; the
-  // list view's analogue is the per-card expanded set in
-  // flow-builder.tsx.
-  const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
+  // Side-panel state — which node's form is open (controlled by shell when provided).
+  const [internalSelectedKey, setInternalSelectedKey] = useState<string | null>(null);
+  const selectedNodeKey =
+    controlledSelectedKey !== undefined ? controlledSelectedKey : internalSelectedKey;
+  const setSelectedNodeKey = useCallback(
+    (key: string | null) => {
+      if (onSelectNodeKey) {
+        onSelectNodeKey(key);
+      } else {
+        setInternalSelectedKey(key);
+      }
+    },
+    [onSelectNodeKey],
+  );
   // Tracks whether a drag from the Node Library is currently hovering
   // over the canvas so we can render a drop affordance.
   const [isDragOver, setIsDragOver] = useState(false);
@@ -1601,14 +1742,19 @@ function NodeEditPanel({
   if (!node) return null;
   const def = NODE_REGISTRY[node.node_type];
   return (
-    <aside className="w-[380px] lg:w-[420px] h-full border-l border-border bg-card text-card-foreground flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
-      <div className="h-14 border-b border-border bg-muted/40 px-5 flex items-center justify-between shrink-0">
+    <aside className="w-[400px] lg:w-[440px] h-full border-l border-border bg-card text-card-foreground flex flex-col shrink-0 z-30 select-none shadow-xl transition-all relative">
+      <div className="min-h-14 border-b border-border bg-muted/40 px-5 py-2.5 flex items-center justify-between shrink-0 gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <NodeIconChip type={node.node_type} size={32} iconSize={16} />
           <div className="min-w-0 flex-1">
-            <h4 className="text-xs font-semibold text-foreground truncate">
-              {def?.label || t(`nodes.${node.node_type}.label`)}
-            </h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-foreground truncate">
+                {def?.label || t(`nodes.${node.node_type}.label`)}
+              </h4>
+              <code className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground truncate max-w-[120px]">
+                {node.node_key}
+              </code>
+            </div>
             <p className="text-[11px] text-muted-foreground truncate">
               {def?.blurb || t(`nodes.${node.node_type}.blurb`)}
             </p>
@@ -1624,7 +1770,7 @@ function NodeEditPanel({
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 bg-card">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4 bg-background/40 [&_>_div]:rounded-xl [&_>_div]:border [&_>_div]:border-border/70 [&_>_div]:bg-card [&_>_div]:p-3.5 [&_>_div]:shadow-2xs">
         <NodeConfigForm
           node={node}
           allNodes={allNodes}

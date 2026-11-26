@@ -68,7 +68,8 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
     addNode,
   } = useFlowEditor();
 
-  const [viewTab, setViewTab] = useState<"canvas" | "json">("canvas");
+  const [selectedNodeKey, setSelectedNodeKey] = useState<string | null>(null);
+  const [jsonOpen, setJsonOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
@@ -76,145 +77,166 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
 
   const errors = issues.filter((i) => i.severity === "error");
 
+  // Mutual-exclusion panel handlers: opening one right-side panel closes any other.
+  const handleSelectNodeKey = useCallback((key: string | null) => {
+    setSelectedNodeKey(key);
+    if (key !== null) {
+      setJsonOpen(false);
+      setPreviewOpen(false);
+    }
+  }, []);
+
+  const handleToggleJson = useCallback(() => {
+    setJsonOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setSelectedNodeKey(null);
+        setPreviewOpen(false);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleTogglePreview = useCallback(() => {
+    setPreviewOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setSelectedNodeKey(null);
+        setJsonOpen(false);
+      }
+      return next;
+    });
+  }, []);
+
   const handleTestNode = useCallback((_node: BuilderNode) => {
+    setSelectedNodeKey(null);
+    setJsonOpen(false);
     setPreviewOpen(true);
   }, []);
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden select-none">
       {/* ================= COMPACT HEADER ================= */}
-      <header className="h-14 border-b border-border bg-card text-card-foreground px-5 flex items-center justify-between shrink-0 z-20">
-        {/* Left: Flow icon, name input, Edit badge, dirty indicator */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-foreground">
-            <Workflow className="h-4 w-4" />
+      <header className="h-12 border-b border-border bg-card text-card-foreground px-4 flex items-center justify-between shrink-0 z-20 gap-3">
+        {/* Left: Flow icon, name input, Edit button, subtle inline status text */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded bg-muted text-foreground shrink-0">
+            <Workflow className="h-3.5 w-3.5" />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 min-w-0">
             <input
               ref={nameInputRef}
               value={state.name}
               onChange={(e) => setState((s) => ({ ...s, name: e.target.value }))}
               placeholder="Untitled Flow"
-              className="text-sm font-semibold text-foreground bg-transparent outline-none hover:bg-muted/50 focus:bg-background focus:ring-1 focus:ring-ring rounded px-1.5 py-0.5 max-w-[240px] truncate"
+              className="text-xs font-semibold text-foreground bg-transparent outline-none hover:bg-muted/50 focus:bg-background focus:ring-1 focus:ring-ring rounded px-1.5 py-0.5 max-w-[210px] truncate"
             />
             <button
               type="button"
               onClick={() => nameInputRef.current?.focus()}
-              className="px-2 py-0.5 text-xs font-medium bg-muted hover:bg-muted/80 text-foreground rounded transition-colors"
+              className="px-1.5 py-0.5 text-[11px] font-medium bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors shrink-0"
             >
               Edit
             </button>
           </div>
-          {dirty && (
-            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+          {dirty ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 shrink-0 pl-1">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-              Edited
+              <span>Unsaved</span>
             </span>
-          )}
+          ) : issues.length === 0 ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0 pl-1">
+              <Check className="h-3 w-3" />
+              <span>Ready</span>
+            </span>
+          ) : null}
         </div>
 
-        {/* Center: View Switcher Tabs [ Visual Canvas | Code JSON (AI) ] */}
-        <div className="flex items-center bg-muted/70 p-0.5 rounded-lg border border-border">
-          <button
-            type="button"
-            onClick={() => setViewTab("canvas")}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all",
-              viewTab === "canvas"
-                ? "bg-card text-foreground shadow-2xs font-semibold"
-                : "text-muted-foreground hover:text-foreground font-medium"
-            )}
-          >
-            <Workflow className="h-3.5 w-3.5" />
-            <span>Canvas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewTab("json")}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all",
-              viewTab === "json"
-                ? "bg-card text-purple-600 dark:text-purple-400 shadow-2xs font-semibold"
-                : "text-muted-foreground hover:text-foreground font-medium"
-            )}
-          >
-            <Code2 className="h-3.5 w-3.5 text-purple-500" />
-            <span>JSON (AI)</span>
-          </button>
-        </div>
-
-        {/* Right: Validation Issues, Live Preview, Theme Toggle, Go Back, Save, Publish */}
-        <div className="flex items-center gap-2.5">
+        {/* Right: Issues, JSON, Preview, Theme, Go Back, Save, Active/Pause */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Validation Issues Alert Pill & Popover */}
-          <div className="relative">
-            {issues.length > 0 ? (
+          {issues.length > 0 && (
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setIssuesOpen((v) => !v)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors shadow-2xs",
+                  "h-7 flex items-center gap-1 px-2 text-[11px] font-semibold rounded border transition-colors",
                   errors.length > 0
                     ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20"
                     : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
                 )}
               >
-                <AlertTriangle className="h-3.5 w-3.5" />
+                <AlertTriangle className="h-3 w-3" />
                 <span>
                   {issues.length} {issues.length === 1 ? "issue" : "issues"}
                 </span>
               </button>
-            ) : (
-              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
-                <Check className="h-3 w-3" /> Ready
-              </span>
-            )}
 
-            {/* Floating Issues Dropdown Popover */}
-            {issuesOpen && issues.length > 0 && (
-              <div className="absolute right-0 top-full mt-2 w-80 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-50 zoom-in-95">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
-                  <span className="text-xs font-semibold text-foreground">
-                    Validation Issues ({issues.length})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIssuesOpen(false)}
-                    className="text-muted-foreground hover:text-foreground text-xs font-medium"
-                  >
-                    Close
-                  </button>
+              {issuesOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 max-h-72 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground p-3 shadow-xl z-50 animate-in fade-in-50 zoom-in-95">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+                    <span className="text-xs font-semibold text-foreground">
+                      Validation Issues ({issues.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIssuesOpen(false)}
+                      className="text-muted-foreground hover:text-foreground text-xs font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {issues.map((issue, idx) => (
+                      <IssueLine
+                        key={idx}
+                        issue={issue}
+                        onJump={(key) => {
+                          requestFlash(key);
+                          setIssuesOpen(false);
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  {issues.map((issue, idx) => (
-                    <IssueLine
-                      key={idx}
-                      issue={issue}
-                      onJump={(key) => {
-                        requestFlash(key);
-                        setIssuesOpen(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
+            </div>
+          )}
+
+          {/* Single JSON Panel Toggle Button */}
+          <button
+            type="button"
+            onClick={handleToggleJson}
+            className={cn(
+              "h-7 px-2.5 gap-1 rounded border text-[11px] font-semibold transition-all flex items-center",
+              jsonOpen
+                ? "border-purple-500 bg-purple-500/15 text-purple-600 dark:text-purple-400"
+                : "border-border bg-card hover:bg-muted text-foreground"
             )}
-          </div>
+            title="Toggle Flow JSON side panel"
+          >
+            <Code2 className="h-3.5 w-3.5 text-purple-500" />
+            <span>JSON</span>
+          </button>
 
           {/* Live Chat Preview Toggle */}
           <button
             type="button"
-            onClick={() => setPreviewOpen((v) => !v)}
+            onClick={handleTogglePreview}
             className={cn(
-              "h-8 px-3 gap-1.5 rounded-lg border text-xs font-semibold shadow-2xs transition-all flex items-center",
+              "h-7 px-2.5 gap-1 rounded border text-[11px] font-semibold transition-all flex items-center",
               previewOpen
-                ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold"
+                ? "border-emerald-500 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                 : "border-border bg-card hover:bg-muted text-foreground"
             )}
           >
             <Play
               className={cn(
-                "h-3.5 w-3.5",
-                previewOpen ? "fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400" : "fill-emerald-500 text-emerald-500"
+                "h-3 w-3",
+                previewOpen
+                  ? "fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400"
+                  : "fill-emerald-500 text-emerald-500"
               )}
             />
             <span>Preview</span>
@@ -226,7 +248,7 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
             variant="outline"
             size="sm"
             onClick={toggleMode}
-            className="h-8 w-8 p-0 rounded-lg border-border bg-card hover:bg-muted text-foreground shadow-2xs"
+            className="h-7 w-7 p-0 rounded border-border bg-card hover:bg-muted text-foreground"
             title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             aria-label="Toggle theme mode"
           >
@@ -237,16 +259,18 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
             )}
           </Button>
 
+          <div className="h-4 w-px bg-border mx-0.5" />
+
           {/* Go Back */}
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => router.push("/flows")}
-            className="h-8 gap-1.5 rounded-lg border-border bg-card hover:bg-muted text-xs font-semibold text-foreground shadow-2xs"
+            className="h-7 px-2.5 gap-1 rounded border-border bg-card hover:bg-muted text-[11px] font-semibold text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Go Back</span>
+            <ArrowLeft className="h-3 w-3" />
+            <span>Back</span>
           </Button>
 
           {/* Save changes */}
@@ -254,10 +278,10 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
             type="button"
             onClick={() => void save()}
             disabled={saving}
-            className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="h-7 px-3 text-[11px] font-semibold rounded bg-[#16a34a] hover:bg-[#15803d] text-white transition-colors flex items-center gap-1 disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            <span>Save changes</span>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            <span>Save</span>
           </button>
 
           {/* Active / Pause button */}
@@ -266,9 +290,9 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
               type="button"
               onClick={() => void setStatus("draft")}
               disabled={activating}
-              className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#dc2626] hover:bg-[#b91c1c] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="h-7 px-3 text-[11px] font-semibold rounded bg-[#dc2626] hover:bg-[#b91c1c] text-white transition-colors flex items-center gap-1 disabled:opacity-50"
             >
-              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+              {activating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
               <span>Pause</span>
             </button>
           ) : (
@@ -277,30 +301,33 @@ function FlowEditorShellInner({ initialFlow }: { initialFlow: FlowRow }) {
               onClick={() => void setStatus("active")}
               disabled={activating || !canActivate}
               title={!canActivate ? "Fix validation issues before activating" : undefined}
-              className="h-8 px-4 text-xs font-semibold rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="h-7 px-3 text-[11px] font-semibold rounded bg-[#16a34a] hover:bg-[#15803d] text-white transition-colors flex items-center gap-1 disabled:opacity-50"
             >
-              {activating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+              {activating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
               <span>Active</span>
             </button>
           )}
         </div>
       </header>
 
-      {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + CHAT PREVIEW / JSON EDITOR) ================= */}
+      {/* ================= MAIN WORKSPACE (SIDEBAR + CANVAS + JSON SIDE PANEL / CHAT PREVIEW) ================= */}
       <div className="flex-1 flex overflow-hidden min-h-0 bg-background relative">
-        {viewTab === "canvas" ? (
-          <>
-            <FlowSidebar
-              onAddNode={(type) => addNode(type)}
-              isCollapsed={isSidebarCollapsed}
-              onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-            />
-            <div className="flex-1 h-full min-w-0 relative flex bg-white [color-scheme:light]">
-              <FlowCanvas onTestNode={handleTestNode} />
-            </div>
-          </>
-        ) : (
-          <FlowJsonEditor onSwitchToCanvas={() => setViewTab("canvas")} />
+        <FlowSidebar
+          onAddNode={(type) => addNode(type)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
+        />
+        <div className="flex-1 h-full min-w-0 relative flex bg-white [color-scheme:light]">
+          <FlowCanvas
+            onTestNode={handleTestNode}
+            selectedNodeKey={selectedNodeKey}
+            onSelectNodeKey={handleSelectNodeKey}
+          />
+        </div>
+        {jsonOpen && (
+          <aside className="w-[460px] lg:w-[540px] max-w-[90vw] h-full border-l border-border bg-card flex flex-col shrink-0 z-30 shadow-2xl">
+            <FlowJsonEditor onSwitchToCanvas={() => setJsonOpen(false)} />
+          </aside>
         )}
         {previewOpen && (
           <FlowChatPreview

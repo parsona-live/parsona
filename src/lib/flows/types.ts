@@ -288,6 +288,8 @@ export interface CollectInputNodeConfig extends PromptTextConfig {
   allow_interruption?: boolean;
   /** When true or omitted, if the variable is already known in the contact context, the step is automatically skipped. */
   skip_if_known?: boolean;
+  /** Explicit behavior when the variable already exists in contact/context. */
+  context_behavior?: "skip_if_known" | "ask_always" | "confirm_if_known";
   /** Node to advance to after capture. */
   next_node_key: string;
 }
@@ -535,6 +537,8 @@ export interface InputFlowNodeConfig {
   regex?: string;
   invalid_message?: string;
   allow_interruption?: boolean;
+  skip_if_known?: boolean;
+  context_behavior?: "skip_if_known" | "ask_always" | "confirm_if_known";
   next_node_key: string;
 }
 

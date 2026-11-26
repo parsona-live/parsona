@@ -614,6 +614,8 @@ function CollectInputForm({
     invalid_message?: string;
     validation_error_message?: string;
     allow_interruption?: boolean;
+    skip_if_known?: boolean;
+    context_behavior?: "skip_if_known" | "ask_always" | "confirm_if_known";
     next_node_key?: string;
   };
   allNodes: BuilderNode[];
@@ -625,6 +627,8 @@ function CollectInputForm({
   const varKey = cfg.var_key ?? cfg.variable_name ?? "";
   const validation = cfg.validation || cfg.input_type || "any";
   const allowInterruption = cfg.allow_interruption !== false; // default true
+  const contextBehavior: "skip_if_known" | "ask_always" | "confirm_if_known" =
+    cfg.context_behavior ?? (cfg.skip_if_known === false ? "ask_always" : "skip_if_known");
 
   return (
     <div className="space-y-4">
@@ -669,6 +673,35 @@ function CollectInputForm({
             {"}}"}
           </code>
           .
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
+          If Already Known in Contact Profile
+        </label>
+        <Select
+          value={contextBehavior}
+          onValueChange={(val) => {
+            if (!val) return;
+            onUpdateConfig({
+              context_behavior: val,
+              skip_if_known: val === "skip_if_known",
+            });
+          }}
+        >
+          <SelectTrigger className="w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="skip_if_known">Skip step (auto-fill from profile)</SelectItem>
+            <SelectItem value="confirm_if_known">Confirm saved value with customer</SelectItem>
+            <SelectItem value="ask_always">Always ask customer</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Controls whether this question is skipped, confirmed, or always asked when{" "}
+          <code className="rounded bg-muted px-1">{varKey || "field"}</code> is already saved.
         </p>
       </div>
 

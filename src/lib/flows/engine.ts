@@ -1511,7 +1511,7 @@ async function advanceFromNodeKey(
     if (node.node_type === "collect_input" || node.node_type === "input_flow") {
       const cfg = effectiveNode.config as unknown as CollectInputNodeConfig;
 
-      // Smart Context Skip: If variable is already populated and valid, skip prompting
+      // Smart Context Handling: skip_if_known | confirm_if_known | ask_always
       const rawKey = cfg.var_key?.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
       const existingVal = run.vars[cfg.var_key] ?? (rawKey ? run.vars[rawKey] : undefined);
       const isKnown =
@@ -1520,7 +1520,10 @@ async function advanceFromNodeKey(
         existingVal !== "Instagram User" &&
         existingVal !== "Facebook User";
 
-      if (cfg.skip_if_known !== false && isKnown && cfg.next_node_key) {
+      const contextBehavior =
+        cfg.context_behavior ?? (cfg.skip_if_known === false ? "ask_always" : "skip_if_known");
+
+      if (contextBehavior === "skip_if_known" && isKnown && cfg.next_node_key) {
         await logEvent(db, run.id, "node_entered", node.node_key, {
           action: "step_skipped",
           node_type: node.node_type,
@@ -1553,7 +1556,17 @@ async function advanceFromNodeKey(
       // Send the prompt and suspend. Customer's next TEXT reply will
       // wake us up via handleReplyForActiveRun's collect_input branch.
       try {
-        const resolvedPrompt = await resolveNodeText(db, run, effectiveNode, cfg.prompt_text || "", cfg);
+        let resolvedPrompt: string;
+        if (contextBehavior === "confirm_if_known" && isKnown) {
+          const fieldLabel = (rawKey || cfg.var_key || "detail").replace(/_/g, " ");
+          const locale = (run.vars.locale as string) || "en";
+          resolvedPrompt =
+            locale === "hinglish" || locale === "hi"
+              ? `Humare paas aapka ${fieldLabel} "${existingVal}" saved hai. Kya yahi use karein? Keep karne ke liye "Yes" likhein, ya naya ${fieldLabel} bhejein.`
+              : `We have your ${fieldLabel} on file as "${existingVal}". Reply "Yes" to keep it, or type a new ${fieldLabel} to update it.`;
+        } else {
+          resolvedPrompt = await resolveNodeText(db, run, effectiveNode, cfg.prompt_text || "", cfg);
+        }
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
           userId: run.user_id,
@@ -3193,6 +3206,30 @@ async function handleReplyForActiveRun(
     (currentNode.node_type === "collect_input" || currentNode.node_type === "input_flow")
   ) {
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
+
+    // If node is in `confirm_if_known` mode and user confirms ("yes", "ok", "haan", "sahi", etc.),
+    // keep the saved value and advance immediately without rejecting confirmation words.
+    const rawKeyConfirm = cfg.var_key?.startsWith("vars.") ? cfg.var_key.slice(5) : cfg.var_key;
+    const savedVal = run.vars[cfg.var_key] ?? (rawKeyConfirm ? run.vars[rawKeyConfirm] : undefined);
+    const isConfirmMode = cfg.context_behavior === "confirm_if_known";
+    const isAffirmation = /^(yes+|y|ok+|okay|confirm|keep|same|haan+|ha+|ji|sahi(\s*hai)?|theek(\s*hai)?|bilkul)[!.\s]*$/i.test(
+      message.text.trim(),
+    );
+    if (isConfirmMode && typeof savedVal === "string" && savedVal.trim() && isAffirmation && cfg.next_node_key) {
+      const confirmedVars = {
+        ...run.vars,
+        [cfg.var_key]: savedVal,
+        ...(rawKeyConfirm ? { [rawKeyConfirm]: savedVal, [`vars.${rawKeyConfirm}`]: savedVal } : {}),
+      };
+      if (!(await claimReplyTransition(db, run, cfg.next_node_key, { vars: confirmedVars, reprompt_count: 0 }))) {
+        return lostReplyRace(db, run, currentNode.node_key);
+      }
+      run.vars = confirmedVars;
+      run.reprompt_count = 0;
+      const outcome = await advanceFromNodeKey(db, run, cfg.next_node_key, nodes, message);
+      return { consumed: true, flow_run_id: run.id, outcome: outcome.outcome };
+    }
+
     const aiCfg = await loadAiConfig(db, run.account_id).catch(() => null);
 
     const history = run.conversation_id
