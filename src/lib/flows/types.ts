@@ -560,6 +560,35 @@ export interface CreateDealNodeConfig {
   next_node_key: string;
 }
 
+export interface CrmFetchFilterConfig {
+  field: string;
+  operator: "eq" | "neq" | "contains" | "gt" | "gte" | "lt" | "lte";
+  value: string;
+}
+
+export interface CrmFetchNodeConfig {
+  collection_slug: string;
+  filters?: CrmFetchFilterConfig[];
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+  limit?: number;
+  target_var: string;
+  found_next: string;
+  not_found_next: string;
+}
+
+export interface CrmMutateNodeConfig {
+  operation: "create" | "update" | "upsert" | "delete";
+  collection_slug: string;
+  record_id?: string;
+  link_contact?: boolean;
+  field_mappings: Record<string, string>;
+  idempotency_key?: string;
+  save_result_var?: string;
+  next_node_key: string;
+  failure_next?: string;
+}
+
 export interface CloseConversationNodeConfig {
   reason?: string;
 }
@@ -606,6 +635,8 @@ export type FlowNodeConfig =
   | { node_type: "trigger_flow"; config: TriggerFlowNodeConfig }
   | { node_type: "whatsapp_form"; config: WhatsAppFormNodeConfig }
   | { node_type: "create_deal"; config: CreateDealNodeConfig }
+  | { node_type: "crm_fetch"; config: CrmFetchNodeConfig }
+  | { node_type: "crm_mutate"; config: CrmMutateNodeConfig }
   | { node_type: "close_conversation"; config: CloseConversationNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
@@ -829,6 +860,8 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "ai_decision",
   "ai_summarize",
   "trigger_flow",
+  "crm_fetch",
+  "crm_mutate",
 ]);
 
 export const MAX_NODES_PER_ADVANCE = 25;

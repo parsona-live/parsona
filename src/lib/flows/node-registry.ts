@@ -26,6 +26,8 @@ import {
   Flag,
   Zap,
   PlayCircle,
+  Database,
+  DatabaseZap,
   type LucideIcon,
 } from 'lucide-react';
 import type { FlowNodeType } from './types';
@@ -759,6 +761,51 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
     },
     defaultConfig: {},
   },
+  crm_fetch: {
+    type: 'crm_fetch',
+    category: 'actions',
+    label: 'Fetch CRM Data',
+    blurb: 'Query records from any dynamic CRM collection and branch on Found / Not Found',
+    icon: Database,
+    color: {
+      solid: 'oklch(0.58 0.17 200)',
+      soft: 'oklch(0.58 0.17 200 / 0.12)',
+      ring: 'oklch(0.58 0.17 200 / 0.4)',
+      text: 'oklch(0.45 0.17 200)',
+    },
+    defaultConfig: {
+      collection_slug: '',
+      filters: [{ field: 'contact_id', operator: 'eq', value: '{{contact.id}}' }],
+      sort_by: 'created_at',
+      sort_dir: 'desc',
+      limit: 5,
+      target_var: 'crm_records',
+      found_next: '',
+      not_found_next: '',
+    },
+  },
+  crm_mutate: {
+    type: 'crm_mutate',
+    category: 'actions',
+    label: 'Create / Update CRM',
+    blurb: 'Create, update, upsert, or delete a record in any dynamic CRM collection',
+    icon: DatabaseZap,
+    color: {
+      solid: 'oklch(0.60 0.18 165)',
+      soft: 'oklch(0.60 0.18 165 / 0.12)',
+      ring: 'oklch(0.60 0.18 165 / 0.4)',
+      text: 'oklch(0.46 0.18 165)',
+    },
+    defaultConfig: {
+      operation: 'create',
+      collection_slug: '',
+      link_contact: true,
+      field_mappings: {},
+      save_result_var: 'saved_record',
+      next_node_key: '',
+      failure_next: '',
+    },
+  },
 };
 
 export const SIDEBAR_MESSAGES_NODES: FlowNodeType[] = [
@@ -795,5 +842,7 @@ export const SIDEBAR_ACTIONS_NODES: FlowNodeType[] = [
   'condition',
   'whatsapp_form',
   'create_deal',
+  'crm_fetch',
+  'crm_mutate',
 ];
 

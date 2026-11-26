@@ -71,6 +71,14 @@ import {
 import { routeInboundIntent, scoreSemanticIntent } from "./intent-router";
 import { isDeliverableUrl } from "@/lib/webhooks/ssrf";
 import {
+  queryRecords,
+  createRecord,
+  updateRecord,
+  deleteRecord,
+  formatCrmRecordsText,
+} from "@/lib/crm/service";
+import type { CrmFilter } from "@/lib/crm/types";
+import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
   type DispatchInboundInput,
@@ -99,6 +107,8 @@ import {
   type WebhookNodeConfig,
   type PromptTextConfig,
   type CreateDealNodeConfig,
+  type CrmFetchNodeConfig,
+  type CrmMutateNodeConfig,
   type WhatsAppPaymentNodeConfig,
   type WhatsAppFormNodeConfig,
   type CatalogNodeConfig,
@@ -2303,6 +2313,151 @@ async function advanceFromNodeKey(
       currentKey = cfg.next_node_key || "";
       continue;
     }
+    if (node.node_type === "crm_fetch") {
+      const cfg = node.config as unknown as CrmFetchNodeConfig;
+      const targetVar = (cfg.target_var || "crm_records").trim();
+      let found = false;
+      try {
+        if (cfg.collection_slug) {
+          const evalVars: Record<string, unknown> = {
+            ...run.vars,
+            "contact.id": run.contact_id ?? "",
+            contact: {
+              ...((run.vars?.contact as Record<string, unknown> | undefined) ?? {}),
+              id: run.contact_id ?? "",
+            },
+          };
+
+          const filters: CrmFilter[] = (cfg.filters ?? [])
+            .filter((f) => f.field && f.operator)
+            .map((f) => ({
+              field: f.field,
+              operator: f.operator,
+              value: interpolateVars(String(f.value ?? ""), evalVars),
+            }))
+            .filter((f) => {
+              // Guard against passing empty string to UUID columns like contact_id or id
+              if ((f.field === "contact_id" || f.field === "id") && (!f.value || String(f.value).trim() === "")) {
+                return false;
+              }
+              return true;
+            });
+
+          const limit = Math.min(50, Math.max(1, Number(cfg.limit) || 5));
+          const res = await queryRecords(db, run.account_id, cfg.collection_slug, {
+            filters,
+            sortBy: cfg.sort_by || "created_at",
+            sortDir: cfg.sort_dir || "desc",
+            limit,
+          });
+
+          found = res.records.length > 0;
+          const mapped = res.records.map((r) => ({
+            id: r.id,
+            contact_id: r.contact_id,
+            created_at: r.created_at,
+            ...r.data,
+          }));
+          run.vars[targetVar] = limit === 1 ? (mapped[0] ?? null) : mapped;
+          run.vars[`${targetVar}_count`] = res.records.length;
+          run.vars[`${targetVar}_text`] = formatCrmRecordsText(
+            res.collection.name,
+            res.fields,
+            res.records,
+          );
+          await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+
+          await logEvent(db, run.id, "node_entered", node.node_key, {
+            action: "crm_fetch",
+            collection: cfg.collection_slug,
+            count: res.records.length,
+          });
+        }
+      } catch (err) {
+        console.warn("[flows] crm_fetch error:", err);
+        run.vars[targetVar] = null;
+        run.vars[`${targetVar}_count`] = 0;
+        run.vars[`${targetVar}_text`] = "";
+      }
+      currentKey = found ? (cfg.found_next || "") : (cfg.not_found_next || "");
+      continue;
+    }
+    if (node.node_type === "crm_mutate") {
+      const cfg = node.config as unknown as CrmMutateNodeConfig;
+      let succeeded = false;
+      try {
+        if (cfg.collection_slug) {
+          const evalVars: Record<string, unknown> = {
+            ...run.vars,
+            "contact.id": run.contact_id ?? "",
+            contact: {
+              ...((run.vars?.contact as Record<string, unknown> | undefined) ?? {}),
+              id: run.contact_id ?? "",
+            },
+          };
+          const mappedData: Record<string, unknown> = {};
+          for (const [k, rawTmpl] of Object.entries(cfg.field_mappings ?? {})) {
+            if (!k) continue;
+            mappedData[k] = interpolateVars(String(rawTmpl ?? ""), evalVars);
+          }
+          const contactId = cfg.link_contact !== false ? run.contact_id : null;
+          const recordId = cfg.record_id ? interpolateVars(cfg.record_id, evalVars).trim() : "";
+          const idempotencyKey = cfg.idempotency_key
+            ? interpolateVars(cfg.idempotency_key, evalVars).trim()
+            : `${run.id}_${node.node_key}`;
+
+          let savedRecord: Record<string, unknown> | null = null;
+          if (cfg.operation === "delete") {
+            if (!recordId) throw new Error("record_id is required for delete");
+            await deleteRecord(db, run.account_id, cfg.collection_slug, recordId);
+            succeeded = true;
+          } else if (cfg.operation === "update" || (cfg.operation === "upsert" && recordId)) {
+            if (!recordId) throw new Error("record_id is required for update");
+            const updated = await updateRecord(db, run.account_id, cfg.collection_slug, recordId, {
+              contact_id: contactId ?? undefined,
+              data: mappedData,
+              updated_by_type: "flow",
+            });
+            savedRecord = { id: updated.id, contact_id: updated.contact_id, ...updated.data };
+            succeeded = true;
+          } else {
+            const { record } = await createRecord(db, run.account_id, cfg.collection_slug, {
+              contact_id: contactId,
+              data: mappedData,
+              created_by_type: "flow",
+              created_by_ref: run.id,
+              idempotency_key: idempotencyKey,
+            });
+            savedRecord = { id: record.id, contact_id: record.contact_id, ...record.data };
+            succeeded = true;
+          }
+
+          if (cfg.save_result_var && savedRecord) {
+            run.vars[cfg.save_result_var] = savedRecord;
+            await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+          }
+
+          await logEvent(db, run.id, "node_entered", node.node_key, {
+            action: `crm_${cfg.operation}`,
+            collection: cfg.collection_slug,
+            record_id: savedRecord?.id ?? recordId ?? null,
+          });
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.warn("[flows] crm_mutate error:", errMsg);
+        run.vars.crm_error = errMsg;
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+        await logEvent(db, run.id, "error", node.node_key, {
+          action: `crm_${cfg.operation}_failed`,
+          error: errMsg,
+        });
+      }
+      currentKey = succeeded
+        ? (cfg.next_node_key || "")
+        : (cfg.failure_next || cfg.next_node_key || "");
+      continue;
+    }
     if (node.node_type === "whatsapp_payment") {
       const cfg = node.config as unknown as WhatsAppPaymentNodeConfig;
       try {
@@ -3723,6 +3878,7 @@ async function startNewRun(
 
         initialVars = {
           ...cMeta, // Injects all dynamic memory fields (address, preferred_time, budget, etc.)
+          "contact.id": input.contactId,
           "contact.name": cName,
           "contact.phone": cPhone,
           "contact.email": cEmail,
@@ -3738,6 +3894,7 @@ async function startNewRun(
           metadata: cMeta,
           contact: {
             ...cMeta,
+            id: input.contactId,
             name: cName,
             phone: cPhone,
             email: cEmail,

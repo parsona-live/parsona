@@ -178,6 +178,54 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
         break;
       }
 
+      case "crm_fetch": {
+        const foundNext = (cfg as { found_next?: string }).found_next;
+        const notFoundNext = (cfg as { not_found_next?: string }).not_found_next;
+        if (foundNext && knownKeys.has(foundNext)) {
+          edges.push({
+            id: `${node.node_key}--found--${foundNext}`,
+            source: node.node_key,
+            target: foundNext,
+            sourceHandle: "found",
+            label: "Found",
+          });
+        }
+        if (notFoundNext && knownKeys.has(notFoundNext)) {
+          edges.push({
+            id: `${node.node_key}--not_found--${notFoundNext}`,
+            source: node.node_key,
+            target: notFoundNext,
+            sourceHandle: "not_found",
+            label: "Not Found",
+          });
+        }
+        break;
+      }
+
+      case "crm_mutate": {
+        const next = (cfg as { next_node_key?: string }).next_node_key;
+        const failNext = (cfg as { failure_next?: string }).failure_next;
+        if (next && knownKeys.has(next)) {
+          edges.push({
+            id: `${node.node_key}--next--${next}`,
+            source: node.node_key,
+            target: next,
+            sourceHandle: "next",
+            label: "Success",
+          });
+        }
+        if (failNext && knownKeys.has(failNext)) {
+          edges.push({
+            id: `${node.node_key}--failure--${failNext}`,
+            source: node.node_key,
+            target: failNext,
+            sourceHandle: "failure",
+            label: "Failed",
+          });
+        }
+        break;
+      }
+
       case "send_buttons": {
         const buttons = Array.isArray(
           (cfg as { buttons?: unknown }).buttons,
@@ -363,6 +411,18 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
         { id: "false", label: "false" },
       ];
 
+    case "crm_fetch":
+      return [
+        { id: "found", label: "Found" },
+        { id: "not_found", label: "Not Found" },
+      ];
+
+    case "crm_mutate":
+      return [
+        { id: "next", label: "Success" },
+        { id: "failure", label: "Failed" },
+      ];
+
     case "send_buttons": {
       const buttons = Array.isArray((cfg as { buttons?: unknown }).buttons)
         ? ((cfg as { buttons: Array<Record<string, unknown>> }).buttons)
@@ -513,6 +573,16 @@ export function applyEdgeConnection(
     case "condition":
       if (sourceHandle === "true") return { true_next: targetKey };
       if (sourceHandle === "false") return { false_next: targetKey };
+      return null;
+
+    case "crm_fetch":
+      if (sourceHandle === "found") return { found_next: targetKey };
+      if (sourceHandle === "not_found") return { not_found_next: targetKey };
+      return null;
+
+    case "crm_mutate":
+      if (sourceHandle === "next") return { next_node_key: targetKey };
+      if (sourceHandle === "failure") return { failure_next: targetKey };
       return null;
 
     case "send_buttons": {
@@ -717,6 +787,30 @@ function patchedConfigWithoutKey(
         ...cfg,
         ...(trueMatch ? { true_next: "" } : {}),
         ...(falseMatch ? { false_next: "" } : {}),
+      };
+    }
+
+    case "crm_fetch": {
+      const c = cfg as { found_next?: string; not_found_next?: string };
+      const foundMatch = c.found_next === deletedKey;
+      const notFoundMatch = c.not_found_next === deletedKey;
+      if (!foundMatch && !notFoundMatch) return null;
+      return {
+        ...cfg,
+        ...(foundMatch ? { found_next: "" } : {}),
+        ...(notFoundMatch ? { not_found_next: "" } : {}),
+      };
+    }
+
+    case "crm_mutate": {
+      const c = cfg as { next_node_key?: string; failure_next?: string };
+      const nextMatch = c.next_node_key === deletedKey;
+      const failMatch = c.failure_next === deletedKey;
+      if (!nextMatch && !failMatch) return null;
+      return {
+        ...cfg,
+        ...(nextMatch ? { next_node_key: "" } : {}),
+        ...(failMatch ? { failure_next: "" } : {}),
       };
     }
 

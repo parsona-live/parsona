@@ -31,6 +31,7 @@ const ALLOWED_NAMESPACES = new Set([
   'message',
   'ai',
   'context',
+  'system',
 ]);
 
 export interface InterpolationOptions {
@@ -76,6 +77,14 @@ function resolvePath(rawKey: string, vars: Record<string, unknown>): unknown {
   // 1. Direct match in vars (e.g. "name", "vars.name", "contact.phone", "message.text")
   if (vars[rawKey] !== undefined && vars[rawKey] !== null) {
     return vars[rawKey];
+  }
+
+  // 1b. Built-in dynamic date/time tokens
+  if (rawKey === 'current_date' || rawKey === 'today' || rawKey === 'system.current_date') {
+    return new Date().toISOString().slice(0, 10);
+  }
+  if (rawKey === 'current_datetime' || rawKey === 'now' || rawKey === 'system.current_datetime') {
+    return new Date().toISOString();
   }
 
   // 2. If starts with "vars.", check without prefix

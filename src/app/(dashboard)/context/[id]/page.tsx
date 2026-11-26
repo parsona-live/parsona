@@ -29,6 +29,7 @@ import {
   RefreshCw,
   TrendingUp,
   FileText,
+  Database,
 } from 'lucide-react'
 import { ChannelIcon } from '@/components/channels/channel-badge'
 import { toast } from 'sonner'
@@ -54,6 +55,13 @@ export default function CustomerContextDetailPage({ params }: PageProps) {
   const [profile, setProfile] = useState<OmnichannelProfileDetails | null>(null)
   const [intelligence, setIntelligence] = useState<ContactIntelligenceSnapshot | null>(null)
   const [memories, setMemories] = useState<ContactMemory[]>([])
+  const [crmRecords, setCrmRecords] = useState<Array<{
+    id: string
+    data: Record<string, unknown>
+    created_at: string
+    created_by_type: string
+    crm_collections?: { id: string; slug: string; name: string } | null
+  }>>([])
 
   // Edit fields
   const [editName, setEditName] = useState('')
@@ -97,6 +105,14 @@ export default function CustomerContextDetailPage({ params }: PageProps) {
       .catch(() => null)
     if (memRes?.memories) {
       setMemories(memRes.memories)
+    }
+
+    // 4. Fetch dynamic CRM records linked to this contact
+    const crmRes = await fetch(`/api/crm/contacts/${contactId}/records`)
+      .then((r) => r.json())
+      .catch(() => null)
+    if (crmRes?.records) {
+      setCrmRecords(crmRes.records)
     }
 
     setLoading(false)
@@ -394,6 +410,10 @@ export default function CustomerContextDetailPage({ params }: PageProps) {
           <TabsTrigger value="profile" className="gap-1.5 text-xs rounded">
             <Building2 className="size-3.5" />
             CRM Profile
+          </TabsTrigger>
+          <TabsTrigger value="crm_records" className="gap-1.5 text-xs rounded">
+            <Database className="size-3.5" />
+            CRM Records ({crmRecords.length})
           </TabsTrigger>
         </TabsList>
 
@@ -790,6 +810,63 @@ export default function CustomerContextDetailPage({ params }: PageProps) {
                 {savingDetails ? 'Saving...' : 'Save Profile Changes'}
               </Button>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 6: DYNAMIC CRM RECORDS */}
+        <TabsContent value="crm_records" className="space-y-4">
+          <div className="p-5 rounded-md border border-border bg-card space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Dynamic CRM Records</h3>
+                <p className="text-xs text-muted-foreground">
+                  Bookings, orders, tickets, and custom records linked to this customer (automatically used by AI).
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => router.push('/crm')}
+              >
+                Open Dynamic CRM
+              </Button>
+            </div>
+            {crmRecords.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4">
+                No dynamic CRM records linked to this customer yet.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {crmRecords.map((rec) => (
+                  <div
+                    key={rec.id}
+                    className="p-3 rounded-md border border-border/70 bg-muted/30 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {rec.crm_collections?.name || rec.crm_collections?.slug || 'Collection'}
+                        </Badge>
+                        <span className="text-[11px] text-muted-foreground">
+                          via {rec.created_by_type} · {new Date(rec.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                      {Object.entries(rec.data || {}).map(([k, v]) => (
+                        <div key={k}>
+                          <span className="text-muted-foreground">{k}: </span>
+                          <span className="font-medium text-foreground">
+                            {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

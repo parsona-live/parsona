@@ -10,13 +10,16 @@ import type { Config } from '../config.js';
 import { registerReadTools } from './read.js';
 import { registerWriteTools } from './write.js';
 import { registerBroadcastTools } from './broadcast.js';
+import { registerCrmReadTools, registerCrmWriteTools } from './crm.js';
 
 export function registerTools(server: McpServer, client: WacrmClient, config: Config): string[] {
   const enabled: string[] = ['read'];
   registerReadTools(server, client);
+  registerCrmReadTools(server, client);
 
   if (config.enableWrites) {
     registerWriteTools(server, client);
+    registerCrmWriteTools(server, client);
     enabled.push('write');
   }
 

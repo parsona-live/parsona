@@ -23,6 +23,8 @@ import {
   Clock,
   Contact,
   CreditCard,
+  Database,
+  DatabaseZap,
   FileText,
   Flag,
   GalleryHorizontalEnd,
@@ -325,6 +327,18 @@ export const NODE_META: Record<
     color: 'text-teal-400',
     category: 'logic',
   },
+  crm_fetch: {
+    slugSeed: 'Fetch CRM',
+    icon: Database,
+    color: 'text-cyan-400',
+    category: 'logic',
+  },
+  crm_mutate: {
+    slugSeed: 'Mutate CRM',
+    icon: DatabaseZap,
+    color: 'text-emerald-400',
+    category: 'logic',
+  },
 };
 
 /**
@@ -392,6 +406,8 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   trigger_flow: { l: 0.58, c: 0.22, h: 280 },
   ai_decision: { l: 0.70, c: 0.16, h: 55 },
   ai_summarize: { l: 0.65, c: 0.12, h: 185 },
+  crm_fetch: { l: 0.58, c: 0.17, h: 200 },
+  crm_mutate: { l: 0.60, c: 0.18, h: 165 },
 };
 
 export interface NodeColors {

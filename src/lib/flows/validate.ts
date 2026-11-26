@@ -1257,6 +1257,80 @@ function validateNode(
       break;
     }
 
+    case "crm_fetch": {
+      const cfg = node.config as {
+        collection_slug?: string;
+        target_var?: string;
+        found_next?: string;
+        not_found_next?: string;
+      };
+      if (!cfg.collection_slug?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "collection_slug",
+          message: "Target CRM collection is required.",
+        });
+      }
+      if (cfg.found_next && !knownKeys.has(cfg.found_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "found_next",
+          message: `Connects to missing node "${cfg.found_next}"`,
+        });
+      }
+      if (cfg.not_found_next && !knownKeys.has(cfg.not_found_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "not_found_next",
+          message: `Connects to missing node "${cfg.not_found_next}"`,
+        });
+      }
+      break;
+    }
+
+    case "crm_mutate": {
+      const cfg = node.config as {
+        operation?: string;
+        collection_slug?: string;
+        next_node_key?: string;
+        failure_next?: string;
+      };
+      if (!cfg.collection_slug?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "collection_slug",
+          message: "Target CRM collection is required.",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      if (cfg.failure_next && !knownKeys.has(cfg.failure_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "failure_next",
+          message: `Connects to missing node "${cfg.failure_next}"`,
+        });
+      }
+      break;
+    }
+
     case "ai_message": {
       const cfg = node.config as { mode?: string; text?: string; prompt?: string; next_node_key?: string; failure_next?: string };
       if (!cfg.next_node_key) {
@@ -1541,6 +1615,20 @@ function outgoingEdges(node: NodeInput): string[] {
     }
     case "webhook":
     case "http_fetch": {
+      const cfg = node.config as { next_node_key?: string; failure_next?: string };
+      const out: string[] = [];
+      if (cfg.next_node_key) out.push(cfg.next_node_key);
+      if (cfg.failure_next) out.push(cfg.failure_next);
+      return out;
+    }
+    case "crm_fetch": {
+      const cfg = node.config as { found_next?: string; not_found_next?: string };
+      const out: string[] = [];
+      if (cfg.found_next) out.push(cfg.found_next);
+      if (cfg.not_found_next) out.push(cfg.not_found_next);
+      return out;
+    }
+    case "crm_mutate": {
       const cfg = node.config as { next_node_key?: string; failure_next?: string };
       const out: string[] = [];
       if (cfg.next_node_key) out.push(cfg.next_node_key);

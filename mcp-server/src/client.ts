@@ -176,4 +176,36 @@ export class WacrmClient {
   getBroadcast(id: string): Promise<{ data: unknown }> {
     return this.request('GET', `/broadcasts/${encodeURIComponent(id)}`);
   }
+
+  // --- Dynamic CRM --------------------------------------------------
+
+  listCrmCollections(): Promise<{ data: unknown }> {
+    return this.request('GET', '/crm/collections');
+  }
+
+  queryCrmRecords(
+    slug: string,
+    query: { page?: number; limit?: number; contact_id?: string; search?: string; filters?: string } = {},
+  ): Promise<{ data: unknown }> {
+    return this.request('GET', `/crm/collections/${encodeURIComponent(slug)}/records`, { query });
+  }
+
+  createCrmRecord(slug: string, body: unknown): Promise<{ data: unknown }> {
+    return this.request('POST', `/crm/collections/${encodeURIComponent(slug)}/records`, { body });
+  }
+
+  updateCrmRecord(slug: string, recordId: string, body: unknown): Promise<{ data: unknown }> {
+    return this.request(
+      'PATCH',
+      `/crm/collections/${encodeURIComponent(slug)}/records/${encodeURIComponent(recordId)}`,
+      { body },
+    );
+  }
+
+  deleteCrmRecord(slug: string, recordId: string): Promise<{ data: unknown }> {
+    return this.request(
+      'DELETE',
+      `/crm/collections/${encodeURIComponent(slug)}/records/${encodeURIComponent(recordId)}`,
+    );
+  }
 }

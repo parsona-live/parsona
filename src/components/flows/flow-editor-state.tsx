@@ -358,6 +358,27 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       return { amount: 100, currency: "INR", item_name: "Product Order", provider: "razorpay", next_node_key: "" };
     case "create_deal":
       return { pipeline_id: "", stage_id: "", title: "New Deal", value: 0, next_node_key: "" };
+    case "crm_fetch":
+      return {
+        collection_slug: "",
+        filters: [{ field: "contact_id", operator: "eq", value: "{{contact.id}}" }],
+        sort_by: "created_at",
+        sort_dir: "desc",
+        limit: 5,
+        target_var: "crm_records",
+        found_next: "",
+        not_found_next: "",
+      };
+    case "crm_mutate":
+      return {
+        operation: "create",
+        collection_slug: "",
+        link_contact: true,
+        field_mappings: {},
+        save_result_var: "saved_record",
+        next_node_key: "",
+        failure_next: "",
+      };
     case "catalog":
       return { catalog_id: "", body_text: "Browse our catalog:", next_node_key: "" };
     case "input_flow":

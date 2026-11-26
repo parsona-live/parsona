@@ -438,6 +438,7 @@ import {
   FileText,
   GitBranch,
   Grip,
+  Database,
   Inbox,
   KeyRound,
   LayoutGrid,
@@ -685,6 +686,12 @@ const mainNavItems: NavItem[] = [
     labelKey: "contacts",
     icon: Contact,
     colors: ICON_COLORS.contacts,
+  },
+  {
+    href: "/crm",
+    label: "CRM Collections",
+    icon: Database,
+    colors: ICON_COLORS.context,
   },
   {
     href: "/context",

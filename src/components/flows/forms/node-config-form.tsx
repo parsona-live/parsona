@@ -73,6 +73,7 @@ import {
   RemoveFromGroupForm,
   TriggerFlowForm,
 } from "./action-node-forms";
+import { CrmFetchForm, CrmMutateForm } from "./crm-node-forms";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -488,6 +489,48 @@ export function NodeConfigForm({
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ next_node_key: v })}
             label={t("advancesTo")}
+          />
+        </div>
+      );
+
+    case "crm_fetch":
+      return (
+        <div className="space-y-4">
+          <CrmFetchForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { found_next?: string }).found_next ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ found_next: v })}
+            label="When Found"
+          />
+          <NextNodeRow
+            value={(cfg as { not_found_next?: string }).not_found_next ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ not_found_next: v })}
+            label="When Not Found"
+          />
+        </div>
+      );
+
+    case "crm_mutate":
+      return (
+        <div className="space-y-4">
+          <CrmMutateForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label="On Success"
+          />
+          <NextNodeRow
+            value={(cfg as { failure_next?: string }).failure_next ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ failure_next: v })}
+            label="On Failure (Optional)"
           />
         </div>
       );

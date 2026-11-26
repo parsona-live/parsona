@@ -26,9 +26,15 @@ import { NODE_META, type BuilderNode } from "../shared";
 import { useOptionalFlowEditor } from "../flow-editor-state";
 
 const CONTACT_VARIABLES = [
+  { label: "Contact ID", value: "{{contact.id}}" },
   { label: "Full Name", value: "{{contact.name}}" },
   { label: "Phone Number", value: "{{contact.phone}}" },
   { label: "Email Address", value: "{{contact.email}}" },
+];
+
+const SYSTEM_DATE_VARIABLES = [
+  { label: "Current Date (YYYY-MM-DD)", value: "{{current_date}}" },
+  { label: "Current Date & Time (ISO)", value: "{{current_datetime}}" },
 ];
 
 export function VariableDropdown({
@@ -41,7 +47,7 @@ export function VariableDropdown({
   const editor = useOptionalFlowEditor();
   const allNodes = nodes || editor?.state?.nodes || [];
 
-  // Collect flow variables dynamically defined across all input nodes in this workflow
+  // Collect flow variables dynamically defined across input & AI extract nodes
   const flowVars: string[] = [];
   const seen = new Set<string>();
 
@@ -55,6 +61,14 @@ export function VariableDropdown({
       if (key && !seen.has(key)) {
         seen.add(key);
         flowVars.push(key);
+      }
+    } else if (n.node_type === "ai_extract" && Array.isArray(cfg.fields)) {
+      for (const f of cfg.fields) {
+        const key = String(f?.name ?? "").trim();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          flowVars.push(key);
+        }
       }
     }
   }
@@ -104,6 +118,22 @@ export function VariableDropdown({
               className="cursor-pointer font-mono text-[11px] py-1.5 flex items-center justify-between"
             >
               <span className="text-emerald-600 font-semibold">{v.value}</span>
+              <span className="text-[10px] text-muted-foreground font-sans">{v.label}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold py-1">
+            Date &amp; Time
+          </DropdownMenuLabel>
+          {SYSTEM_DATE_VARIABLES.map((v) => (
+            <DropdownMenuItem
+              key={v.value}
+              onClick={() => onSelect(v.value)}
+              className="cursor-pointer font-mono text-[11px] py-1.5 flex items-center justify-between"
+            >
+              <span className="text-amber-600 font-semibold">{v.value}</span>
               <span className="text-[10px] text-muted-foreground font-sans">{v.label}</span>
             </DropdownMenuItem>
           ))}

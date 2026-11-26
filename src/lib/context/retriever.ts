@@ -10,12 +10,21 @@ import { getActiveCustomerMemories } from './memory'
 import { queryContactEvents } from './events'
 import { resolveCustomerIdentities, type CustomerResolutionResult } from './resolver'
 
+export interface CrmRecordContextSummary {
+  id: string
+  collectionSlug: string
+  collectionName: string
+  data: Record<string, unknown>
+  createdAt: string
+}
+
 export interface AssembledCustomerContext {
   contactId: string
   contact: Contact
   resolvedIdentities?: CustomerResolutionResult | null
   memories: ContactMemory[]
   businessEvents: ContactEvent[]
+  crmRecords: CrmRecordContextSummary[]
   summary: ConversationSummary | null
   intelligence: ContactIntelligenceSnapshot | null
   renderedPromptBlock: string
@@ -81,8 +90,8 @@ export async function assembleCustomerContext(
     contact = cData as Contact
   }
 
-  // 2. Concurrently fetch memories, business events, summaries, intelligence, and recent flow runs
-  const [memoriesRes, eventsRes, summaryRes, intelligenceRes, flowRunsRes] = await Promise.all([
+  // 2. Concurrently fetch memories, business events, summaries, intelligence, flow runs, and dynamic CRM records
+  const [memoriesRes, eventsRes, summaryRes, intelligenceRes, flowRunsRes, crmRes] = await Promise.all([
     getActiveCustomerMemories(db, accountId, contactId),
     queryContactEvents(db, accountId, contactId, { limit: maxEvents }),
     options.conversationId
@@ -100,15 +109,29 @@ export async function assembleCustomerContext(
       .order('evaluated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    Promise.resolve(
-      db
-        .from('flow_runs')
-        .select('id, flow_id, status, current_node_key, vars, updated_at, flows(name)')
-        .eq('account_id', accountId)
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: false })
-        .limit(3),
-    ).catch(() => ({ data: null })),
+    Promise.resolve()
+      .then(() =>
+        db
+          .from('flow_runs')
+          .select('id, flow_id, status, current_node_key, vars, updated_at, flows(name)')
+          .eq('account_id', accountId)
+          .eq('contact_id', contactId)
+          .order('created_at', { ascending: false })
+          .limit(3),
+      )
+      .catch(() => ({ data: null })),
+    Promise.resolve()
+      .then(() =>
+        db
+          .from('crm_records')
+          .select('id, data, created_at, crm_collections!inner(slug, name, include_in_ai_context, ai_context_limit)')
+          .eq('account_id', accountId)
+          .eq('contact_id', contactId)
+          .eq('crm_collections.include_in_ai_context', true)
+          .order('created_at', { ascending: false })
+          .limit(15),
+      )
+      .catch(() => ({ data: null })),
   ])
 
   const memories = (memoriesRes || []).slice(0, maxMemories)
@@ -124,6 +147,23 @@ export async function assembleCustomerContext(
     vars: (fr.vars || {}) as Record<string, unknown>,
     updatedAt: fr.updated_at,
   }))
+  const crmRecords: CrmRecordContextSummary[] = []
+  const perColCount = new Map<string, number>()
+  for (const row of (crmRes?.data || []) as any[]) {
+    const col = Array.isArray(row.crm_collections) ? row.crm_collections[0] : row.crm_collections
+    if (!col?.slug) continue
+    const cap = typeof col.ai_context_limit === 'number' ? col.ai_context_limit : 5
+    const seen = perColCount.get(col.slug) ?? 0
+    if (seen >= cap) continue
+    perColCount.set(col.slug, seen + 1)
+    crmRecords.push({
+      id: row.id,
+      collectionSlug: col.slug,
+      collectionName: col.name || col.slug,
+      data: (row.data || {}) as Record<string, unknown>,
+      createdAt: row.created_at,
+    })
+  }
 
   // 3. Render structured, secured prompt block
   const renderedPromptBlock = renderContextCapsulePrompt({
@@ -132,6 +172,7 @@ export async function assembleCustomerContext(
     currentChannel: options.currentChannel || null,
     memories,
     businessEvents,
+    crmRecords,
     summary,
     intelligence,
     flowRuns,
@@ -169,6 +210,7 @@ export async function assembleCustomerContext(
     resolvedIdentities: resolved,
     memories,
     businessEvents,
+    crmRecords,
     summary,
     intelligence,
     renderedPromptBlock,
@@ -192,6 +234,7 @@ interface RenderContextParams {
   currentChannel?: string | null
   memories: ContactMemory[]
   businessEvents: ContactEvent[]
+  crmRecords?: CrmRecordContextSummary[]
   summary: ConversationSummary | null
   intelligence: ContactIntelligenceSnapshot | null
   flowRuns?: FlowRunSummary[] | null
@@ -254,6 +297,22 @@ function renderContextCapsulePrompt(params: RenderContextParams): string {
     }
     for (const evt of businessEvents.slice(0, 3)) {
       sections.push(`  * [${evt.occurred_at.slice(0, 10)}] Event: ${evt.event_type} (Source: ${evt.source})`)
+    }
+  }
+
+  // Section 4b: Dynamic CRM Records (Appointments, Orders, Tickets, etc.)
+  if (params.crmRecords && params.crmRecords.length > 0) {
+    sections.push('- **Customer CRM Records (Appointments, Orders, Tickets, etc.)**:')
+    for (const rec of params.crmRecords) {
+      const entries = Object.entries(rec.data || {})
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .slice(0, 6)
+        .map(([k, v]) => {
+          const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+          return `${k}: "${s.slice(0, 120)}"`
+        })
+        .join(' | ')
+      sections.push(`  * [${rec.collectionName}] ${entries || rec.id} (created ${rec.createdAt.slice(0, 10)})`)
     }
   }
 
