@@ -45,33 +45,35 @@ export default function BusinessProfilePage() {
   }, [])
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-5xl space-y-5">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2.5">
-          <Building2 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="flex items-start gap-3 border-b border-border pb-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-foreground">
+          <Building2 className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Business Profile & Knowledge
           </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Manage your business identity, appointment booking links, working hours, and knowledge documentation for Flows and AI.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your business identity, appointment booking links, working hours, and knowledge documentation for WhatsApp Flows and AI.
-        </p>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-muted">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
+      <Tabs defaultValue="profile" className="space-y-5">
+        <TabsList className="h-9 rounded-md border border-border bg-muted/40 p-0.5">
+          <TabsTrigger value="profile" className="flex items-center gap-1.5 rounded-sm px-3 text-xs font-medium">
+            <Building2 className="h-3.5 w-3.5" />
             Company Details
           </TabsTrigger>
-          <TabsTrigger value="docs" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
+          <TabsTrigger value="docs" className="flex items-center gap-1.5 rounded-sm px-3 text-xs font-medium">
+            <BookOpen className="h-3.5 w-3.5" />
             Knowledge Docs & FAQs
           </TabsTrigger>
-          <TabsTrigger value="integration" className="flex items-center gap-2">
-            <Workflow className="h-4 w-4" />
+          <TabsTrigger value="integration" className="flex items-center gap-1.5 rounded-sm px-3 text-xs font-medium">
+            <Workflow className="h-3.5 w-3.5" />
             Flows & AI Guide
           </TabsTrigger>
         </TabsList>
@@ -83,14 +85,14 @@ export default function BusinessProfilePage() {
 
         {/* Tab 2: Knowledge Docs (RAG) */}
         <TabsContent value="docs" className="space-y-4">
-          <Card className="border-border">
+          <Card className="rounded-lg border-border">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-primary" />
-                <CardTitle>Business Knowledge Base</CardTitle>
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Business Knowledge Base</CardTitle>
               </div>
               <CardDescription>
-                Add documentation, pricing lists, services, and FAQs. The AI assistant uses these documents to answer customer inquiries on WhatsApp with exact facts.
+                Add documentation, pricing lists, services, and FAQs. The AI assistant uses these documents to answer customer inquiries with exact facts.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -104,59 +106,89 @@ export default function BusinessProfilePage() {
         </TabsContent>
 
         {/* Tab 3: Integration Guide */}
-        <TabsContent value="integration" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Workflow className="h-5 w-5 text-primary" />
-                  <CardTitle>Using with WhatsApp Flows</CardTitle>
+        <TabsContent value="integration" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="rounded-lg border-border">
+              <CardHeader className="border-b border-border/60 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/12 text-blue-500">
+                      <Workflow className="h-3.5 w-3.5" />
+                    </span>
+                    <CardTitle className="text-sm font-semibold">Using with Flows</CardTitle>
+                  </div>
+                  <Link
+                    href="/flows"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Open Flows <ExternalLink className="h-3 w-3" />
+                  </Link>
                 </div>
-                <CardDescription>
+                <CardDescription className="text-xs">
                   How your business profile connects to interactive flow automations.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
-                <p>
-                  1. <strong>Appointment Booking</strong>: When building flows in{' '}
-                  <Link href="/flows" className="text-primary hover:underline font-medium inline-flex items-center gap-1">
-                    Flows <ExternalLink className="h-3 w-3" />
-                  </Link>
-                  , use interactive buttons to offer your Cal.com / Calendly booking link configured in your Company Details.
-                </p>
-                <p>
-                  2. <strong>Lead Qualification</strong>: Use <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">Collect Input</code> nodes to ask for name, email, and preferred service before sending the booking confirmation.
-                </p>
-                <p>
-                  3. <strong>Automatic Handoff</strong>: When a customer needs human assistance, the flow automatically changes status to <strong>Pending</strong> in your shared Inbox.
-                </p>
+              <CardContent className="space-y-3 pt-4 text-xs leading-relaxed text-muted-foreground">
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">1</span>
+                  <p>
+                    <strong className="text-foreground">Appointment Booking</strong> — Use interactive buttons in Flows to offer your Cal.com / Calendly booking link configured in Company Details.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">2</span>
+                  <p>
+                    <strong className="text-foreground">Lead Qualification</strong> — Use <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">Collect Input</code> nodes to ask for name, email, and preferred service before sending booking confirmation.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">3</span>
+                  <p>
+                    <strong className="text-foreground">Automatic Handoff</strong> — When a customer needs human assistance, the flow automatically sets conversation status to <strong className="text-foreground">Pending</strong> in your shared Inbox.
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" />
-                  <CardTitle>Using with AI Auto-Reply</CardTitle>
-                </div>
-                <CardDescription>
-                  How the AI uses your profile and documentation.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
-                <p>
-                  1. <strong>Zero-Guessing Answers</strong>: When customers ask questions like <em>"What are your prices?"</em> or <em>"What are your hours?"</em>, the AI auto-retrieves excerpts from the <strong>Knowledge Docs</strong> tab.
-                </p>
-                <p>
-                  2. <strong>Autonomous Booking Guidance</strong>: The AI knows your booking URL and will direct clients to schedule an appointment when they ask to book.
-                </p>
-                <p>
-                  3. <strong>Test in Playground</strong>: Test your AI agent with your new business knowledge in the{' '}
-                  <Link href="/agents" className="text-primary hover:underline font-medium inline-flex items-center gap-1">
+            <Card className="rounded-lg border-border">
+              <CardHeader className="border-b border-border/60 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/12 text-emerald-500">
+                      <Bot className="h-3.5 w-3.5" />
+                    </span>
+                    <CardTitle className="text-sm font-semibold">Using with AI Auto-Reply</CardTitle>
+                  </div>
+                  <Link
+                    href="/agents"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
                     AI Playground <ExternalLink className="h-3 w-3" />
                   </Link>
-                  .
-                </p>
+                </div>
+                <CardDescription className="text-xs">
+                  How the AI assistant uses your profile and knowledge docs.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4 text-xs leading-relaxed text-muted-foreground">
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">1</span>
+                  <p>
+                    <strong className="text-foreground">Zero-Guessing Answers</strong> — When customers ask about pricing or hours, the AI retrieves exact excerpts from the <strong className="text-foreground">Knowledge Docs</strong> tab.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">2</span>
+                  <p>
+                    <strong className="text-foreground">Autonomous Booking Guidance</strong> — The AI knows your booking URL and directs clients to schedule when they ask to book.
+                  </p>
+                </div>
+                <div className="flex gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-[11px] font-semibold text-foreground">3</span>
+                  <p>
+                    <strong className="text-foreground">Test in Playground</strong> — Verify your AI agent responses with your updated business knowledge in the AI Playground.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </div>

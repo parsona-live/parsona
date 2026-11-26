@@ -35,7 +35,9 @@ import {
   Trash2,
   PlayCircle,
   RotateCcw,
+  Search,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   getBroadcastStatus,
@@ -50,20 +52,26 @@ interface StatCardProps {
   total: number;
   icon: React.ReactNode;
   color: string;
+  barColor: string;
 }
 
-function StatCard({ label, value, total, icon, color }: StatCardProps) {
+function StatCard({ label, value, total, icon, color, barColor }: StatCardProps) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-3.5">
       <div className="flex items-center justify-between">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-md ${color}`}>
           {icon}
         </div>
-        <span className="text-xs text-muted-foreground">{pct}%</span>
+        <span className="text-xs font-medium text-muted-foreground tabular-nums">{pct}%</span>
       </div>
-      <p className="mt-3 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
+      <p className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+        {value.toLocaleString()}
+      </p>
       <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
@@ -75,40 +83,39 @@ interface FunnelStep {
 }
 
 /**
- * Pure-CSS funnel chart: decreasing-width rounded bars.
- * Width is relative to the largest step (typically Sent) so we
- * always render a full bar at the top and proportional tails.
+ * Pure-CSS funnel chart: decreasing-width rounded-md bars.
  */
 function FunnelChart({ steps }: { steps: FunnelStep[] }) {
   const t = useTranslations('Broadcasts.detail');
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <h3 className="mb-4 text-sm font-medium text-foreground">{t('funnel')}</h3>
-      <div className="space-y-2">
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3.5 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{t('funnel')}</h3>
+        <span className="text-xs text-muted-foreground">Conversion across stages</span>
+      </div>
+      <div className="space-y-2.5">
         {steps.map((step) => {
-          const pctOfMax = Math.max(5, Math.round((step.value / max) * 100));
+          const pctOfMax = step.value > 0 ? Math.max(4, Math.round((step.value / max) * 100)) : 0;
           const pctOfSent =
             steps[0].value > 0
               ? Math.round((step.value / steps[0].value) * 100)
               : 0;
           return (
-            <div key={step.label} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs text-muted-foreground">
+            <div key={step.label} className="grid grid-cols-[5rem_minmax(0,1fr)_5.5rem] items-center gap-3">
+              <span className="truncate text-xs font-medium text-muted-foreground">
                 {step.label}
               </span>
-              <div className="relative h-7 flex-1 rounded-full bg-muted">
+              <div className="h-3 overflow-hidden rounded-sm bg-muted">
                 <div
-                  className={`h-7 rounded-full ${step.color} transition-[width] duration-500`}
+                  className={`h-full rounded-sm ${step.color} transition-[width] duration-500`}
                   style={{ width: `${pctOfMax}%` }}
                 />
-                <span className="absolute inset-0 flex items-center px-3 text-xs font-medium text-foreground">
-                  {step.value.toLocaleString()}
-                  <span className="ml-2 text-muted-foreground/80">
-                    ({pctOfSent}%)
-                  </span>
-                </span>
               </div>
+              <span className="text-right text-xs font-medium text-foreground tabular-nums">
+                {step.value.toLocaleString()}{' '}
+                <span className="text-muted-foreground">({pctOfSent}%)</span>
+              </span>
             </div>
           );
         })}
@@ -161,6 +168,7 @@ export default function BroadcastDetailPage() {
   const [statusFilter, setStatusFilter] = useState<RecipientStatus | 'all'>(
     'all',
   );
+  const [recipientSearch, setRecipientSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deliveryInFlight, setDeliveryInFlight] = useState(false);
@@ -203,13 +211,17 @@ export default function BroadcastDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  const filteredRecipients = useMemo(
-    () =>
-      statusFilter === 'all'
-        ? recipients
-        : recipients.filter((r) => r.status === statusFilter),
-    [recipients, statusFilter],
-  );
+  const filteredRecipients = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    return recipients.filter((r) => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        (r.contact?.name ?? '').toLowerCase().includes(q) ||
+        (r.contact?.phone ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [recipients, statusFilter, recipientSearch]);
 
   function handleExport() {
     if (!broadcast) return;
@@ -334,37 +346,39 @@ export default function BroadcastDetailPage() {
   const isStalled = broadcast.status === 'sending' && pendingCount > 0;
 
   const funnelSteps: FunnelStep[] = [
-    { label: t('stats.sent'), value: broadcast.sent_count, color: 'bg-primary' },
-    { label: t('stats.delivered'), value: broadcast.delivered_count, color: 'bg-teal-500' },
+    { label: t('stats.sent'), value: broadcast.sent_count, color: 'bg-zinc-500' },
+    { label: t('stats.delivered'), value: broadcast.delivered_count, color: 'bg-emerald-500' },
     { label: t('stats.read'), value: broadcast.read_count, color: 'bg-blue-500' },
-    { label: t('stats.replied'), value: broadcast.replied_count, color: 'bg-indigo-500' },
+    { label: t('stats.replied'), value: broadcast.replied_count, color: 'bg-violet-500' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
             size="icon"
             onClick={() => router.push('/broadcasts')}
-            className="border-border"
+            className="h-8 w-8 rounded-md border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{broadcast.name}</h1>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">{broadcast.name}</h1>
               <span
-                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
+                className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${status.classes}`}
               >
                 {tStatus(status.label)}
               </span>
             </div>
-            <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{t('template', { name: broadcast.template_name })}</span>
-              <span>-</span>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[11px]">
+                {broadcast.template_name}
+              </span>
+              <span>·</span>
               <span>
                 {t('createdAt', { date: new Date(broadcast.created_at).toLocaleDateString() })}
               </span>
@@ -471,64 +485,79 @@ export default function BroadcastDetailPage() {
           label={t('stats.totalRecipients')}
           value={broadcast.total_recipients}
           total={broadcast.total_recipients}
-          icon={<Users className="h-4 w-4" />}
+          icon={<Users className="h-3.5 w-3.5" />}
           color="bg-muted text-muted-foreground"
+          barColor="bg-zinc-400"
         />
         <StatCard
           label={t('stats.sent')}
           value={broadcast.sent_count}
           total={broadcast.total_recipients}
-          icon={<Send className="h-4 w-4" />}
-          color="bg-primary/10 text-primary"
+          icon={<Send className="h-3.5 w-3.5" />}
+          color="bg-zinc-500/15 text-foreground"
+          barColor="bg-zinc-500"
         />
         <StatCard
           label={t('stats.delivered')}
           value={broadcast.delivered_count}
           total={broadcast.total_recipients}
-          icon={<CheckCheck className="h-4 w-4" />}
-          color="bg-teal-500/10 text-teal-400"
+          icon={<CheckCheck className="h-3.5 w-3.5" />}
+          color="bg-emerald-500/12 text-emerald-500"
+          barColor="bg-emerald-500"
         />
         <StatCard
           label={t('stats.read')}
           value={broadcast.read_count}
           total={broadcast.total_recipients}
-          icon={<Eye className="h-4 w-4" />}
-          color="bg-blue-500/10 text-blue-400"
+          icon={<Eye className="h-3.5 w-3.5" />}
+          color="bg-blue-500/12 text-blue-500"
+          barColor="bg-blue-500"
         />
         <StatCard
           label={t('stats.replied')}
           value={broadcast.replied_count}
           total={broadcast.total_recipients}
-          icon={<MessageCircle className="h-4 w-4" />}
-          color="bg-indigo-500/10 text-indigo-400"
+          icon={<MessageCircle className="h-3.5 w-3.5" />}
+          color="bg-violet-500/12 text-violet-500"
+          barColor="bg-violet-500"
         />
         <StatCard
           label={t('stats.failed')}
           value={broadcast.failed_count}
           total={broadcast.total_recipients}
-          icon={<AlertCircle className="h-4 w-4" />}
-          color="bg-red-500/10 text-red-400"
+          icon={<AlertCircle className="h-3.5 w-3.5" />}
+          color="bg-rose-500/12 text-rose-500"
+          barColor="bg-rose-500"
         />
       </div>
 
       <FunnelChart steps={funnelSteps} />
 
       {/* Recipients Table */}
-      <div className="rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium text-foreground">
-            {statusFilter !== 'all'
+          <h2 className="text-sm font-semibold text-foreground">
+            {statusFilter !== 'all' || recipientSearch.trim()
               ? t('recipientsHeader', { filtered: filteredRecipients.length, total: recipients.length })
               : t('recipientsHeaderAll', { total: recipients.length })}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-44 sm:w-52">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={recipientSearch}
+                onChange={(e) => setRecipientSearch(e.target.value)}
+                placeholder="Filter contact or phone..."
+                className="h-8 rounded-md pl-8 text-xs"
+              />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-border text-muted-foreground hover:bg-muted"
+                    className="h-8 rounded-md border-border text-xs text-muted-foreground hover:bg-muted"
                   />
                 }
               >
@@ -542,7 +571,7 @@ export default function BroadcastDetailPage() {
                 <DropdownMenuItem
                   onClick={() => setStatusFilter('all')}
                   className={
-                    statusFilter === 'all' ? 'text-primary' : 'text-popover-foreground'
+                    statusFilter === 'all' ? 'font-medium text-foreground' : 'text-popover-foreground'
                   }
                 >
                   {t('allStatuses')}
@@ -553,7 +582,7 @@ export default function BroadcastDetailPage() {
                     onClick={() => setStatusFilter(s)}
                     className={
                       statusFilter === s
-                        ? 'text-primary'
+                        ? 'font-medium text-foreground'
                         : 'text-popover-foreground'
                     }
                   >
@@ -568,7 +597,7 @@ export default function BroadcastDetailPage() {
               size="sm"
               onClick={handleExport}
               disabled={recipients.length === 0}
-              className="border-border text-muted-foreground hover:bg-muted"
+              className="h-8 rounded-md border-border text-xs text-muted-foreground hover:bg-muted"
             >
               <Download className="h-3.5 w-3.5" />
               {t('exportCsv')}
@@ -587,51 +616,51 @@ export default function BroadcastDetailPage() {
         ) : (
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/30">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">{t('table.contact')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.phone')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.status')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.sent')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.delivered')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.read')}</TableHead>
-                  <TableHead className="text-muted-foreground">{t('table.error')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.contact')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.phone')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.status')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.sent')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.delivered')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.read')}</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('table.error')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRecipients.map((recipient) => {
                   const rStatus = getRecipientStatus(recipient.status);
                   return (
-                    <TableRow key={recipient.id} className="border-border">
+                    <TableRow key={recipient.id} className="border-border hover:bg-muted/30">
                       <TableCell className="font-medium text-foreground">
                         {recipient.contact?.name ?? t('unknownContact')}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
                         {recipient.contact?.phone ?? '-'}
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${rStatus.classes}`}
+                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${rStatus.classes}`}
                         >
                           {tStatus(rStatus.label)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
                         {recipient.sent_at
                           ? new Date(recipient.sent_at).toLocaleString()
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
                         {recipient.delivered_at
                           ? new Date(recipient.delivered_at).toLocaleString()
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground tabular-nums">
                         {recipient.read_at
                           ? new Date(recipient.read_at).toLocaleString()
                           : '-'}
                       </TableCell>
-                      <TableCell className="max-w-xs truncate text-xs text-red-400">
+                      <TableCell className="max-w-xs truncate text-xs text-rose-500 dark:text-rose-400" title={recipient.error_message ?? undefined}>
                         {recipient.error_message ?? '-'}
                       </TableCell>
                     </TableRow>

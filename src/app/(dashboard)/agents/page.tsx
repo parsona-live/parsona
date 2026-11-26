@@ -29,50 +29,54 @@ export default function AgentsPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <Bot className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {t('title')}
-        </h1>
+    <div className="space-y-5">
+      <div className="flex items-start gap-3 border-b border-border pb-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-card text-foreground">
+          <Bot className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            {t('title')}
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {t('description')}
+          </p>
+        </div>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t('description')}
-      </p>
 
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as Tab)}
-          className="mt-6"
-        >
-          <TabsList>
-            <TabsTrigger value="setup">
-              <Settings2 className="mr-1.5 h-4 w-4" /> {t('tabSetup')}
-            </TabsTrigger>
-            {canViewUsage && (
-              <TabsTrigger value="usage">
-                <BarChart3 className="mr-1.5 h-4 w-4" /> {t('tabUsage')}
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          <TabsContent value="setup" className="mt-4">
-            <div className="flex gap-6">
-              <div className="flex-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-2">
-                <AiConfig />
-              </div>
-              <div className="w-[380px] shrink-0">
-                <AiPlayground />
-              </div>
-            </div>
-          </TabsContent>
-
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as Tab)}
+        className="space-y-5"
+      >
+        <TabsList className="h-9 rounded-md border border-border bg-muted/40 p-0.5">
+          <TabsTrigger value="setup" className="rounded-sm px-3 text-xs font-medium">
+            <Settings2 className="mr-1.5 h-3.5 w-3.5" /> {t('tabSetup')}
+          </TabsTrigger>
           {canViewUsage && (
-            <TabsContent value="usage" className="mt-4">
-              <AiUsageCard />
-            </TabsContent>
+            <TabsTrigger value="usage" className="rounded-sm px-3 text-xs font-medium">
+              <BarChart3 className="mr-1.5 h-3.5 w-3.5" /> {t('tabUsage')}
+            </TabsTrigger>
           )}
-        </Tabs>
+        </TabsList>
+
+        <TabsContent value="setup">
+          <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="min-w-0">
+              <AiConfig />
+            </div>
+            <div className="min-w-0 xl:sticky xl:top-4">
+              <AiPlayground />
+            </div>
+          </div>
+        </TabsContent>
+
+        {canViewUsage && (
+          <TabsContent value="usage">
+            <AiUsageCard />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

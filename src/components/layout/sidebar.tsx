@@ -426,11 +426,9 @@ import { Suspense, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
-import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import { useTranslations } from "next-intl";
 
 import {
-  Bell,
   Bot,
   Building2,
   ChevronDown,
@@ -683,12 +681,6 @@ const mainNavItems: NavItem[] = [
     colors: ICON_COLORS.inbox,
   },
   {
-    href: "/notifications",
-    labelKey: "notifications",
-    icon: Bell,
-    colors: ICON_COLORS.notifications,
-  },
-  {
     href: "/contacts",
     labelKey: "contacts",
     icon: Contact,
@@ -892,7 +884,6 @@ export function Sidebar({
   } = useAuth();
 
   const totalUnread = useTotalUnread();
-  const unreadNotifications = useUnreadNotifications();
 
   // Desktop collapse
   const [collapsed, setCollapsed] = useState(false);
@@ -1017,10 +1008,6 @@ export function Sidebar({
       totalUnread > 0 &&
       !active;
 
-    const showNotificationBadge =
-      item.href === "/notifications" &&
-      unreadNotifications > 0;
-
     return (
       <li key={item.href}>
         <Link
@@ -1070,15 +1057,6 @@ export function Sidebar({
             {collapsed && showUnreadDot && (
               <span className="absolute -right-1 -top-1 size-2 rounded-full border-2 border-card bg-primary" />
             )}
-
-            {/* Collapsed notification badge */}
-            {collapsed && showNotificationBadge && (
-              <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground ring-2 ring-card">
-                {unreadNotifications > 9
-                  ? "9+"
-                  : unreadNotifications}
-              </span>
-            )}
           </span>
 
           {/* Label */}
@@ -1112,20 +1090,6 @@ export function Sidebar({
             >
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-40" />
               <span className="relative size-2 rounded-full bg-primary" />
-            </span>
-          )}
-
-          {/* Expanded notification badge */}
-          {!collapsed && showNotificationBadge && (
-            <span
-              aria-label={t("unreadNotifications", {
-                count: unreadNotifications,
-              })}
-              className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-md bg-primary/10 px-1 text-[10px] font-semibold tabular-nums text-primary"
-            >
-              {unreadNotifications > 9
-                ? "9+"
-                : unreadNotifications}
             </span>
           )}
         </Link>

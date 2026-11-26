@@ -1,7 +1,7 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import { Bell, LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { ChannelHealthStrip } from "@/components/dashboard/channel-health-strip";
+import { NotificationsSheet } from "@/components/notifications/notifications-sheet";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -31,10 +32,9 @@ import { useTranslations } from "next-intl";
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const t = useTranslations("Header");
-  const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const unreadCount = useUnreadNotifications();
-  const isNotificationsActive = pathname.startsWith("/notifications");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -60,24 +60,31 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Link
-          href="/notifications"
+        <button
+          type="button"
+          onClick={() => setNotificationsOpen(true)}
           aria-label={t("notifications")}
           title={t("notifications")}
+          aria-expanded={notificationsOpen}
           className={cn(
             "relative flex h-8 w-8 items-center justify-center rounded-md border border-border transition-colors",
-            isNotificationsActive
+            notificationsOpen
               ? "bg-muted text-foreground"
               : "bg-card/50 text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground tabular-nums">
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-900 px-1 text-[10px] font-semibold leading-none text-zinc-50 ring-2 ring-background tabular-nums dark:bg-zinc-100 dark:text-zinc-950">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           ) : null}
-        </Link>
+        </button>
+
+        <NotificationsSheet
+          open={notificationsOpen}
+          onOpenChange={setNotificationsOpen}
+        />
 
         <ModeToggle />
 

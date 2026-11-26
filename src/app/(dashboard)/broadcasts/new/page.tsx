@@ -11,7 +11,9 @@ import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audien
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
-import { Check } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
 const steps = [
@@ -134,57 +136,70 @@ export default function NewBroadcastPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('subtitle')}
-        </p>
+      <div className="flex items-center gap-3 border-b border-border pb-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => router.push('/broadcasts')}
+          className="h-8 w-8 rounded-md border-border"
+          aria-label="Back to broadcasts"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="text-xs text-muted-foreground">
+            {t('subtitle')}
+          </p>
+        </div>
       </div>
 
-      {/* Step Indicator */}
-      <div className="flex items-center justify-between">
+      {/* Segmented Stepper */}
+      <nav aria-label="Broadcast steps" className="grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-card p-1.5 sm:grid-cols-4">
         {steps.map((step, index) => {
           const isActive = index === currentStep;
           const isCompleted = index < currentStep;
+          const canJump = isCompleted && !isProcessing;
 
           return (
-            <div key={step.key} className="flex flex-1 items-center">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-all ${
-                    isCompleted
-                      ? 'bg-primary text-primary-foreground'
-                      : isActive
-                        ? 'border-2 border-primary bg-primary/10 text-primary'
-                        : 'border border-border bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
-                </div>
-                <span
-                  className={`hidden text-sm font-medium sm:block ${
-                    isActive ? 'text-foreground' : isCompleted ? 'text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  {t(`steps.${step.label}`)}
-                </span>
-              </div>
-              {index < steps.length - 1 && (
-                <div
-                  className={`mx-3 h-px flex-1 ${
-                    index < currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
+            <button
+              key={step.key}
+              type="button"
+              disabled={!canJump}
+              onClick={() => canJump && setCurrentStep(index)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors',
+                isActive
+                  ? 'bg-muted text-foreground shadow-2xs'
+                  : isCompleted
+                    ? 'text-foreground hover:bg-muted/50 cursor-pointer'
+                    : 'text-muted-foreground cursor-default',
               )}
-            </div>
+            >
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold tabular-nums transition-colors',
+                  isCompleted
+                    ? 'bg-emerald-500/15 text-emerald-500'
+                    : isActive
+                      ? 'bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-950'
+                      : 'border border-border bg-background text-muted-foreground',
+                )}
+              >
+                {isCompleted ? <Check className="h-3.5 w-3.5" /> : index + 1}
+              </span>
+              <span className="truncate text-xs font-medium">
+                {t(`steps.${step.label}`)}
+              </span>
+            </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* Step Content */}
-      <div className="relative min-h-[400px]">
+      <div className="relative rounded-lg border border-border bg-card p-4 sm:p-6">
         <div
           className="transition-all duration-300 ease-in-out"
           style={{
