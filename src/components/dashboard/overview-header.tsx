@@ -21,7 +21,6 @@ import {
 } from '@/lib/dashboard/overview'
 import { Skeleton } from './skeleton'
 import { useFormatDuration } from './use-format-duration'
-import { ChannelHealthStrip } from './channel-health-strip'
 import { ChannelIcon } from '@/components/channels/channel-badge'
 import { cn } from '@/lib/utils'
 
@@ -145,11 +144,6 @@ export function OverviewHeader({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-
-      {/* Channel Connection Health Strip */}
-      <div className="pt-1">
-        <ChannelHealthStrip />
       </div>
     </div>
   )

@@ -1041,35 +1041,34 @@ export function Sidebar({
 
             collapsed
               ? "justify-center px-0"
-              : "gap-2.5 px-2",
+              : "gap-2.5 px-2.5",
 
             active
-              ? "!bg-zinc-100 !text-zinc-900 dark:!bg-zinc-800 dark:!text-zinc-100"
-              : "!text-foreground hover:!bg-zinc-50 dark:hover:!bg-zinc-800/50"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           )}
         >
           {/* Neutral active indicator */}
           {active && (
-            <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-zinc-500 dark:bg-zinc-400" />
+            <span className="absolute left-0 top-1.5 bottom-1.5 w-[2.5px] rounded-r bg-foreground" />
           )}
 
-          {/* Colored icon tile */}
-          <span
-            className={cn(
-              "relative flex size-[30px] shrink-0 items-center justify-center rounded-[8px]",
-              "transition-colors",
-              item.colors.bg
-            )}
-          >
+          {/* Clean monochrome icon */}
+          <span className="relative flex size-5 shrink-0 items-center justify-center">
             <Icon
-              size={17}
-              strokeWidth={1.9}
-              className={item.colors.icon}
+              size={16}
+              strokeWidth={active ? 2 : 1.75}
+              className={cn(
+                "transition-colors",
+                active
+                  ? "text-foreground"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
             />
 
             {/* Collapsed inbox dot */}
             {collapsed && showUnreadDot && (
-              <span className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-card bg-primary" />
+              <span className="absolute -right-1 -top-1 size-2 rounded-full border-2 border-card bg-primary" />
             )}
 
             {/* Collapsed notification badge */}
@@ -1086,10 +1085,10 @@ export function Sidebar({
           {!collapsed && (
             <span
               className={cn(
-                "sidebar-nav-label min-w-0 flex-1 truncate text-[14px] tracking-[-0.15px]",
+                "sidebar-nav-label min-w-0 flex-1 truncate text-[13.5px]",
                 active
-                  ? "!font-semibold !text-zinc-900 dark:!text-zinc-100"
-                  : "!font-medium !text-foreground"
+                  ? "font-semibold text-foreground"
+                  : "font-medium text-muted-foreground group-hover:text-foreground"
               )}
             >
               {getLabel(item)}
@@ -1098,7 +1097,7 @@ export function Sidebar({
 
           {/* Beta badge */}
           {!collapsed && item.beta && (
-            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-700 dark:text-amber-400">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase text-muted-foreground">
               {t("beta")}
             </span>
           )}
@@ -1167,27 +1166,26 @@ export function Sidebar({
           aria-expanded={isExpanded}
           title={collapsed ? group.label : undefined}
           className={cn(
-            "group flex h-9 w-full items-center rounded-lg",
+            "group flex h-9 w-full items-center rounded-md",
             "transition-colors duration-150",
-            "hover:bg-muted/70",
+            "hover:bg-muted/60",
             collapsed
               ? "justify-center px-0"
-              : "gap-2.5 px-2",
-            groupActive &&
-            "bg-zinc-100 dark:bg-zinc-800/70"
+              : "gap-2.5 px-2.5",
+            groupActive && "bg-muted/70"
           )}
         >
           {/* Parent icon */}
-          <span
-            className={cn(
-              "flex size-[30px] shrink-0 items-center justify-center rounded-[8px]",
-              group.colors.bg
-            )}
-          >
+          <span className="flex size-5 shrink-0 items-center justify-center">
             <Icon
-              size={17}
-              strokeWidth={1.9}
-              className={group.colors.icon}
+              size={16}
+              strokeWidth={groupActive ? 2 : 1.75}
+              className={cn(
+                "transition-colors",
+                groupActive
+                  ? "text-foreground"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
             />
           </span>
 
@@ -1195,8 +1193,10 @@ export function Sidebar({
             <>
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate text-left text-[14px] font-medium",
-                  "text-foreground"
+                  "min-w-0 flex-1 truncate text-left text-[13.5px] font-medium",
+                  groupActive
+                    ? "font-semibold text-foreground"
+                    : "text-muted-foreground group-hover:text-foreground"
                 )}
               >
                 {group.label}
@@ -1238,26 +1238,25 @@ export function Sidebar({
                         onClick={onClose}
                         data-active={active ? "true" : undefined}
                         className={cn(
-                          "group/submenu relative flex h-9 w-full items-center",
-                          "gap-2.5 rounded-lg px-2",
-                          "transition-all duration-150",
+                          "group/submenu relative flex h-8 w-full items-center",
+                          "gap-2.5 rounded-md px-2.5",
+                          "transition-colors duration-150",
                           active
-                            ? "!border !border-zinc-200 !bg-zinc-100 !text-zinc-900 dark:!border-zinc-700 dark:!bg-zinc-800 dark:!text-zinc-100"
-                            : "border border-transparent text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+                            ? "bg-muted text-foreground"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                         )}
                       >
-                        {/* Icon tile */}
-                        <span
-                          className={cn(
-                            "flex size-[30px] shrink-0 items-center justify-center",
-                            "rounded-[8px] transition-colors",
-                            child.colors.bg
-                          )}
-                        >
+                        {/* Clean monochrome icon */}
+                        <span className="flex size-4 shrink-0 items-center justify-center">
                           <ChildIcon
-                            size={16}
-                            strokeWidth={1.9}
-                            className={child.colors.icon}
+                            size={15}
+                            strokeWidth={active ? 2 : 1.75}
+                            className={cn(
+                              "transition-colors",
+                              active
+                                ? "text-foreground"
+                                : "text-muted-foreground group-hover/submenu:text-foreground"
+                            )}
                           />
                         </span>
 
@@ -1266,8 +1265,8 @@ export function Sidebar({
                           className={cn(
                             "min-w-0 flex-1 truncate text-[13px]",
                             active
-                              ? "!font-semibold !text-zinc-900 dark:!text-zinc-100"
-                              : "font-medium text-zinc-700 dark:text-zinc-300"
+                              ? "font-semibold text-foreground"
+                              : "font-medium text-muted-foreground group-hover/submenu:text-foreground"
                           )}
                         >
                           {getLabel(child)}
@@ -1275,7 +1274,7 @@ export function Sidebar({
 
                         {/* Beta badge */}
                         {child.beta && (
-                          <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-400">
+                          <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase text-muted-foreground">
                             {t("beta")}
                           </span>
                         )}
@@ -1543,21 +1542,19 @@ export function Sidebar({
                 onClick={onClose}
                 title={collapsed ? "Super Admin" : undefined}
                 className={cn(
-                  "flex h-9 items-center rounded-lg",
-                  "border border-amber-500/20 bg-amber-500/10",
-                  "text-amber-700 transition-colors hover:bg-amber-500/15",
-                  "dark:text-amber-400",
+                  "group flex h-9 items-center rounded-md border border-border/80",
+                  "bg-muted/40 text-foreground transition-colors hover:bg-muted",
                   collapsed
                     ? "justify-center"
-                    : "gap-2.5 px-2"
+                    : "gap-2.5 px-2.5"
                 )}
               >
-                <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-amber-500/10">
-                  <ShieldAlert size={17} />
+                <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground group-hover:text-foreground">
+                  <ShieldAlert size={16} strokeWidth={1.75} />
                 </span>
 
                 {!collapsed && (
-                  <span className="text-[13px] font-semibold">
+                  <span className="text-[13px] font-medium">
                     Super Admin
                   </span>
                 )}
@@ -1582,13 +1579,13 @@ export function Sidebar({
             ACCOUNT FOOTER
         ============================================ */}
 
-        <div className="shrink-0 border-t border-border p-2">
+        <div className="shrink-0 border-t border-border bg-card/80 p-2.5 space-y-1.5">
           {/* Account strip */}
           {showAccountStrip && account?.name && (
             <div
               className={cn(
-                "mb-1.5 flex min-w-0 items-center gap-2 rounded-md",
-                "bg-muted/60 px-2 py-1.5",
+                "flex min-w-0 items-center gap-2 rounded-md border border-border/60",
+                "bg-muted/40 px-2.5 py-1.5",
                 collapsed && "lg:hidden"
               )}
             >
@@ -1617,17 +1614,17 @@ export function Sidebar({
                   : undefined
               }
               className={cn(
-                "group flex w-full items-center rounded-lg p-1.5",
+                "group flex w-full items-center rounded-md p-1.5",
                 "border border-transparent transition-colors",
-                "hover:border-border hover:bg-muted/60",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                "data-popup-open:bg-muted/60",
+                "hover:border-border/80 hover:bg-muted/60",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                "data-popup-open:bg-muted/60 data-popup-open:border-border/80",
                 collapsed
                   ? "justify-center"
-                  : "gap-2"
+                  : "gap-2.5"
               )}
             >
-              <Avatar className="size-8 shrink-0 rounded-lg">
+              <Avatar className="size-7 shrink-0 rounded-md border border-border/60">
                 {profile?.avatar_url && (
                   <AvatarImage
                     src={profile.avatar_url}
@@ -1638,7 +1635,7 @@ export function Sidebar({
                   />
                 )}
 
-                <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+                <AvatarFallback className="rounded-md bg-muted text-[11px] font-semibold text-foreground">
                   {profile?.full_name
                     ?.charAt(0)
                     ?.toUpperCase() ??
@@ -1650,13 +1647,13 @@ export function Sidebar({
               </Avatar>
 
               {!collapsed && (
-                <span className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-[12px] font-semibold text-foreground">
+                <span className="min-w-0 flex-1 text-left leading-tight">
+                  <span className="block truncate text-xs font-medium text-foreground">
                     {profile?.full_name ??
                       t("defaultUser")}
                   </span>
 
-                  <span className="block truncate text-[10px] text-muted-foreground">
+                  <span className="block truncate text-[11px] text-muted-foreground mt-0.5">
                     {profile?.email ?? ""}
                   </span>
                 </span>

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
 import { ChannelIcon } from '@/components/channels/channel-badge'
 import { cn } from '@/lib/utils'
 import type { PhoneHealth } from '@/lib/whatsapp/phone-health'
@@ -56,17 +55,17 @@ export function ChannelHealthStrip() {
   const fbDot = fbConn ? DOT_CLASS.GREEN : DOT_CLASS.UNKNOWN
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       {/* WhatsApp Health Pill */}
       <Link
         href="/settings?tab=whatsapp"
         title="WhatsApp Cloud API Connection"
-        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <MessageCircle className="size-3.5 text-emerald-500" />
-        <span className={cn('size-2 shrink-0 rounded-full', waDot)} aria-hidden />
+        <ChannelIcon channel="whatsapp" className="size-3.5 text-emerald-500" />
+        <span className={cn('size-1.5 shrink-0 rounded-full', waDot)} aria-hidden />
         <span className="font-medium text-foreground">WhatsApp</span>
-        <span className="hidden sm:inline text-muted-foreground">
+        <span className="hidden md:inline text-muted-foreground tabular-nums">
           {waHealth?.displayPhoneNumber || (loading ? 'Checking...' : 'Not Connected')}
         </span>
       </Link>
@@ -75,12 +74,12 @@ export function ChannelHealthStrip() {
       <Link
         href="/settings?tab=channels"
         title="Instagram Professional Direct Connection"
-        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChannelIcon channel="instagram" className="size-3.5 text-pink-500" />
-        <span className={cn('size-2 shrink-0 rounded-full', igDot)} aria-hidden />
+        <span className={cn('size-1.5 shrink-0 rounded-full', igDot)} aria-hidden />
         <span className="font-medium text-foreground">Instagram</span>
-        <span className="hidden sm:inline text-muted-foreground">
+        <span className="hidden md:inline text-muted-foreground">
           {igConn?.instagram_username ? `@${igConn.instagram_username}` : (loading ? 'Checking...' : 'Not Connected')}
         </span>
       </Link>
@@ -89,12 +88,12 @@ export function ChannelHealthStrip() {
       <Link
         href="/settings?tab=channels"
         title="Facebook Messenger Connection"
-        className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChannelIcon channel="facebook" className="size-3.5 text-blue-500" />
-        <span className={cn('size-2 shrink-0 rounded-full', fbDot)} aria-hidden />
+        <span className={cn('size-1.5 shrink-0 rounded-full', fbDot)} aria-hidden />
         <span className="font-medium text-foreground">Messenger</span>
-        <span className="hidden sm:inline text-muted-foreground">
+        <span className="hidden md:inline text-muted-foreground">
           {fbConn?.page_name || (loading ? 'Checking...' : 'Not Connected')}
         </span>
       </Link>

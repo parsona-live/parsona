@@ -36,32 +36,57 @@ function useIsClient() {
  */
 export function ModeToggle({ className }: { className?: string }) {
   const t = useTranslations("ModeToggle");
-  const { mode, toggleMode } = useTheme();
+  const { mode, setMode } = useTheme();
   const isClient = useIsClient();
 
   // On SSR / first hydration pass, use DEFAULT_MODE so server and client
-  // render the same icon. After mount, switch to the real mode.
+  // render the same active state. After mount, switch to the real mode.
   const displayMode = isClient ? mode : DEFAULT_MODE;
 
-  const goingTo = displayMode === "dark" ? "light" : "dark";
-  const switchLabel = t("switchMode", { mode: goingTo });
+  const lightLabel = t("switchMode", { mode: "light" });
+  const darkLabel = t("switchMode", { mode: "dark" });
 
   return (
-    <button
-      type="button"
-      onClick={toggleMode}
-      aria-label={switchLabel}
-      title={switchLabel}
+    <div
+      role="group"
+      aria-label={t("switchMode", {
+        mode: displayMode === "dark" ? "light" : "dark",
+      })}
       className={cn(
-        "flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        "inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5",
         className,
       )}
     >
-      {displayMode === "dark" ? (
-        <Moon className="h-5 w-5" />
-      ) : (
-        <Sun className="h-5 w-5" />
-      )}
-    </button>
+      <button
+        type="button"
+        onClick={() => setMode("light")}
+        aria-label={lightLabel}
+        aria-pressed={displayMode === "light"}
+        title={lightLabel}
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-sm transition-colors",
+          displayMode === "light"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Sun className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setMode("dark")}
+        aria-label={darkLabel}
+        aria-pressed={displayMode === "dark"}
+        title={darkLabel}
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-sm transition-colors",
+          displayMode === "dark"
+            ? "bg-background text-foreground shadow-xs"
+            : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Moon className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }

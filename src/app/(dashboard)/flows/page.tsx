@@ -9,20 +9,18 @@ import {
   Trash2,
   Pencil,
   Loader2,
-  MessageSquare,
-  PlayCircle,
-  PauseCircle,
-  Archive,
-  HelpCircle,
-  UserPlus,
   FileText,
-  Sparkles,
   Search,
   Share2,
   ArrowRight,
   Clock,
   CreditCard,
   Calendar,
+  LayoutGrid,
+  List,
+  MessageSquare,
+  HelpCircle,
+  UserPlus,
   Award,
 } from "lucide-react";
 
@@ -53,8 +51,8 @@ interface FlowRow {
   name: string;
   description: string | null;
   status: "draft" | "active" | "archived";
-  trigger_type: "keyword" | "first_inbound_message" | "manual";
-  trigger_config: { keywords?: string[] } | Record<string, unknown>;
+  trigger_type: "keyword" | "first_inbound_message" | "manual" | "ai_intent";
+  trigger_config: { keywords?: string[]; intent_name?: string } | Record<string, unknown>;
   execution_count: number;
   last_executed_at: string | null;
   created_at: string;
@@ -70,9 +68,9 @@ const STATUS_LABELS = (t: ReturnType<typeof useTranslations>): Record<FlowRow["s
 });
 
 const STATUS_COLORS: Record<FlowRow["status"], string> = {
-  draft: "border-border bg-muted text-muted-foreground",
-  active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
-  archived: "border-border bg-muted/50 text-muted-foreground",
+  draft: "border-border bg-muted/60 text-muted-foreground",
+  active: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  archived: "border-border bg-muted/40 text-muted-foreground",
 };
 
 interface TemplateSummary {
@@ -137,6 +135,8 @@ export default function FlowsPage() {
   const tGate = useTranslations("GatedButton");
 
   const [activeTab, setActiveTab] = useState<"my_flows" | "library">("my_flows");
+  const [viewMode, setViewMode] = useState<"cards" | "list">("cards");
+  const [flowSearch, setFlowSearch] = useState("");
   const [flows, setFlows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -344,6 +344,15 @@ export default function FlowsPage() {
   };
 
   const myFlows = flows.filter((f) => !f.is_template);
+  const filteredMyFlows = myFlows.filter((f) => {
+    if (!flowSearch.trim()) return true;
+    const q = flowSearch.toLowerCase();
+    return (
+      f.name.toLowerCase().includes(q) ||
+      (f.description && f.description.toLowerCase().includes(q)) ||
+      f.trigger_type.toLowerCase().includes(q)
+    );
+  });
 
   const filteredLibrary = libraryTemplates.filter((item) => {
     const matchesCategory =
@@ -355,22 +364,39 @@ export default function FlowsPage() {
     return matchesCategory && matchesSearch;
   });
 
+  async function toggleFlowStatus(flow: FlowRow) {
+    const next = flow.status === "active" ? "draft" : "active";
+    try {
+      const res = await fetch(`/api/flows/${flow.id}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, status: data.flow.status } : f)));
+      toast.success(next === "active" ? "Flow activated" : "Flow paused");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
   if (loading) {
     return <FlowsPageSkeleton />;
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
-            <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">{t("title")}</h1>
+            <span className="text-[11px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
               {t("beta")}
             </span>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t("description")}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -378,6 +404,7 @@ export default function FlowsPage() {
             canAct={canCreate}
             gateReason={tGate("reasons.createFlows")}
             onClick={() => setCreateOpen(true)}
+            className="rounded-md"
           >
             <Plus className="h-4 w-4 mr-1.5" />
             {t("newFlow")}
@@ -385,7 +412,7 @@ export default function FlowsPage() {
         </div>
       </header>
 
-      {/* Tabs with toggle button style like AI Agent */}
+      {/* Tabs: My Flows | Prebuilt Flows */}
       <Tabs
         value={activeTab}
         onValueChange={(val) => {
@@ -393,28 +420,70 @@ export default function FlowsPage() {
           setActiveTab(next);
           if (next === "library") refreshLibrary();
         }}
-        className="space-y-6"
+        className="space-y-5"
       >
-        <TabsList className="bg-muted p-1 rounded-lg">
-          <TabsTrigger value="my_flows" className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold">
-            <Workflow className="h-4 w-4" />
-            My Flows
-            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">
-              {myFlows.length}
-            </Badge>
-          </TabsTrigger>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList className="bg-muted/70 p-1 rounded-md border border-border">
+            <TabsTrigger value="my_flows" className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded">
+              My Flows
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {myFlows.length}
+              </span>
+            </TabsTrigger>
 
-          <TabsTrigger value="library" className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold">
-            <Sparkles className="h-4 w-4 text-amber-400" />
-            Flow Library
-            <Badge
-              variant="outline"
-              className="ml-1 text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-300 border-amber-500/30"
-            >
-              {libraryTemplates.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger value="library" className="flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium rounded">
+              Prebuilt Flows
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {libraryTemplates.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          {activeTab === "my_flows" && myFlows.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="relative w-56">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search flows..."
+                  value={flowSearch}
+                  onChange={(e) => setFlowSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs rounded-md"
+                />
+              </div>
+
+              <div className="flex items-center rounded-md border border-border bg-card p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                    viewMode === "cards"
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Cards view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <span>Cards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                    viewMode === "list"
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="List view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                  <span>List</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* TAB 1: MY FLOWS */}
         <TabsContent value="my_flows" className="space-y-4 outline-hidden mt-0">
@@ -428,9 +497,13 @@ export default function FlowsPage() {
               canCreate={canCreate}
               t={t}
             />
-          ) : (
+          ) : filteredMyFlows.length === 0 ? (
+            <div className="border border-dashed border-border rounded-md p-10 text-center text-muted-foreground text-sm">
+              No flows match &ldquo;{flowSearch}&rdquo;.
+            </div>
+          ) : viewMode === "cards" ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {myFlows.map((flow) => (
+              {filteredMyFlows.map((flow) => (
                 <FlowCard
                   key={flow.id}
                   flow={flow}
@@ -438,64 +511,79 @@ export default function FlowsPage() {
                   onEdit={() => router.push(`/flows/${flow.id}`)}
                   onDelete={() => handleDelete(flow)}
                   onPromote={() => openPromoteModal(flow)}
-                  onToggleStatus={async () => {
-                    const next = flow.status === "active" ? "draft" : "active";
-                    try {
-                      const res = await fetch(`/api/flows/${flow.id}/activate`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ status: next }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || "Failed");
-                      setFlows((prev) => prev.map((f) => (f.id === flow.id ? { ...f, status: data.flow.status } : f)));
-                      toast.success(next === "active" ? "Flow activated" : "Flow deactivated");
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Failed");
-                    }
-                  }}
+                  onToggleStatus={() => void toggleFlowStatus(flow)}
                   onViewRuns={() => router.push(`/flows/${flow.id}/runs`)}
                   t={t}
                 />
               ))}
             </div>
+          ) : (
+            <div className="rounded-md border border-border bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="py-2.5 px-4">Flow</th>
+                      <th className="py-2.5 px-4">Trigger</th>
+                      <th className="py-2.5 px-4">Status</th>
+                      <th className="py-2.5 px-4">Runs</th>
+                      <th className="py-2.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs">
+                    {filteredMyFlows.map((flow) => (
+                      <FlowListRow
+                        key={flow.id}
+                        flow={flow}
+                        canPromote={canPromote}
+                        onEdit={() => router.push(`/flows/${flow.id}`)}
+                        onDelete={() => handleDelete(flow)}
+                        onPromote={() => openPromoteModal(flow)}
+                        onToggleStatus={() => void toggleFlowStatus(flow)}
+                        onViewRuns={() => router.push(`/flows/${flow.id}/runs`)}
+                        t={t}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </TabsContent>
 
-        {/* TAB 2: FLOW LIBRARY */}
-        <TabsContent value="library" className="space-y-6 outline-hidden mt-0">
+        {/* TAB 2: PREBUILT FLOWS */}
+        <TabsContent value="library" className="space-y-5 outline-hidden mt-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-400" />
-                Prebuilt Automation Library
+              <h2 className="text-base font-semibold text-foreground">
+                Prebuilt Flows
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Select any ready-made workflow blueprint to clone into your workspace and customize.
+                Clone a ready-made workflow into your workspace and customize its steps.
               </p>
             </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Search prebuilt flows..."
                 value={librarySearch}
                 onChange={(e) => setLibrarySearch(e.target.value)}
-                className="pl-9 text-sm"
+                className="h-8 pl-8 text-xs rounded-md"
               />
             </div>
           </div>
 
           {/* Categories */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {LIBRARY_CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                  "rounded-md px-2.5 py-1 text-xs font-medium border transition-colors",
                   selectedCategory === cat
-                    ? "bg-amber-500/15 border-amber-500/40 text-amber-300 font-semibold"
-                    : "border-border text-muted-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 {cat}
@@ -507,63 +595,60 @@ export default function FlowsPage() {
           {loadingLibrary ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div key={idx} className="rounded-md border border-border bg-card p-4 space-y-3">
                   <div className="flex justify-between items-start">
                     <Skeleton className="h-5 w-36" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded" />
                   </div>
-                  <Skeleton className="h-12 w-full rounded-md" />
-                  <Skeleton className="h-8 w-24 rounded-md" />
+                  <Skeleton className="h-10 w-full rounded" />
+                  <Skeleton className="h-8 w-full rounded" />
                 </div>
               ))}
             </div>
           ) : filteredLibrary.length === 0 ? (
-            <div className="border border-dashed border-border rounded-xl p-10 text-center text-muted-foreground text-sm">
-              No prebuilt templates found for this filter.
+            <div className="border border-dashed border-border rounded-md p-10 text-center text-muted-foreground text-sm">
+              No prebuilt flows found for this filter.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredLibrary.map((template) => (
                 <Card
                   key={template.id}
-                  className="border-border hover:border-amber-500/40 transition-colors flex flex-col justify-between"
+                  className="rounded-md border-border hover:border-foreground/25 transition-colors flex flex-col justify-between shadow-none"
                 >
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-[11px] font-semibold text-amber-400 border-amber-500/30 bg-amber-500/10"
-                      >
+                      <Badge variant="secondary" className="text-[11px] font-medium rounded">
                         {template.category}
                       </Badge>
                       <span className="font-mono text-[10px] text-muted-foreground uppercase">
-                        {template.trigger_type.replace("_", " ")}
+                        {template.trigger_type.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <CardTitle className="text-base font-bold mt-2 text-foreground">{template.name}</CardTitle>
-                    <CardDescription className="text-xs line-clamp-2 mt-1">
-                      {template.description || "Pre-designed chatbot automation."}
+                    <CardTitle className="text-sm font-semibold text-foreground">
+                      {template.name}
+                    </CardTitle>
+                    <CardDescription className="text-xs line-clamp-2">
+                      {template.description || "Ready-to-use workflow blueprint."}
                     </CardDescription>
                   </CardHeader>
 
-                  <CardContent className="pt-0 space-y-4">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-3">
-                      <span className="inline-flex items-center gap-1">
-                        <Workflow className="h-3.5 w-3.5 text-muted-foreground" />
-                        {template.node_count} nodes configured
-                      </span>
-                      <span>Ready to deploy</span>
+                  <CardContent className="pt-0 space-y-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/60 pt-2.5">
+                      <span>{template.node_count} steps</span>
+                      <span>Click to clone</span>
                     </div>
 
                     <Button
                       onClick={() => handleCloneLibraryTemplate(template.id)}
                       disabled={cloningId === template.id}
-                      className="w-full text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white"
+                      size="sm"
+                      className="w-full h-8 text-xs font-medium rounded-md"
                     >
                       {cloningId === template.id ? (
                         <>
                           <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                          Installing Template...
+                          Cloning Flow...
                         </>
                       ) : (
                         <>
@@ -645,8 +730,7 @@ export default function FlowsPage() {
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handlePromoteSubmit}>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-400" />
+              <DialogTitle>
                 Publish to Master Flow Library
               </DialogTitle>
               <DialogDescription>
@@ -695,7 +779,7 @@ export default function FlowsPage() {
               <Button type="button" variant="outline" onClick={() => setPromoteFlow(null)} disabled={promoting}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={promoting} className="bg-amber-600 hover:bg-amber-500 text-white">
+              <Button type="submit" disabled={promoting}>
                 {promoting ? "Publishing..." : "Publish to Library"}
               </Button>
             </DialogFooter>
@@ -719,9 +803,9 @@ function EmptyState({
 }) {
   const tGate = useTranslations("GatedButton");
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-        <Workflow className="h-6 w-6 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border bg-card/50 px-6 py-16 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
+        <Workflow className="h-5 w-5 text-muted-foreground" />
       </div>
       <h2 className="mt-4 text-base font-medium text-foreground">{t("emptyTitle")}</h2>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">{t("emptyDesc")}</p>
@@ -730,9 +814,8 @@ function EmptyState({
           <Plus className="h-4 w-4 mr-1.5" />
           {t("createFirst")}
         </GatedButton>
-        <Button variant="outline" onClick={onBrowseLibrary} className="text-amber-400 border-amber-500/30">
-          <Sparkles className="h-4 w-4 mr-1.5 text-amber-400" />
-          Browse Flow Library
+        <Button variant="outline" onClick={onBrowseLibrary}>
+          Browse Prebuilt Flows
         </Button>
       </div>
     </div>
@@ -759,83 +842,82 @@ function FlowCard({
   t: ReturnType<typeof useTranslations>;
 }) {
   const triggerSummary = describeTrigger(flow, t);
-  const StatusIcon =
-    flow.status === "active" ? PlayCircle : flow.status === "archived" ? Archive : PauseCircle;
 
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-border">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Workflow className="h-4 w-4 shrink-0 text-primary" />
-          <h3 className="truncate text-sm font-semibold text-foreground">{flow.name}</h3>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {flow.origin_template_id && (
-            <Badge variant="outline" className="text-[9px] text-amber-400 border-amber-500/30 bg-amber-500/10">
-              Prebuilt
-            </Badge>
-          )}
-          <Badge variant="outline" className={cn("shrink-0 gap-1 text-[10px]", STATUS_COLORS[flow.status])}>
-            <StatusIcon className="h-3 w-3" />
-            {STATUS_LABELS(t)[flow.status]}
-          </Badge>
-        </div>
-      </div>
-
-      <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{flow.description || triggerSummary}</p>
-
-      <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <MessageSquare className="h-3 w-3" />
-          {t("runCount", { count: flow.execution_count })}
-        </span>
-        {canPromote && (
+    <div className="flex flex-col justify-between rounded-md border border-border bg-card p-4 transition-colors hover:border-foreground/25">
+      <div>
+        <div className="flex items-start justify-between gap-2">
           <button
             type="button"
-            onClick={onPromote}
-            className="flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 transition-colors"
-            title="Publish this flow to Master Library / Prebuilt Flows"
+            onClick={onEdit}
+            className="text-left text-sm font-semibold text-foreground hover:underline truncate"
           >
-            <Share2 className="h-3 w-3" />
-            Publish to Library
+            {flow.name}
           </button>
-        )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {flow.origin_template_id && (
+              <Badge variant="secondary" className="text-[10px] font-normal rounded">
+                Prebuilt
+              </Badge>
+            )}
+            <Badge variant="outline" className={cn("text-[10px] rounded", STATUS_COLORS[flow.status])}>
+              {STATUS_LABELS(t)[flow.status]}
+            </Badge>
+          </div>
+        </div>
+
+        <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground min-h-[2rem]">
+          {flow.description || triggerSummary}
+        </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 truncate max-w-[200px]">
+            {triggerSummary}
+          </span>
+          <span>·</span>
+          <span>{t("runCount", { count: flow.execution_count })}</span>
+          {flow.last_executed_at && (
+            <>
+              <span>·</span>
+              <span>Last run {new Date(flow.last_executed_at).toLocaleDateString()}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
         <div className="flex items-center gap-2">
           <Switch checked={flow.status === "active"} onCheckedChange={onToggleStatus} />
-          <span className="text-xs text-muted-foreground">{flow.status === "active" ? "Active" : "Inactive"}</span>
+          <span className="text-xs text-muted-foreground">{flow.status === "active" ? "Active" : "Paused"}</span>
         </div>
-        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
+        <div className="flex items-center gap-1">
           {canPromote && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onPromote}
-              className="text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-              title="Publish this flow to Master Library / Admin Dashboard"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              title="Publish to Prebuilt Library"
             >
-              <Share2 className="h-3.5 w-3.5 mr-1" />
-              Publish
+              <Share2 className="h-3.5 w-3.5" />
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={onViewRuns}>
-            <Clock className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="sm" onClick={onViewRuns} className="h-7 px-2 text-xs">
+            <Clock className="h-3.5 w-3.5 mr-1" />
             Runs
           </Button>
-          <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 px-2 text-xs">
+            <Pencil className="h-3.5 w-3.5 mr-1" />
             {t("edit")}
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={onDelete}
-            className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            className="h-7 px-2 text-xs text-red-500 hover:bg-red-500/10 hover:text-red-500"
+            title={t("delete")}
           >
             <Trash2 className="h-3.5 w-3.5" />
-            {t("delete")}
           </Button>
         </div>
       </div>
@@ -843,7 +925,108 @@ function FlowCard({
   );
 }
 
+function FlowListRow({
+  flow,
+  canPromote,
+  onEdit,
+  onDelete,
+  onPromote,
+  onToggleStatus,
+  onViewRuns,
+  t,
+}: {
+  flow: FlowRow;
+  canPromote: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onPromote: () => void;
+  onToggleStatus: () => void;
+  onViewRuns: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const triggerSummary = describeTrigger(flow, t);
+
+  return (
+    <tr className="hover:bg-muted/30 transition-colors">
+      <td className="py-3 px-4 max-w-[280px]">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="font-semibold text-foreground hover:underline truncate text-left"
+          >
+            {flow.name}
+          </button>
+          {flow.origin_template_id && (
+            <Badge variant="secondary" className="text-[10px] font-normal rounded shrink-0">
+              Prebuilt
+            </Badge>
+          )}
+        </div>
+        {flow.description && (
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{flow.description}</p>
+        )}
+      </td>
+      <td className="py-3 px-4 max-w-[220px]">
+        <span className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 truncate max-w-full">
+          {triggerSummary}
+        </span>
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-2">
+          <Switch checked={flow.status === "active"} onCheckedChange={onToggleStatus} />
+          <Badge variant="outline" className={cn("text-[10px] rounded", STATUS_COLORS[flow.status])}>
+            {STATUS_LABELS(t)[flow.status]}
+          </Badge>
+        </div>
+      </td>
+      <td className="py-3 px-4 text-muted-foreground">
+        <div>{t("runCount", { count: flow.execution_count })}</div>
+        {flow.last_executed_at && (
+          <div className="text-[10px] opacity-80">
+            Last: {new Date(flow.last_executed_at).toLocaleDateString()}
+          </div>
+        )}
+      </td>
+      <td className="py-3 px-4 text-right">
+        <div className="inline-flex items-center gap-1">
+          {canPromote && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onPromote}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              title="Publish to Prebuilt Library"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onViewRuns} className="h-7 px-2 text-xs">
+            Runs
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onEdit} className="h-7 px-2 text-xs">
+            {t("edit")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="h-7 px-2 text-xs text-red-500 hover:bg-red-500/10 hover:text-red-500"
+            title={t("delete")}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): string {
+  if (flow.trigger_type === "ai_intent") {
+    const intent = (flow.trigger_config as { intent_name?: string })?.intent_name;
+    return intent ? `AI Intent: ${intent}` : "AI Intent";
+  }
   if (flow.trigger_type === "keyword") {
     const keywords = Array.isArray(flow.trigger_config.keywords)
       ? (flow.trigger_config.keywords as string[])

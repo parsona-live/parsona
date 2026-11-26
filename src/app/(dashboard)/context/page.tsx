@@ -19,13 +19,10 @@ import {
   Search,
   Users,
   MessageSquare,
-  Sparkles,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
   List,
-  Layers,
   Flame,
   Zap,
   Snowflake,
@@ -38,6 +35,7 @@ import {
   Target,
   TrendingUp,
 } from 'lucide-react'
+import { ChannelIcon } from '@/components/channels/channel-badge'
 import type { Contact, IntentCategory, Tag } from '@/types'
 
 const PAGE_SIZE = 24
@@ -304,34 +302,54 @@ export default function ContextHubPage() {
       )
     }
     return (
-      <Badge variant="outline" className="text-muted-foreground border-border gap-1 text-[11px] py-0.5">
-        <Sparkles className="size-3 text-muted-foreground" />
+      <Badge variant="outline" className="text-muted-foreground border-border text-[11px] py-0.5 rounded">
         {category ? category.replace(/_/g, ' ') : 'Inquiry'}
       </Badge>
     )
   }
 
+  function renderSocialBadge(channel: 'whatsapp' | 'instagram' | 'facebook', title: string) {
+    if (channel === 'instagram') {
+      return (
+        <span
+          title={title}
+          className="size-4.5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white flex items-center justify-center ring-2 ring-card shadow-xs"
+        >
+          <ChannelIcon channel="instagram" size="xs" className="h-2.5 w-2.5 text-white stroke-[2.2]" />
+        </span>
+      )
+    }
+    if (channel === 'facebook') {
+      return (
+        <span
+          title={title}
+          className="size-4.5 rounded-full bg-[#0084FF] text-white flex items-center justify-center ring-2 ring-card shadow-xs"
+        >
+          <ChannelIcon channel="facebook" size="xs" className="h-2.5 w-2.5 text-white" />
+        </span>
+      )
+    }
+    return (
+      <span
+        title={title}
+        className="size-4.5 rounded-full bg-[#25D366] text-white flex items-center justify-center ring-2 ring-card shadow-xs"
+      >
+        <ChannelIcon channel="whatsapp" size="xs" className="h-2.5 w-2.5 text-white" />
+      </span>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {/* 1. Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
+      {/* 1. Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <Layers className="size-5 text-purple-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                Customer Intelligence Hub
-                <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-400 border-purple-500/20">
-                  AI Context Engine
-                </Badge>
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Persistent customer memory, intent signals, business milestones, and omnichannel context.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            Customer Context Hub
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Unified customer memory, intent signals, business milestones, and connected channels.
+          </p>
         </div>
 
         {/* Global View Controls */}
@@ -343,18 +361,18 @@ export default function ContextHubPage() {
               loadKpis()
               fetchUnifiedContacts()
             }}
-            className="h-8 gap-1.5 text-xs text-muted-foreground border-border hover:text-foreground"
+            className="h-8 gap-1.5 text-xs rounded-md"
           >
             <RefreshCw className="size-3.5" />
             Refresh
           </Button>
 
-          <div className="flex items-center border border-border rounded-lg p-0.5 bg-muted/30">
+          <div className="flex items-center border border-border rounded-md p-0.5 bg-card">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setViewMode('cards')}
-              className={`h-7 px-2.5 text-xs rounded-md ${viewMode === 'cards' ? 'bg-background shadow-xs text-foreground font-medium' : 'text-muted-foreground'}`}
+              className={`h-7 px-2.5 text-xs rounded ${viewMode === 'cards' ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'}`}
             >
               <LayoutGrid className="size-3.5 mr-1" />
               Cards
@@ -363,7 +381,7 @@ export default function ContextHubPage() {
               variant="ghost"
               size="sm"
               onClick={() => setViewMode('table')}
-              className={`h-7 px-2.5 text-xs rounded-md ${viewMode === 'table' ? 'bg-background shadow-xs text-foreground font-medium' : 'text-muted-foreground'}`}
+              className={`h-7 px-2.5 text-xs rounded ${viewMode === 'table' ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'}`}
             >
               <List className="size-3.5 mr-1" />
               Table
@@ -372,57 +390,57 @@ export default function ContextHubPage() {
         </div>
       </div>
 
-      {/* 2. Executive KPI Overview */}
+      {/* 2. KPI Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border border-border/80 bg-card/60 backdrop-blur-xs flex items-center justify-between">
+        <div className="p-4 rounded-md border border-border bg-card flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground font-medium">Total Contacts</p>
-            <p className="text-2xl font-bold text-foreground mt-0.5">{kpis.total}</p>
+            <p className="text-2xl font-semibold text-foreground mt-0.5 tabular-nums">{kpis.total}</p>
           </div>
-          <div className="size-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground">
-            <Users className="size-5" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-emerald-400 font-medium flex items-center gap-1">
-              <Flame className="size-3.5" /> High Intent Leads
-            </p>
-            <p className="text-2xl font-bold text-foreground mt-0.5">{kpis.highIntent}</p>
-          </div>
-          <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <TrendingUp className="size-5" />
+          <div className="size-9 rounded-md bg-muted flex items-center justify-center text-muted-foreground">
+            <Users className="size-4" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 flex items-center justify-between">
+        <div className="p-4 rounded-md border border-border bg-card flex items-center justify-between">
           <div>
-            <p className="text-xs text-amber-400 font-medium flex items-center gap-1">
-              <AlertTriangle className="size-3.5" /> Needs Attention
+            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <Flame className="size-3.5 text-emerald-500" /> High Intent Leads
             </p>
-            <p className="text-2xl font-bold text-foreground mt-0.5">{kpis.needsAttention}</p>
+            <p className="text-2xl font-semibold text-foreground mt-0.5 tabular-nums">{kpis.highIntent}</p>
           </div>
-          <div className="size-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <Clock className="size-5" />
+          <div className="size-9 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+            <TrendingUp className="size-4" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex items-center justify-between">
+        <div className="p-4 rounded-md border border-border bg-card flex items-center justify-between">
           <div>
-            <p className="text-xs text-blue-400 font-medium flex items-center gap-1">
-              <Target className="size-3.5" /> Active / Converted
+            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5 text-rose-500" /> Needs Attention
             </p>
-            <p className="text-2xl font-bold text-foreground mt-0.5">{kpis.activeCustomers}</p>
+            <p className="text-2xl font-semibold text-foreground mt-0.5 tabular-nums">{kpis.needsAttention}</p>
           </div>
-          <div className="size-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-            <CheckCircle2 className="size-5" />
+          <div className="size-9 rounded-md bg-rose-500/10 flex items-center justify-center text-rose-500">
+            <Clock className="size-4" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-md border border-border bg-card flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <Target className="size-3.5 text-blue-500" /> Active / Converted
+            </p>
+            <p className="text-2xl font-semibold text-foreground mt-0.5 tabular-nums">{kpis.activeCustomers}</p>
+          </div>
+          <div className="size-9 rounded-md bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <CheckCircle2 className="size-4" />
           </div>
         </div>
       </div>
 
-      {/* 3. Search & Interactive Filter Strip */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      {/* 3. Search & Filter Strip */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Universal Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -432,18 +450,18 @@ export default function ContextHubPage() {
               setSearch(e.target.value)
               setPage(0)
             }}
-            placeholder="Search name, phone, handle, or customer intent..."
-            className="pl-9 h-9 text-xs bg-muted/40 border-border text-foreground placeholder:text-muted-foreground"
+            placeholder="Search name, phone, handle, or intent..."
+            className="pl-9 h-9 text-xs rounded-md"
           />
         </div>
 
         {/* Intent Temperature Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 lg:pb-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setIntentFilter('all'); setPage(0); }}
-            className={`h-8 px-2.5 text-xs rounded-lg ${intentFilter === 'all' ? 'bg-purple-500/10 text-purple-400 font-semibold border border-purple-500/20' : 'text-muted-foreground'}`}
+            className={`h-8 px-2.5 text-xs rounded-md ${intentFilter === 'all' ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'}`}
           >
             All Leads
           </Button>
@@ -451,73 +469,79 @@ export default function ContextHubPage() {
             variant="ghost"
             size="sm"
             onClick={() => { setIntentFilter('hot'); setPage(0); }}
-            className={`h-8 px-2.5 text-xs rounded-lg ${intentFilter === 'hot' ? 'bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20' : 'text-muted-foreground'}`}
+            className={`h-8 px-2.5 text-xs rounded-md ${intentFilter === 'hot' ? 'bg-emerald-500/10 text-emerald-500 font-medium' : 'text-muted-foreground'}`}
           >
-            <Flame className="size-3 mr-1 text-emerald-400" />
-            Hot Leads
+            <Flame className="size-3 mr-1 text-emerald-500" />
+            Hot
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setIntentFilter('warm'); setPage(0); }}
-            className={`h-8 px-2.5 text-xs rounded-lg ${intentFilter === 'warm' ? 'bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20' : 'text-muted-foreground'}`}
+            className={`h-8 px-2.5 text-xs rounded-md ${intentFilter === 'warm' ? 'bg-amber-500/10 text-amber-500 font-medium' : 'text-muted-foreground'}`}
           >
-            <Zap className="size-3 mr-1 text-amber-400" />
+            <Zap className="size-3 mr-1 text-amber-500" />
             Evaluating
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setIntentFilter('attention'); setPage(0); }}
-            className={`h-8 px-2.5 text-xs rounded-lg ${intentFilter === 'attention' ? 'bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/20' : 'text-muted-foreground'}`}
+            className={`h-8 px-2.5 text-xs rounded-md ${intentFilter === 'attention' ? 'bg-rose-500/10 text-rose-500 font-medium' : 'text-muted-foreground'}`}
           >
-            <AlertTriangle className="size-3 mr-1 text-rose-400" />
-            Needs Attention
+            <AlertTriangle className="size-3 mr-1 text-rose-500" />
+            Attention
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setIntentFilter('cold'); setPage(0); }}
-            className={`h-8 px-2.5 text-xs rounded-lg ${intentFilter === 'cold' ? 'bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20' : 'text-muted-foreground'}`}
+            className={`h-8 px-2.5 text-xs rounded-md ${intentFilter === 'cold' ? 'bg-blue-500/10 text-blue-500 font-medium' : 'text-muted-foreground'}`}
           >
-            <Snowflake className="size-3 mr-1 text-blue-400" />
+            <Snowflake className="size-3 mr-1 text-blue-500" />
             Cold
           </Button>
         </div>
 
-        {/* Channel Selector */}
-        <div className="flex items-center gap-1 border border-border rounded-lg p-0.5 bg-muted/20">
+        {/* Channel Selector with proper brand icons */}
+        <div className="flex items-center gap-1 border border-border rounded-md p-0.5 bg-card shrink-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setChannelFilter('all'); setPage(0); }}
-            className={`h-7 px-2 text-[11px] rounded-md ${channelFilter === 'all' ? 'bg-background shadow-xs text-foreground font-medium' : 'text-muted-foreground'}`}
+            className={`h-7 px-2.5 text-[11px] rounded ${channelFilter === 'all' ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground'}`}
           >
-            All Channels
+            All
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setChannelFilter('whatsapp'); setPage(0); }}
-            className={`h-7 px-2 text-[11px] rounded-md ${channelFilter === 'whatsapp' ? 'bg-background shadow-xs text-emerald-400 font-medium' : 'text-muted-foreground'}`}
+            className={`h-7 px-2 text-[11px] rounded gap-1.5 ${channelFilter === 'whatsapp' ? 'bg-emerald-500/10 text-emerald-500 font-medium' : 'text-muted-foreground'}`}
+            title="WhatsApp"
           >
-            WA
+            <ChannelIcon channel="whatsapp" size="xs" className="text-[#25D366]" />
+            <span>WhatsApp</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setChannelFilter('instagram'); setPage(0); }}
-            className={`h-7 px-2 text-[11px] rounded-md ${channelFilter === 'instagram' ? 'bg-background shadow-xs text-pink-400 font-medium' : 'text-muted-foreground'}`}
+            className={`h-7 px-2 text-[11px] rounded gap-1.5 ${channelFilter === 'instagram' ? 'bg-pink-500/10 text-pink-500 font-medium' : 'text-muted-foreground'}`}
+            title="Instagram"
           >
-            IG
+            <ChannelIcon channel="instagram" size="xs" className="text-[#E4405F]" />
+            <span>Instagram</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => { setChannelFilter('facebook'); setPage(0); }}
-            className={`h-7 px-2 text-[11px] rounded-md ${channelFilter === 'facebook' ? 'bg-background shadow-xs text-blue-400 font-medium' : 'text-muted-foreground'}`}
+            className={`h-7 px-2 text-[11px] rounded gap-1.5 ${channelFilter === 'facebook' ? 'bg-blue-500/10 text-blue-500 font-medium' : 'text-muted-foreground'}`}
+            title="Facebook Messenger"
           >
-            FB
+            <ChannelIcon channel="facebook" size="xs" className="text-[#0084FF]" />
+            <span>Facebook</span>
           </Button>
         </div>
       </div>
@@ -526,15 +550,15 @@ export default function ContextHubPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-56 rounded-2xl border border-border bg-muted/20 animate-pulse" />
+            <div key={i} className="h-52 rounded-md border border-border bg-muted/20 animate-pulse" />
           ))}
         </div>
       ) : contacts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-16 text-center">
-          <Users className="size-10 text-muted-foreground mx-auto mb-3" />
+        <div className="rounded-md border border-dashed border-border py-16 text-center">
+          <Users className="size-9 text-muted-foreground mx-auto mb-3" />
           <h3 className="text-sm font-semibold text-foreground">No customer profiles found</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            Try adjusting your search criteria or filter tabs to view more customer intelligence profiles.
+            Try adjusting your search criteria or filter tabs to view more customer profiles.
           </p>
         </div>
       ) : viewMode === 'cards' ? (
@@ -548,50 +572,29 @@ export default function ContextHubPage() {
               <div
                 key={c.id}
                 onClick={() => router.push(`/context/${c.id}`)}
-                className="group relative p-5 rounded-2xl border border-border bg-card/70 hover:border-purple-500/40 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                className="group relative p-4 rounded-md border border-border bg-card hover:border-foreground/25 transition-colors cursor-pointer flex flex-col justify-between"
               >
                 <div>
                   {/* Card Header: Avatar, Name, Intent Badge */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="size-11 border border-border">
+                  <div className="flex items-start justify-between gap-2.5 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative shrink-0">
+                        <Avatar className="size-10 rounded-md border border-border">
                           {c.avatar_url && <AvatarImage src={c.avatar_url} />}
-                          <AvatarFallback className="bg-purple-500/10 text-purple-400 font-bold text-xs">
+                          <AvatarFallback className="rounded-md bg-muted text-foreground font-semibold text-xs">
                             {getInitials(c.name)}
                           </AvatarFallback>
                         </Avatar>
-                        {/* Overlapping Connected Channel Badges */}
+                        {/* Overlapping Connected Channel Icon Badges */}
                         <div className="absolute -bottom-1 -right-1 flex items-center -space-x-1">
-                          {hasWa && (
-                            <span
-                              title={`WhatsApp: ${c.phone}`}
-                              className="size-4 rounded-full bg-emerald-500 text-black text-[8px] font-bold flex items-center justify-center border border-background shadow-xs"
-                            >
-                              WA
-                            </span>
-                          )}
-                          {hasIg && (
-                            <span
-                              title={`Instagram: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}`}
-                              className="size-4 rounded-full bg-pink-500 text-white text-[8px] font-bold flex items-center justify-center border border-background shadow-xs"
-                            >
-                              IG
-                            </span>
-                          )}
-                          {hasFb && (
-                            <span
-                              title={`Facebook: ${c.fb_name || c.fb_page_scoped_id}`}
-                              className="size-4 rounded-full bg-blue-500 text-white text-[8px] font-bold flex items-center justify-center border border-background shadow-xs"
-                            >
-                              FB
-                            </span>
-                          )}
+                          {hasWa && renderSocialBadge('whatsapp', `WhatsApp: ${c.phone}`)}
+                          {hasIg && renderSocialBadge('instagram', `Instagram: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}`)}
+                          {hasFb && renderSocialBadge('facebook', `Facebook: ${c.fb_name || c.fb_page_scoped_id}`)}
                         </div>
                       </div>
 
                       <div className="min-w-0">
-                        <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-purple-400 transition-colors">
+                        <h4 className="text-sm font-semibold text-foreground truncate group-hover:underline">
                           {c.name || 'Unnamed Customer'}
                         </h4>
                         <p className="text-[11px] text-muted-foreground truncate font-mono">
@@ -603,34 +606,34 @@ export default function ContextHubPage() {
                     {renderIntentBadge(c.intent_category, c.intent_score)}
                   </div>
 
-                  {/* Business Milestone Badge (Deterministic) */}
+                  {/* Business Milestone Badge */}
                   {c.last_business_action && (
-                    <div className="mb-3">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/60 border border-border text-[11px] font-medium text-foreground">
-                        <Calendar className="size-3 text-purple-400" />
-                        <span className="truncate max-w-[240px]">{c.last_business_action}</span>
+                    <div className="mb-2.5">
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted border border-border/80 text-[11px] font-medium text-foreground">
+                        <Calendar className="size-3 text-muted-foreground" />
+                        <span className="truncate max-w-[230px]">{c.last_business_action}</span>
                       </div>
                     </div>
                   )}
 
                   {/* Executive Intent Summary */}
-                  <div className="p-3 rounded-xl bg-muted/30 border border-border/60 text-xs text-foreground/90 line-clamp-2 leading-relaxed mb-3">
+                  <div className="p-2.5 rounded-md bg-muted/40 border border-border/60 text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2.5">
                     {c.intent_summary || c.last_action_summary || 'Customer initiated inquiry across connected channels.'}
                   </div>
 
-                  {/* Next Best Action Pill */}
+                  {/* Next Best Action */}
                   {c.next_best_action && (
-                    <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mb-2 truncate">
-                      <ArrowRight className="size-3 text-purple-400 shrink-0" />
-                      <span className="font-medium text-foreground truncate">Next:</span>
+                    <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mb-1 truncate">
+                      <ArrowRight className="size-3 text-foreground shrink-0" />
+                      <span className="font-medium text-foreground shrink-0">Next:</span>
                       <span className="truncate">{c.next_best_action}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Footer Strip */}
-                <div className="pt-3 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-1 truncate">
+                <div className="pt-2.5 mt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-1.5 truncate">
                     <Clock className="size-3 text-muted-foreground" />
                     <span>
                       {c.last_action_at
@@ -639,7 +642,7 @@ export default function ContextHubPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -647,14 +650,11 @@ export default function ContextHubPage() {
                         e.stopPropagation()
                         router.push(`/inbox?contactId=${c.id}`)
                       }}
-                      className="h-7 px-2 text-[11px] text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                      className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                     >
                       <MessageSquare className="size-3 mr-1" />
                       Inbox
                     </Button>
-                    <span className="text-purple-400 font-semibold group-hover:translate-x-0.5 transition-transform">
-                      &rarr;
-                    </span>
                   </div>
                 </div>
               </div>
@@ -662,7 +662,7 @@ export default function ContextHubPage() {
           })}
         </div>
       ) : (
-        <div className="rounded-2xl border border-border overflow-hidden bg-card/60">
+        <div className="rounded-md border border-border overflow-hidden bg-card">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="border-border">
@@ -684,13 +684,13 @@ export default function ContextHubPage() {
                   <TableRow
                     key={c.id}
                     onClick={() => router.push(`/context/${c.id}`)}
-                    className="border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                    className="border-border hover:bg-muted/40 cursor-pointer transition-colors"
                   >
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <Avatar className="size-8">
+                        <Avatar className="size-8 rounded-md">
                           {c.avatar_url && <AvatarImage src={c.avatar_url} />}
-                          <AvatarFallback className="bg-purple-500/10 text-purple-400 text-xs font-bold">
+                          <AvatarFallback className="rounded-md bg-muted text-foreground text-xs font-semibold">
                             {getInitials(c.name)}
                           </AvatarFallback>
                         </Avatar>
@@ -704,20 +704,29 @@ export default function ContextHubPage() {
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         {hasWa && (
-                          <span className="px-1.5 py-0.5 rounded-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold">
-                            WA
+                          <span
+                            title={`WhatsApp: ${c.phone}`}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 text-[10px] font-medium"
+                          >
+                            <ChannelIcon channel="whatsapp" size="xs" />
                           </span>
                         )}
                         {hasIg && (
-                          <span className="px-1.5 py-0.5 rounded-sm bg-pink-500/10 text-pink-400 border border-pink-500/20 text-[9px] font-bold">
-                            IG
+                          <span
+                            title={`Instagram: ${c.ig_username ? `@${c.ig_username}` : c.ig_user_id}`}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#E4405F]/10 text-[#E4405F] border border-[#E4405F]/20 text-[10px] font-medium"
+                          >
+                            <ChannelIcon channel="instagram" size="xs" />
                           </span>
                         )}
                         {hasFb && (
-                          <span className="px-1.5 py-0.5 rounded-sm bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-bold">
-                            FB
+                          <span
+                            title={`Facebook: ${c.fb_name || c.fb_page_scoped_id}`}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0084FF]/10 text-[#0084FF] border border-[#0084FF]/20 text-[10px] font-medium"
+                          >
+                            <ChannelIcon channel="facebook" size="xs" />
                           </span>
                         )}
                       </div>
@@ -726,10 +735,10 @@ export default function ContextHubPage() {
                     <TableCell>{renderIntentBadge(c.intent_category, c.intent_score)}</TableCell>
 
                     <TableCell className="text-xs text-foreground font-medium">
-                      {c.last_business_action || <span className="text-muted-foreground italic">-</span>}
+                      {c.last_business_action || <span className="text-muted-foreground">-</span>}
                     </TableCell>
 
-                    <TableCell className="text-xs text-foreground/80 max-w-xs truncate">
+                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
                       {c.next_best_action || c.intent_summary || '-'}
                     </TableCell>
 
@@ -741,9 +750,9 @@ export default function ContextHubPage() {
                           e.stopPropagation()
                           router.push(`/context/${c.id}`)
                         }}
-                        className="h-7 text-xs text-purple-400"
+                        className="h-7 text-xs"
                       >
-                        View Dossier
+                        View
                       </Button>
                     </TableCell>
                   </TableRow>
