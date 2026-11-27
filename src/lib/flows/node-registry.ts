@@ -28,6 +28,7 @@ import {
   PlayCircle,
   Database,
   DatabaseZap,
+  BellRing,
   type LucideIcon,
 } from 'lucide-react';
 import type { FlowNodeType } from './types';
@@ -806,6 +807,28 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
       failure_next: '',
     },
   },
+  notify_member: {
+    type: 'notify_member',
+    category: 'actions',
+    label: 'Notify Team / Member',
+    blurb: 'Send WhatsApp or Email alerts to selected team members or the account owner',
+    icon: BellRing,
+    color: {
+      solid: 'oklch(0.62 0.19 250)',
+      soft: 'oklch(0.62 0.19 250 / 0.12)',
+      ring: 'oklch(0.62 0.19 250 / 0.4)',
+      text: 'oklch(0.48 0.19 250)',
+    },
+    defaultConfig: {
+      channel: 'whatsapp',
+      recipient_mode: 'specific',
+      member_ids: [],
+      message: 'New update from {{contact.name}} ({{contact.phone}})',
+      email_subject: 'Team Notification',
+      next_node_key: '',
+      failure_next: '',
+    },
+  },
 };
 
 export const SIDEBAR_MESSAGES_NODES: FlowNodeType[] = [
@@ -844,5 +867,6 @@ export const SIDEBAR_ACTIONS_NODES: FlowNodeType[] = [
   'create_deal',
   'crm_fetch',
   'crm_mutate',
+  'notify_member',
 ];
 

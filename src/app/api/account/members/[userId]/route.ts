@@ -17,8 +17,9 @@
 import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
-import { requireRole, toErrorResponse } from "@/lib/auth/account";
-import { isAccountRole } from "@/lib/auth/roles";
+import { getCurrentAccount, requireRole, toErrorResponse } from "@/lib/auth/account";
+import { canManageMembers, isAccountRole } from "@/lib/auth/roles";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -50,7 +51,42 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   try {
-    const ctx = await requireRole("admin");
+    const ctx = await getCurrentAccount();
+    const { userId } = await params;
+
+    const body = (await request.json().catch(() => null)) as
+      | { role?: unknown; phone?: unknown }
+      | null;
+
+    // Phone-only update: allowed for admin+ OR the member themselves
+    if (body && "phone" in body && body.role === undefined) {
+      if (!canManageMembers(ctx.role) && ctx.userId !== userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+      const normalized = rawPhone === "" ? null : rawPhone;
+      if (normalized && !/^\+[1-9]\d{6,14}$/.test(normalized)) {
+        return NextResponse.json(
+          { error: "Phone must be in E.164 format (e.g. +919876543210)" },
+          { status: 400 },
+        );
+      }
+
+      const { error } = await createAdminClient()
+        .from("profiles")
+        .update({ phone: normalized })
+        .eq("account_id", ctx.accountId)
+        .eq("user_id", userId);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true, phone: normalized });
+    }
+
+    if (!canManageMembers(ctx.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const limit = checkRateLimit(
       `admin:memberRole:${ctx.userId}`,
@@ -58,11 +94,6 @@ export async function PATCH(
     );
     if (!limit.success) return rateLimitResponse(limit);
 
-    const { userId } = await params;
-
-    const body = (await request.json().catch(() => null)) as
-      | { role?: unknown }
-      | null;
     const role = body?.role;
 
     if (!isAccountRole(role)) {

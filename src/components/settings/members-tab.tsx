@@ -28,6 +28,7 @@ import {
   Loader2,
   Mail,
   MailX,
+  Phone,
   Plus,
   Trash2,
   UsersRound,
@@ -76,11 +77,13 @@ import {
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 import { ROLE_META } from './role-meta';
+import { PhoneInputWithCountry } from '@/components/ui/phone-input-with-country';
 
 interface Member {
   user_id: string;
   full_name: string;
   email: string | null;
+  phone?: string | null;
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
@@ -137,9 +140,34 @@ export function MembersTab() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
+  const [editingPhoneMember, setEditingPhoneMember] = useState<Member | null>(null);
+  const [editPhoneValue, setEditPhoneValue] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
     null,
   );
+
+  async function handleSavePhone() {
+    if (!editingPhoneMember) return;
+    setSavingPhone(true);
+    try {
+      const res = await fetch(`/api/account/members/${editingPhoneMember.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: editPhoneValue.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to update phone number');
+        return;
+      }
+      toast.success('Member WhatsApp phone updated');
+      setEditingPhoneMember(null);
+      await loadEverything();
+    } finally {
+      setSavingPhone(false);
+    }
+  }
 
   const loadEverything = useCallback(async () => {
     try {
@@ -421,6 +449,12 @@ export function MembersTab() {
                           {member.email}
                         </p>
                       )}
+                      {member.phone && (
+                        <p className="truncate text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+                          <Phone className="size-3 shrink-0" />
+                          {member.phone}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -479,6 +513,22 @@ export function MembersTab() {
                         user moused over. Now red is the default
                         state with a darker shade on hover so the
                         affordance reads at-a-glance. */}
+                    {(canManageMembers || isSelf) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPhoneMember(member);
+                          setEditPhoneValue(member.phone ?? '');
+                        }}
+                        disabled={isBusy}
+                        className="border-border text-muted-foreground hover:text-foreground"
+                        title={member.phone ? 'Edit WhatsApp / Phone' : 'Add WhatsApp / Phone'}
+                      >
+                        <Phone className="size-3.5" />
+                      </Button>
+                    )}
+
                     {canManageMembers && !isOwnerRow && !isSelf && (
                       <Button
                         variant="outline"
@@ -631,6 +681,47 @@ export function MembersTab() {
               ) : (
                 t('removeBtn')
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit member WhatsApp / Phone dialog */}
+      <Dialog
+        open={!!editingPhoneMember}
+        onOpenChange={(open) => !open && setEditingPhoneMember(null)}
+      >
+        <DialogContent className="bg-popover border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              {editingPhoneMember?.phone ? 'Update WhatsApp Phone' : 'Add WhatsApp Phone'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Set the WhatsApp number for{' '}
+              <strong className="text-foreground">
+                {editingPhoneMember?.full_name || editingPhoneMember?.email || 'this member'}
+              </strong>{' '}
+              so Flows can notify them directly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <PhoneInputWithCountry
+              value={editPhoneValue}
+              onChange={setEditPhoneValue}
+              placeholder="9876543210"
+            />
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setEditingPhoneMember(null)}
+              disabled={savingPhone}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleSavePhone} disabled={savingPhone}>
+              {savingPhone ? <Loader2 className="size-4 animate-spin mr-1.5" /> : null}
+              Save Phone
             </Button>
           </DialogFooter>
         </DialogContent>

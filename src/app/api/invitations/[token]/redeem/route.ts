@@ -28,6 +28,7 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/translate";
 
 const t = getT("Api");
@@ -77,11 +78,31 @@ export async function POST(
     return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 });
   }
 
+  const tokenHash = hashInviteToken(token);
   const { data: accountId, error } = await supabase.rpc("redeem_invitation", {
-    p_token_hash: hashInviteToken(token),
+    p_token_hash: tokenHash,
   });
 
   if (error) return rpcErrorToResponse(error);
+
+  // Copy invited phone number (if any) onto the member's profile
+  try {
+    const admin = createAdminClient();
+    const { data: inv } = await admin
+      .from("account_invitations")
+      .select("phone")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+    if (inv?.phone) {
+      await admin
+        .from("profiles")
+        .update({ phone: inv.phone })
+        .eq("user_id", user.id)
+        .is("phone", null);
+    }
+  } catch {
+    // Non-fatal if phone copy fails
+  }
 
   return NextResponse.json({ ok: true, accountId });
 }

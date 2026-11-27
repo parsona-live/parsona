@@ -74,6 +74,7 @@ import {
   TriggerFlowForm,
 } from "./action-node-forms";
 import { CrmFetchForm, CrmMutateForm } from "./crm-node-forms";
+import { NotifyMemberForm } from "./notify-member-form";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -525,6 +526,27 @@ export function NodeConfigForm({
       return (
         <div className="space-y-4">
           <CrmMutateForm config={cfg} onChange={onUpdateConfig} />
+          <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label="On Success"
+          />
+          <NextNodeRow
+            value={(cfg as { failure_next?: string }).failure_next ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ failure_next: v })}
+            label="On Failure (Optional)"
+          />
+        </div>
+      );
+
+    case "notify_member":
+      return (
+        <div className="space-y-4">
+          <NotifyMemberForm config={cfg} onChange={onUpdateConfig} />
           <NextNodeRow
             value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
             allNodes={allNodes}

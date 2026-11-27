@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
+import { PhoneInputWithCountry } from '@/components/ui/phone-input-with-country';
 
 type InviteRole = 'admin' | 'agent' | 'viewer';
 
@@ -64,6 +65,7 @@ interface CreatedInvite {
   url: string;
   role: InviteRole;
   expiresInDays: number;
+  phone?: string;
   /** Snapshotted at creation time so a later account rename can't
    *  retroactively change the wa.me message text on the result step. */
   accountName: string;
@@ -80,6 +82,7 @@ export function InviteMemberDialog({
   const [role, setRole] = useState<InviteRole>('agent');
   const [expiry, setExpiry] = useState<string>('7');
   const [label, setLabel] = useState('');
+  const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedInvite | null>(null);
 
@@ -87,6 +90,7 @@ export function InviteMemberDialog({
     setRole('agent');
     setExpiry('7');
     setLabel('');
+    setPhone('');
     setResult(null);
     setSubmitting(false);
   }
@@ -112,6 +116,7 @@ export function InviteMemberDialog({
           role,
           expiresInDays: Number(expiry),
           label: trimmedLabel || undefined,
+          phone: phone.trim() || undefined,
         }),
       });
 
@@ -130,11 +135,7 @@ export function InviteMemberDialog({
         url: data.url,
         role,
         expiresInDays: data.expiresInDays,
-        // Snapshot the account name into the result so the wa.me
-        // share message has team context. Falls back to a generic
-        // string if `account` hasn't loaded yet (shouldn't happen
-        // — the dialog requires admin+ which requires a loaded
-        // profile — but stay safe).
+        phone: phone.trim() || undefined,
         accountName: account?.name ?? t('fallbackAccountName'),
       });
       onCreated();
@@ -160,13 +161,12 @@ export function InviteMemberDialog({
   }
 
   function whatsappShareUrl(url: string): string {
-    // Include the account name so the recipient knows which team
-    // they're being invited to before clicking through. This matters
-    // for users in multi-team contexts where "our wacrm account"
-    // wouldn't be enough to disambiguate.
     const accountName = result?.accountName ?? t('fallbackAccountName');
     const message = t('whatsappMessage', { accountName, expiresInDays: result?.expiresInDays ?? 0, url });
-    return `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const digits = (result?.phone ?? '').replace(/\D/g, '');
+    return digits
+      ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
   return (
@@ -320,6 +320,21 @@ export function InviteMemberDialog({
                 />
                 <p className="text-xs text-muted-foreground">
                   {t('labelHint')}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">
+                  WhatsApp / Phone Number{' '}
+                  <span className="text-xs text-muted-foreground">{t('optional')}</span>
+                </Label>
+                <PhoneInputWithCountry
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="9876543210"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Saved to their profile so Flows can send them WhatsApp notifications.
                 </p>
               </div>
             </div>

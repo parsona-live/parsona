@@ -25,6 +25,7 @@ import {
   CreditCard,
   Database,
   DatabaseZap,
+  BellRing,
   FileText,
   Flag,
   GalleryHorizontalEnd,
@@ -339,6 +340,12 @@ export const NODE_META: Record<
     color: 'text-emerald-400',
     category: 'logic',
   },
+  notify_member: {
+    slugSeed: 'Notify Member',
+    icon: BellRing,
+    color: 'text-blue-400',
+    category: 'logic',
+  },
 };
 
 /**
@@ -408,6 +415,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   ai_summarize: { l: 0.65, c: 0.12, h: 185 },
   crm_fetch: { l: 0.58, c: 0.17, h: 200 },
   crm_mutate: { l: 0.60, c: 0.18, h: 165 },
+  notify_member: { l: 0.62, c: 0.19, h: 250 },
 };
 
 export interface NodeColors {

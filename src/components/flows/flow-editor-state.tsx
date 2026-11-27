@@ -381,6 +381,16 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         next_node_key: "",
         failure_next: "",
       };
+    case "notify_member":
+      return {
+        channel: "whatsapp",
+        recipient_mode: "specific",
+        member_ids: [],
+        message: "New update from {{contact.name}} ({{contact.phone}})",
+        email_subject: "Team Notification",
+        next_node_key: "",
+        failure_next: "",
+      };
     case "catalog":
       return { catalog_id: "", body_text: "Browse our catalog:", next_node_key: "" };
     case "input_flow":

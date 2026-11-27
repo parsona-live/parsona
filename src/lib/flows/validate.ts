@@ -1331,6 +1331,57 @@ function validateNode(
       break;
     }
 
+    case "notify_member": {
+      const cfg = node.config as {
+        recipient_mode?: string;
+        member_ids?: string[];
+        message?: string;
+        template_name?: string;
+        next_node_key?: string;
+        failure_next?: string;
+      };
+      if (!cfg.message?.trim() && !cfg.template_name?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "message",
+          message: "Notification message or template is required.",
+        });
+      }
+      if (
+        cfg.recipient_mode === "specific" &&
+        (!Array.isArray(cfg.member_ids) || cfg.member_ids.length === 0)
+      ) {
+        issues.push({
+          severity: "warning",
+          scope: "node",
+          node_key: node.node_key,
+          field: "member_ids",
+          message: "Select at least one team member to notify.",
+        });
+      }
+      if (cfg.next_node_key && !knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Connects to missing node "${cfg.next_node_key}"`,
+        });
+      }
+      if (cfg.failure_next && !knownKeys.has(cfg.failure_next)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "failure_next",
+          message: `Connects to missing node "${cfg.failure_next}"`,
+        });
+      }
+      break;
+    }
+
     case "ai_message": {
       const cfg = node.config as { mode?: string; text?: string; prompt?: string; next_node_key?: string; failure_next?: string };
       if (!cfg.next_node_key) {
@@ -1629,7 +1680,8 @@ function outgoingEdges(node: NodeInput): string[] {
       if (cfg.next_node_key) out.push(cfg.next_node_key);
       return out;
     }
-    case "crm_mutate": {
+    case "crm_mutate":
+    case "notify_member": {
       const cfg = node.config as { next_node_key?: string; failure_next?: string };
       const out: string[] = [];
       if (cfg.next_node_key) out.push(cfg.next_node_key);

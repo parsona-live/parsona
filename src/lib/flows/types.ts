@@ -590,6 +590,18 @@ export interface CrmMutateNodeConfig {
   failure_next?: string;
 }
 
+export interface NotifyMemberNodeConfig {
+  channel: "whatsapp" | "email" | "both";
+  recipient_mode: "specific" | "owner_only" | "admins_and_owner" | "all_members";
+  member_ids?: string[];
+  message: string;
+  email_subject?: string;
+  template_name?: string;
+  template_language?: string;
+  next_node_key: string;
+  failure_next?: string;
+}
+
 export interface CloseConversationNodeConfig {
   reason?: string;
 }
@@ -638,6 +650,7 @@ export type FlowNodeConfig =
   | { node_type: "create_deal"; config: CreateDealNodeConfig }
   | { node_type: "crm_fetch"; config: CrmFetchNodeConfig }
   | { node_type: "crm_mutate"; config: CrmMutateNodeConfig }
+  | { node_type: "notify_member"; config: NotifyMemberNodeConfig }
   | { node_type: "close_conversation"; config: CloseConversationNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 
@@ -863,6 +876,7 @@ export const AUTO_ADVANCING_NODE_TYPES: ReadonlySet<string> = new Set([
   "trigger_flow",
   "crm_fetch",
   "crm_mutate",
+  "notify_member",
 ]);
 
 export const MAX_NODES_PER_ADVANCE = 25;

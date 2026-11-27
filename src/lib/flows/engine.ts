@@ -70,6 +70,7 @@ import {
 } from "./ai-node-service";
 import { routeInboundIntent, scoreSemanticIntent } from "./intent-router";
 import { isDeliverableUrl } from "@/lib/webhooks/ssrf";
+import { sendTextMessage, sendTemplateMessage } from "@/lib/whatsapp/meta-api";
 import {
   queryRecords,
   createRecord,
@@ -109,6 +110,7 @@ import {
   type CreateDealNodeConfig,
   type CrmFetchNodeConfig,
   type CrmMutateNodeConfig,
+  type NotifyMemberNodeConfig,
   type WhatsAppPaymentNodeConfig,
   type WhatsAppFormNodeConfig,
   type CatalogNodeConfig,
@@ -2467,6 +2469,163 @@ async function advanceFromNodeKey(
       currentKey = succeeded
         ? (cfg.next_node_key || "")
         : (cfg.failure_next || cfg.next_node_key || "");
+      continue;
+    }
+    if (node.node_type === "notify_member") {
+      const cfg = node.config as unknown as NotifyMemberNodeConfig;
+      let sentCount = 0;
+      let failedCount = 0;
+      const errors: string[] = [];
+
+      try {
+        const evalVars: Record<string, unknown> = {
+          ...run.vars,
+          "contact.id": run.contact_id ?? "",
+          contact: {
+            ...((run.vars?.contact as Record<string, unknown> | undefined) ?? {}),
+            id: run.contact_id ?? "",
+          },
+        };
+
+        const messageText = interpolateVars(cfg.message || "", evalVars).trim();
+        const emailSubject = interpolateVars(cfg.email_subject || "Team Notification", evalVars).trim();
+        const channel = cfg.channel || "whatsapp";
+        const mode = cfg.recipient_mode || "specific";
+
+        // 1. Resolve target account members from profiles
+        let q = db
+          .from("profiles")
+          .select("user_id, full_name, email, phone, account_role")
+          .eq("account_id", run.account_id);
+
+        if (mode === "owner_only") {
+          q = q.eq("account_role", "owner");
+        } else if (mode === "admins_and_owner") {
+          q = q.in("account_role", ["owner", "admin"]);
+        } else if (mode === "specific") {
+          const ids = Array.isArray(cfg.member_ids) ? cfg.member_ids.filter(Boolean) : [];
+          if (ids.length === 0) {
+            throw new Error("No team members selected in notify_member node.");
+          }
+          q = q.in("user_id", ids);
+        }
+
+        const { data: members, error: memErr } = await q;
+        if (memErr) throw memErr;
+
+        const targetMembers = (members ?? []) as Array<{
+          user_id: string;
+          full_name: string | null;
+          email: string | null;
+          phone: string | null;
+          account_role: string;
+        }>;
+
+        if (targetMembers.length === 0) {
+          throw new Error("No matching team members found.");
+        }
+
+        // 2. Load WhatsApp credentials if sending via WhatsApp
+        let waCreds: { phoneNumberId: string; accessToken: string } | null = null;
+        if (channel === "whatsapp" || channel === "both") {
+          waCreds = await loadAccountMetaCredentials(db, run.account_id).catch((e) => {
+            errors.push(e instanceof Error ? e.message : String(e));
+            return null;
+          });
+        }
+
+        // 3. Load Email config if sending via Email
+        let emailCfg: EmailConfigData | null = null;
+        if (channel === "email" || channel === "both") {
+          const { data: savedEmailCfg } = await db
+            .from("email_config")
+            .select("*")
+            .eq("account_id", run.account_id)
+            .maybeSingle();
+          if (savedEmailCfg) {
+            emailCfg = savedEmailCfg as EmailConfigData;
+          }
+        }
+
+        // 4. Deliver to each selected member
+        for (const m of targetMembers) {
+          const memberLabel = m.full_name || m.email || m.user_id;
+
+          if ((channel === "whatsapp" || channel === "both") && waCreds) {
+            if (!m.phone) {
+              failedCount += 1;
+              errors.push(`${memberLabel}: no WhatsApp phone number configured`);
+            } else {
+              try {
+                if (cfg.template_name?.trim()) {
+                  await sendTemplateMessage({
+                    phoneNumberId: waCreds.phoneNumberId,
+                    accessToken: waCreds.accessToken,
+                    to: m.phone,
+                    templateName: cfg.template_name.trim(),
+                    language: cfg.template_language?.trim() || "en_US",
+                    params: messageText ? [messageText] : undefined,
+                  });
+                } else {
+                  await sendTextMessage({
+                    phoneNumberId: waCreds.phoneNumberId,
+                    accessToken: waCreds.accessToken,
+                    to: m.phone,
+                    text: messageText,
+                  });
+                }
+                sentCount += 1;
+              } catch (waErr) {
+                failedCount += 1;
+                errors.push(`${memberLabel} (WhatsApp): ${waErr instanceof Error ? waErr.message : String(waErr)}`);
+              }
+            }
+          }
+
+          if (channel === "email" || channel === "both") {
+            if (!m.email) {
+              failedCount += 1;
+              errors.push(`${memberLabel}: no email address`);
+            } else if (!emailCfg) {
+              failedCount += 1;
+              errors.push("No email integration configured in Settings > Email");
+            } else {
+              const res = await dispatchEmail(emailCfg, {
+                toEmail: m.email,
+                subject: emailSubject,
+                body: messageText,
+              });
+              if (res.success) sentCount += 1;
+              else {
+                failedCount += 1;
+                errors.push(`${memberLabel} (Email): ${res.error || "send failed"}`);
+              }
+            }
+          }
+        }
+
+        await logEvent(db, run.id, sentCount > 0 ? "node_entered" : "error", node.node_key, {
+          action: "notify_member",
+          channel,
+          recipient_mode: mode,
+          sent_count: sentCount,
+          failed_count: failedCount,
+          errors,
+        });
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        errors.push(errMsg);
+        console.warn("[flows] notify_member error:", errMsg);
+        await logEvent(db, run.id, "error", node.node_key, {
+          action: "notify_member_failed",
+          error: errMsg,
+        });
+      }
+
+      currentKey =
+        sentCount > 0
+          ? (cfg.next_node_key || "")
+          : (cfg.failure_next || cfg.next_node_key || "");
       continue;
     }
     if (node.node_type === "whatsapp_payment") {
