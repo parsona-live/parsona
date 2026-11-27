@@ -241,6 +241,29 @@ export function ChannelsIntegrationsConfig() {
         description="Connect your messaging channels. Customer inquiries from WhatsApp, Facebook, and Instagram flow straight into your unified CRM Inbox."
       />
 
+      {/* EXTERNAL INTEGRATIONS HUB BANNER */}
+      <Card className="border-blue-500/30 bg-blue-950/10">
+        <CardContent className="py-3.5 px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-9 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 shrink-0">
+              <Zap className="size-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-foreground">External Integrations Hub</div>
+              <p className="text-xs text-muted-foreground">
+                Configure Cal.com, Calendly, Google Sheets, Google Calendar, Razorpay, Slack, Webhooks & Custom REST APIs for Flows.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/integrations"
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs font-medium shrink-0 transition-colors"
+          >
+            Open Integrations Hub <ArrowRight className="size-3.5" />
+          </a>
+        </CardContent>
+      </Card>
+
       {/* TOP STATUS BAR */}
       <Card className="border-border/80 bg-card/60 backdrop-blur-xs">
         <CardContent className="py-4 px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

@@ -391,6 +391,16 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
         next_node_key: "",
         failure_next: "",
       };
+    case "integration_action":
+      return {
+        integration_id: "",
+        provider_key: "",
+        action_key: "",
+        inputs: {},
+        target_var: "integration_res",
+        next_node_key: "",
+        failure_next: "",
+      };
     case "catalog":
       return { catalog_id: "", body_text: "Browse our catalog:", next_node_key: "" };
     case "input_flow":

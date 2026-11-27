@@ -829,6 +829,28 @@ export const NODE_REGISTRY: Record<FlowNodeType, NodeDefinition> = {
       failure_next: '',
     },
   },
+  integration_action: {
+    type: 'integration_action',
+    category: 'actions',
+    label: 'External Integration',
+    blurb: 'Call Cal.com, Calendly, Google Sheets, Razorpay, Slack, Webhooks, or Custom APIs',
+    icon: Globe,
+    color: {
+      solid: 'oklch(0.62 0.19 260)',
+      soft: 'oklch(0.62 0.19 260 / 0.12)',
+      ring: 'oklch(0.62 0.19 260 / 0.4)',
+      text: 'oklch(0.48 0.19 260)',
+    },
+    defaultConfig: {
+      integration_id: '',
+      provider_key: '',
+      action_key: '',
+      inputs: {},
+      target_var: 'integration_res',
+      next_node_key: '',
+      failure_next: '',
+    },
+  },
 };
 
 export const SIDEBAR_MESSAGES_NODES: FlowNodeType[] = [
@@ -868,5 +890,6 @@ export const SIDEBAR_ACTIONS_NODES: FlowNodeType[] = [
   'crm_fetch',
   'crm_mutate',
   'notify_member',
+  'integration_action',
 ];
 

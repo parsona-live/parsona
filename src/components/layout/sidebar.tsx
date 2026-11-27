@@ -694,6 +694,12 @@ const mainNavItems: NavItem[] = [
     colors: ICON_COLORS.context,
   },
   {
+    href: "/integrations",
+    label: "Integrations",
+    icon: Blocks,
+    colors: ICON_COLORS.settingsChannels,
+  },
+  {
     href: "/context",
     labelKey: "contextHub",
     icon: Layers,

@@ -1331,6 +1331,34 @@ function validateNode(
       break;
     }
 
+    case "integration_action": {
+      const cfg = node.config as {
+        integration_id?: string;
+        action_key?: string;
+        next_node_key?: string;
+        failure_next?: string;
+      };
+      if (!cfg.integration_id?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "integration_id",
+          message: "Select a configured integration.",
+        });
+      }
+      if (!cfg.action_key?.trim()) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "action_key",
+          message: "Select an action to execute.",
+        });
+      }
+      break;
+    }
+
     case "notify_member": {
       const cfg = node.config as {
         recipient_mode?: string;
@@ -1681,7 +1709,8 @@ function outgoingEdges(node: NodeInput): string[] {
       return out;
     }
     case "crm_mutate":
-    case "notify_member": {
+    case "notify_member":
+    case "integration_action": {
       const cfg = node.config as { next_node_key?: string; failure_next?: string };
       const out: string[] = [];
       if (cfg.next_node_key) out.push(cfg.next_node_key);

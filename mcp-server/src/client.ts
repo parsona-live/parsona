@@ -208,4 +208,19 @@ export class WacrmClient {
       `/crm/collections/${encodeURIComponent(slug)}/records/${encodeURIComponent(recordId)}`,
     );
   }
+
+  // --- External Integrations ----------------------------------------
+
+  listIntegrations(): Promise<{ data: unknown }> {
+    return this.request('GET', '/integrations');
+  }
+
+  executeIntegration(
+    integrationId: string,
+    body: { action_key: string; inputs?: Record<string, unknown> },
+  ): Promise<{ data: unknown }> {
+    return this.request('POST', `/integrations/${encodeURIComponent(integrationId)}/execute`, {
+      body,
+    });
+  }
 }

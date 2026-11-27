@@ -71,6 +71,7 @@ import {
 import { routeInboundIntent, scoreSemanticIntent } from "./intent-router";
 import { isDeliverableUrl } from "@/lib/webhooks/ssrf";
 import { sendTextMessage, sendTemplateMessage } from "@/lib/whatsapp/meta-api";
+import { executeAccountIntegration } from "@/lib/integrations/runner";
 import {
   queryRecords,
   createRecord,
@@ -2626,6 +2627,79 @@ async function advanceFromNodeKey(
         sentCount > 0
           ? (cfg.next_node_key || "")
           : (cfg.failure_next || cfg.next_node_key || "");
+      continue;
+    }
+    if (node.node_type === "integration_action") {
+      const cfg = node.config as {
+        integration_id?: string;
+        action_key?: string;
+        inputs?: Record<string, string>;
+        target_var?: string;
+        next_node_key?: string;
+        failure_next?: string;
+      };
+      let succeeded = false;
+      try {
+        const evalVars: Record<string, unknown> = {
+          ...run.vars,
+          "contact.id": run.contact_id ?? "",
+          contact: {
+            ...((run.vars?.contact as Record<string, unknown> | undefined) ?? {}),
+            id: run.contact_id ?? "",
+          },
+        };
+        const resolvedInputs: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(cfg.inputs ?? {})) {
+          resolvedInputs[k] = typeof v === "string" ? interpolateVars(v, evalVars) : v;
+        }
+        const res = await executeAccountIntegration({
+          supabase: db,
+          accountId: run.account_id,
+          integrationId: String(cfg.integration_id || ""),
+          actionKey: String(cfg.action_key || ""),
+          inputs: resolvedInputs,
+        });
+        const targetVar = (cfg.target_var || "integration_res").trim() || "integration_res";
+        if (res.success) {
+          succeeded = true;
+          run.vars = {
+            ...run.vars,
+            [targetVar]: res.data ?? {},
+          };
+          await db
+            .from("flow_runs")
+            .update({ vars: run.vars })
+            .eq("id", run.id);
+        } else {
+          run.vars = {
+            ...run.vars,
+            integration_error: res.error || "Integration call failed",
+          };
+          await db
+            .from("flow_runs")
+            .update({ vars: run.vars })
+            .eq("id", run.id);
+        }
+        await logEvent(db, run.id, res.success ? "node_entered" : "error", node.node_key, {
+          action: "integration_action",
+          integration_id: cfg.integration_id,
+          action_key: cfg.action_key,
+          success: res.success,
+          error: res.error,
+        });
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        run.vars = { ...run.vars, integration_error: errMsg };
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+        await logEvent(db, run.id, "error", node.node_key, {
+          action: "integration_action_failed",
+          error: errMsg,
+        });
+      }
+
+      currentKey = succeeded
+        ? (cfg.next_node_key || "")
+        : (cfg.failure_next || cfg.next_node_key || "");
       continue;
     }
     if (node.node_type === "whatsapp_payment") {

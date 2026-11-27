@@ -213,7 +213,8 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       }
 
       case "crm_mutate":
-      case "notify_member": {
+      case "notify_member":
+      case "integration_action": {
         const next = (cfg as { next_node_key?: string }).next_node_key;
         const failNext = (cfg as { failure_next?: string }).failure_next;
         if (next && knownKeys.has(next)) {
@@ -431,6 +432,7 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
 
     case "crm_mutate":
     case "notify_member":
+    case "integration_action":
       return [
         { id: "next", label: "Success" },
         { id: "failure", label: "Failed" },
@@ -596,6 +598,7 @@ export function applyEdgeConnection(
 
     case "crm_mutate":
     case "notify_member":
+    case "integration_action":
       if (sourceHandle === "next") return { next_node_key: targetKey };
       if (sourceHandle === "failure") return { failure_next: targetKey };
       return null;
@@ -820,7 +823,8 @@ function patchedConfigWithoutKey(
     }
 
     case "crm_mutate":
-    case "notify_member": {
+    case "notify_member":
+    case "integration_action": {
       const c = cfg as { next_node_key?: string; failure_next?: string };
       const nextMatch = c.next_node_key === deletedKey;
       const failMatch = c.failure_next === deletedKey;
