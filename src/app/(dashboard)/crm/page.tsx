@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useCan } from '@/hooks/use-can';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ import {
   RefreshCw,
   ArrowUpDown,
   ArrowRight,
+  Users,
 } from 'lucide-react';
 
 const FIELD_TYPES: CrmFieldType[] = [
@@ -60,8 +62,21 @@ const FIELD_TYPES: CrmFieldType[] = [
 ];
 
 type CrmView = 'records' | 'schema' | 'export';
+const SYSTEM_CONTACTS_SLUG = '__system_contacts__';
+
+interface SystemContactRow {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  last_seen_channel: string | null;
+  created_at: string;
+  groups: string[];
+}
 
 export default function DynamicCrmPage() {
+  const router = useRouter();
   const supabase = createClient();
 
   const isAdmin = useCan('edit-settings');
@@ -78,15 +93,34 @@ export default function DynamicCrmPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [loadingRecs, setLoadingRecs] = useState(false);
+
+  // Instant-switch cache keyed by slug
+  const recordsCacheRef = useRef<Map<string, { records: CrmRecord[]; fields: CrmField[]; total: number }>>(new Map());
+  const sysContactsCacheRef = useRef<{ contacts: SystemContactRow[]; total: number } | null>(null);
+  const contactsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // Row selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [contacts, setContacts] = useState<Array<{ id: string; name: string | null; phone: string | null }>>([]);
+  const [sysContacts, setSysContacts] = useState<SystemContactRow[]>([]);
+  const [sysTotal, setSysTotal] = useState(0);
+  const [loadingSys, setLoadingSys] = useState(false);
+  const [newContactOpen, setNewContactOpen] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ name: '', phone: '', email: '', company: '' });
+  const [savingNewContact, setSavingNewContact] = useState(false);
+
+  const isSystemContacts = activeSlug === SYSTEM_CONTACTS_SLUG;
 
   // Create Collection Modal
   const [showNewCol, setShowNewCol] = useState(false);
@@ -119,15 +153,17 @@ export default function DynamicCrmPage() {
       const cols = (data.collections ?? []) as CrmCollection[];
       setCollections(cols);
       setTemplates(data.templates ?? []);
-      if (cols.length > 0 && !cols.some((c) => c.slug === activeSlug)) {
-        setActiveSlug(cols[0].slug);
-      }
+      setActiveSlug((prev) => {
+        if (prev === SYSTEM_CONTACTS_SLUG) return prev;
+        if (prev && cols.some((c) => c.slug === prev)) return prev;
+        return cols[0]?.slug || SYSTEM_CONTACTS_SLUG;
+      });
     } catch {
       toast.error('Failed to load CRM collections');
     } finally {
       setLoadingCols(false);
     }
-  }, [activeSlug]);
+  }, []);
 
   const loadRecords = useCallback(async () => {
     if (!activeSlug) {
@@ -136,7 +172,48 @@ export default function DynamicCrmPage() {
       setTotal(0);
       return;
     }
-    setLoadingRecs(true);
+    if (activeSlug === SYSTEM_CONTACTS_SLUG) {
+      if (sysContactsCacheRef.current && page === 1 && !debouncedSearch) {
+        setSysContacts(sysContactsCacheRef.current.contacts);
+        setSysTotal(sysContactsCacheRef.current.total);
+      } else {
+        setLoadingSys(true);
+      }
+      try {
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: '50',
+          sort_by: sortBy,
+          sort_dir: sortDir,
+        });
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        const res = await fetch(`/api/crm/system/contacts?${params.toString()}`);
+        const data = await res.json();
+        if (res.ok) {
+          const list = data.contacts ?? [];
+          const count = data.total ?? 0;
+          setSysContacts(list);
+          setSysTotal(count);
+          if (page === 1 && !debouncedSearch) {
+            sysContactsCacheRef.current = { contacts: list, total: count };
+          }
+          setSelectedIds(new Set());
+        }
+      } catch {
+        toast.error('Failed to load system contacts');
+      } finally {
+        setLoadingSys(false);
+      }
+      return;
+    }
+    const cached = page === 1 && !debouncedSearch ? recordsCacheRef.current.get(activeSlug) : undefined;
+    if (cached) {
+      setRecords(cached.records);
+      setFields(cached.fields);
+      setTotal(cached.total);
+    } else {
+      setLoadingRecs(true);
+    }
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -144,13 +221,19 @@ export default function DynamicCrmPage() {
         sort_by: sortBy,
         sort_dir: sortDir,
       });
-      if (search.trim()) params.set('search', search.trim());
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const res = await fetch(`/api/crm/collections/${activeSlug}/records?${params.toString()}`);
       const data = await res.json();
       if (res.ok) {
-        setRecords(data.records ?? []);
-        setFields(data.fields ?? []);
-        setTotal(data.total ?? 0);
+        const recs = data.records ?? [];
+        const flds = data.fields ?? [];
+        const count = data.total ?? 0;
+        setRecords(recs);
+        setFields(flds);
+        setTotal(count);
+        if (page === 1 && !debouncedSearch) {
+          recordsCacheRef.current.set(activeSlug, { records: recs, fields: flds, total: count });
+        }
         setSelectedIds(new Set());
       }
     } catch {
@@ -158,7 +241,7 @@ export default function DynamicCrmPage() {
     } finally {
       setLoadingRecs(false);
     }
-  }, [activeSlug, page, search, sortBy, sortDir]);
+  }, [activeSlug, page, debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => {
     loadCollections();
@@ -168,7 +251,9 @@ export default function DynamicCrmPage() {
     loadRecords();
   }, [loadRecords]);
 
-  useEffect(() => {
+  const ensureContactsLoaded = useCallback(() => {
+    if (contactsLoadedRef.current) return;
+    contactsLoadedRef.current = true;
     supabase
       .from('contacts')
       .select('id, name, phone')
@@ -316,6 +401,7 @@ export default function DynamicCrmPage() {
   }
 
   function openNewRecordModal() {
+    ensureContactsLoaded();
     setEditingRecord(null);
     setRecordContactId('');
     const defaults: Record<string, unknown> = {};
@@ -329,6 +415,7 @@ export default function DynamicCrmPage() {
   }
 
   function openEditRecordModal(rec: CrmRecord) {
+    ensureContactsLoaded();
     setEditingRecord(rec);
     setRecordContactId(rec.contact_id || '');
     setRecordFormData({ ...(rec.data || {}) });
@@ -378,16 +465,47 @@ export default function DynamicCrmPage() {
     }
   }
 
+  async function handleCreateSystemContact() {
+    if (!newContactForm.name && !newContactForm.phone && !newContactForm.email) {
+      toast.error('Provide at least a name, phone, or email');
+      return;
+    }
+    setSavingNewContact(true);
+    try {
+      const res = await fetch('/api/crm/system/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContactForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to create contact');
+        return;
+      }
+      toast.success('Contact created');
+      setNewContactForm({ name: '', phone: '', email: '', company: '' });
+      setNewContactOpen(false);
+      await loadRecords();
+    } finally {
+      setSavingNewContact(false);
+    }
+  }
+
   async function handleBulkDelete() {
     if (!activeSlug || selectedIds.size === 0) return;
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/crm/collections/${activeSlug}/records/${id}`, { method: 'DELETE' }),
-        ),
-      );
+      if (isSystemContacts) {
+        const { error } = await supabase.from('contacts').delete().in('id', ids);
+        if (error) throw error;
+      } else {
+        await Promise.all(
+          ids.map((id) =>
+            fetch(`/api/crm/collections/${activeSlug}/records/${id}`, { method: 'DELETE' }),
+          ),
+        );
+      }
       toast.success(`Deleted ${ids.length} record${ids.length === 1 ? '' : 's'}`);
       setSelectedIds(new Set());
       await loadRecords();
@@ -400,7 +518,8 @@ export default function DynamicCrmPage() {
 
   function toggleAllRows(checked: boolean) {
     if (checked) {
-      setSelectedIds(new Set(records.map((r) => r.id)));
+      const list = isSystemContacts ? sysContacts : records;
+      setSelectedIds(new Set(list.map((r) => r.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -420,10 +539,31 @@ export default function DynamicCrmPage() {
     window.open(`/api/crm/collections/${activeSlug}/export?format=${format}`, '_blank');
   }
 
-  const allSelected = records.length > 0 && selectedIds.size === records.length;
-  const totalPages = Math.max(1, Math.ceil(total / 50));
+  const allSelected = isSystemContacts
+    ? sysContacts.length > 0 && selectedIds.size === sysContacts.length
+    : records.length > 0 && selectedIds.size === records.length;
+  const activeTotal = isSystemContacts ? sysTotal : total;
+  const totalPages = Math.max(1, Math.ceil(activeTotal / 50));
 
   const sections: WorkspaceNavSection[] = [
+    {
+      title: 'System',
+      items: [
+        {
+          id: 'sys-contacts',
+          label: 'Contacts',
+          icon: Users,
+          badge: 'sys',
+          active: isSystemContacts,
+          onClick: () => {
+            setActiveSlug(SYSTEM_CONTACTS_SLUG);
+            setActiveView('records');
+            setSortBy('created_at');
+            setPage(1);
+          },
+        },
+      ],
+    },
     {
       title: 'Collections',
       items: collections.map((col) => ({
@@ -495,7 +635,7 @@ export default function DynamicCrmPage() {
       <WorkspaceShell
         sidebarTitle="CRM Collections"
         sections={sections}
-        noPadding={activeView === 'records' && Boolean(activeCollection) && !loadingCols}
+        noPadding={isSystemContacts || (activeView === 'records' && Boolean(activeCollection) && !loadingCols)}
         breadcrumbs={[
           { label: 'CRM', onClick: () => setActiveView('records') },
           { label: activeCollection?.name || 'Collections' },
@@ -534,7 +674,221 @@ export default function DynamicCrmPage() {
           </>
         }
       >
-        {loadingCols ? (
+        {isSystemContacts ? (
+          <div className="flex flex-1 flex-col min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3 py-2">
+              <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Filter contacts by name, phone, email, company..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-8 h-7.5 text-xs bg-background border-border"
+                  />
+                </div>
+                {selectedIds.size > 0 && canWriteRecords && (
+                  <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 text-xs">
+                    <span className="font-medium text-foreground">{selectedIds.size} selected</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] gap-1"
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleting}
+                    >
+                      {bulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      Delete
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7.5 w-7.5"
+                  onClick={loadRecords}
+                  title="Refresh"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingSys ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/contacts')}
+                  className="h-7.5 px-2.5 text-xs gap-1"
+                >
+                  Manage Groups
+                </Button>
+                {canWriteRecords && (
+                  <Button size="sm" onClick={() => setNewContactOpen(true)} className="h-7.5 px-2.5 text-xs gap-1">
+                    <Plus className="h-3.5 w-3.5" /> Insert
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-x-auto bg-background">
+              <table className="w-max min-w-full border-collapse text-xs">
+                <thead className="sticky top-0 z-10 bg-card text-left">
+                  <tr className="border-b border-border">
+                    <th className="w-10 min-w-[40px] max-w-[40px] border-r border-border px-2.5 py-2 text-center">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(v) => toggleAllRows(Boolean(v))}
+                        aria-label="Select all contacts"
+                      />
+                    </th>
+                    <th className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <KeyRound className="h-3 w-3 text-emerald-500 shrink-0" />
+                        <span>id</span>
+                        <span className="text-[11px] font-normal text-muted-foreground">uuid</span>
+                      </div>
+                    </th>
+                    <th className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      name <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                    </th>
+                    <th className="w-[160px] min-w-[160px] max-w-[160px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      phone <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                    </th>
+                    <th className="w-[210px] min-w-[210px] max-w-[210px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      email <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                    </th>
+                    <th className="w-[160px] min-w-[160px] max-w-[160px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      company <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                    </th>
+                    <th className="w-[200px] min-w-[200px] max-w-[200px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      groups <span className="text-[11px] font-normal text-muted-foreground">text[]</span>
+                    </th>
+                    <th className="w-[120px] min-w-[120px] max-w-[120px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      channel <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                    </th>
+                    <th className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-medium text-foreground">
+                      created_at <span className="text-[11px] font-normal text-muted-foreground">timestamptz</span>
+                    </th>
+                    <th className="w-16 min-w-[64px] px-2 py-2 text-center text-muted-foreground">Context</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingSys ? (
+                    <tr>
+                      <td colSpan={10} className="py-10 text-center text-muted-foreground border-b border-border">
+                        <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                        Loading contacts...
+                      </td>
+                    </tr>
+                  ) : sysContacts.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-10 text-center text-muted-foreground border-b border-border">
+                        No contacts found.
+                      </td>
+                    </tr>
+                  ) : (
+                    sysContacts.map((c) => {
+                      const isChecked = selectedIds.has(c.id);
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`border-b border-border transition-colors hover:bg-muted/40 ${
+                            isChecked ? 'bg-accent/50' : ''
+                          }`}
+                        >
+                          <td className="w-10 min-w-[40px] max-w-[40px] border-r border-border px-2.5 py-2 text-center">
+                            <Checkbox checked={isChecked} onCheckedChange={() => toggleRow(c.id)} />
+                          </td>
+                          <td className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-mono text-[11px] text-foreground/90 truncate">
+                            {c.id}
+                          </td>
+                          <td className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 truncate">
+                            {c.name || <span className="font-mono text-[11px] text-muted-foreground">NULL</span>}
+                          </td>
+                          <td className="w-[160px] min-w-[160px] max-w-[160px] border-r border-border px-3 py-2 font-mono text-[11px] truncate">
+                            {c.phone || <span className="text-muted-foreground">NULL</span>}
+                          </td>
+                          <td className="w-[210px] min-w-[210px] max-w-[210px] border-r border-border px-3 py-2 truncate">
+                            {c.email || <span className="font-mono text-[11px] text-muted-foreground">NULL</span>}
+                          </td>
+                          <td className="w-[160px] min-w-[160px] max-w-[160px] border-r border-border px-3 py-2 truncate">
+                            {c.company || <span className="font-mono text-[11px] text-muted-foreground">NULL</span>}
+                          </td>
+                          <td className="w-[200px] min-w-[200px] max-w-[200px] border-r border-border px-3 py-2">
+                            {c.groups.length > 0 ? (
+                              <div className="flex items-center gap-1 overflow-hidden">
+                                {c.groups.slice(0, 2).map((g) => (
+                                  <Badge key={g} variant="secondary" className="text-[10px] font-normal truncate">
+                                    {g}
+                                  </Badge>
+                                ))}
+                                {c.groups.length > 2 && (
+                                  <span className="text-[10px] text-muted-foreground">+{c.groups.length - 2}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="font-mono text-[11px] text-muted-foreground">[]</span>
+                            )}
+                          </td>
+                          <td className="w-[120px] min-w-[120px] max-w-[120px] border-r border-border px-3 py-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {c.last_seen_channel || 'whatsapp'}
+                            </Badge>
+                          </td>
+                          <td className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-mono text-[11px] text-muted-foreground truncate">
+                            {new Date(c.created_at).toISOString().replace('T', ' ').slice(0, 19)}
+                          </td>
+                          <td className="w-16 min-w-[64px] px-2 py-1.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/context/${c.id}`)}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-card text-muted-foreground hover:text-foreground"
+                              title="Open Customer Context Hub"
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border bg-card px-4 py-2 text-xs text-muted-foreground">
+              <span>
+                {sysTotal} contact{sysTotal === 1 ? '' : 's'}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span>
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : loadingCols ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground p-8">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading collections...
           </div>
@@ -777,9 +1131,14 @@ export default function DynamicCrmPage() {
                                       <span className="truncate text-foreground font-medium" title={rec.contact.id}>
                                         {rec.contact.name || rec.contact.phone || rec.contact.id}
                                       </span>
-                                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground">
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(`/context/${rec.contact!.id}`)}
+                                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground hover:text-foreground"
+                                        title="Open Contact in Context Hub"
+                                      >
                                         <ArrowRight className="h-3 w-3" />
-                                      </span>
+                                      </button>
                                     </div>
                                   ) : (
                                     <span className="font-mono text-[11px] text-muted-foreground">NULL</span>
@@ -1161,6 +1520,65 @@ POST /api/v1/crm/collections/${activeCollection.slug}/records`}
             <Button onClick={handleSaveRecord} disabled={savingRecord}>
               {savingRecord ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New System Contact Modal */}
+      <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Contact</DialogTitle>
+            <DialogDescription>
+              Creates a canonical contact shared with Inbox, Broadcasts, and Context Hub.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Name</Label>
+              <Input
+                className="h-9 text-xs"
+                value={newContactForm.name}
+                onChange={(e) => setNewContactForm({ ...newContactForm, name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phone</Label>
+              <Input
+                className="h-9 text-xs"
+                value={newContactForm.phone}
+                onChange={(e) => setNewContactForm({ ...newContactForm, phone: e.target.value })}
+                placeholder="+15551234567"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Email</Label>
+              <Input
+                className="h-9 text-xs"
+                value={newContactForm.email}
+                onChange={(e) => setNewContactForm({ ...newContactForm, email: e.target.value })}
+                placeholder="john@example.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Company</Label>
+              <Input
+                className="h-9 text-xs"
+                value={newContactForm.company}
+                onChange={(e) => setNewContactForm({ ...newContactForm, company: e.target.value })}
+                placeholder="Acme Inc."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewContactOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSystemContact} disabled={savingNewContact}>
+              {savingNewContact ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+              Create Contact
             </Button>
           </DialogFooter>
         </DialogContent>

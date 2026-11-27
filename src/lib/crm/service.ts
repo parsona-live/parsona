@@ -47,22 +47,23 @@ export async function listCollections(
   db: SupabaseClient,
   accountId: string,
 ): Promise<CrmCollection[]> {
-  const { data: cols, error } = await db
-    .from('crm_collections')
-    .select('*')
-    .eq('account_id', accountId)
-    .order('created_at', { ascending: true });
+  const [{ data: cols, error }, { data: fieldsData }] = await Promise.all([
+    db
+      .from('crm_collections')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: true }),
+    db
+      .from('crm_fields')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+  ]);
 
   if (error) throw new CrmServiceError(error.message, 500, 'db_error');
   const collections = (cols ?? []) as CrmCollection[];
   if (collections.length === 0) return [];
-
-  const { data: fieldsData } = await db
-    .from('crm_fields')
-    .select('*')
-    .eq('account_id', accountId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
 
   const fieldsByCol = new Map<string, CrmField[]>();
   for (const f of (fieldsData ?? []) as CrmField[]) {
