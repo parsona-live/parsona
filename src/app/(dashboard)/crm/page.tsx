@@ -5,11 +5,13 @@ import { createClient } from '@/lib/supabase/client';
 import { useCan } from '@/hooks/use-can';
 import { toast } from 'sonner';
 import type { CrmCollection, CrmCollectionTemplate, CrmField, CrmFieldType, CrmRecord } from '@/lib/crm/types';
+import { WorkspaceShell, type WorkspaceNavSection } from '@/components/layout/workspace-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -18,14 +20,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Database,
   Plus,
@@ -41,8 +35,15 @@ import {
   LifeBuoy,
   ChevronLeft,
   ChevronRight,
+  Table2,
+  Code2,
+  Bot,
+  KeyRound,
+  Link2,
+  RefreshCw,
+  ArrowUpDown,
+  ArrowRight,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 const FIELD_TYPES: CrmFieldType[] = [
   'text',
@@ -58,6 +59,8 @@ const FIELD_TYPES: CrmFieldType[] = [
   'json',
 ];
 
+type CrmView = 'records' | 'schema' | 'export';
+
 export default function DynamicCrmPage() {
   const supabase = createClient();
 
@@ -67,6 +70,7 @@ export default function DynamicCrmPage() {
   const [collections, setCollections] = useState<CrmCollection[]>([]);
   const [templates, setTemplates] = useState<CrmCollectionTemplate[]>([]);
   const [activeSlug, setActiveSlug] = useState<string>('');
+  const [activeView, setActiveView] = useState<CrmView>('records');
   const [loadingCols, setLoadingCols] = useState(true);
 
   const [records, setRecords] = useState<CrmRecord[]>([]);
@@ -74,9 +78,14 @@ export default function DynamicCrmPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [loadingRecs, setLoadingRecs] = useState(false);
 
-  // Contacts for linking records
+  // Row selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const [contacts, setContacts] = useState<Array<{ id: string; name: string | null; phone: string | null }>>([]);
 
   // Create Collection Modal
@@ -85,8 +94,7 @@ export default function DynamicCrmPage() {
   const [newColDesc, setNewColDesc] = useState('');
   const [creatingCol, setCreatingCol] = useState(false);
 
-  // Schema / Fields Editor Modal
-  const [showSchemaModal, setShowSchemaModal] = useState(false);
+  // Schema / Fields Form
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [newFieldType, setNewFieldType] = useState<CrmFieldType>('text');
   const [newFieldOptions, setNewFieldOptions] = useState('');
@@ -132,7 +140,9 @@ export default function DynamicCrmPage() {
     try {
       const params = new URLSearchParams({
         page: String(page),
-        limit: '25',
+        limit: '50',
+        sort_by: sortBy,
+        sort_dir: sortDir,
       });
       if (search.trim()) params.set('search', search.trim());
       const res = await fetch(`/api/crm/collections/${activeSlug}/records?${params.toString()}`);
@@ -141,13 +151,14 @@ export default function DynamicCrmPage() {
         setRecords(data.records ?? []);
         setFields(data.fields ?? []);
         setTotal(data.total ?? 0);
+        setSelectedIds(new Set());
       }
     } catch {
       toast.error('Failed to load records');
     } finally {
       setLoadingRecs(false);
     }
-  }, [activeSlug, page, search]);
+  }, [activeSlug, page, search, sortBy, sortDir]);
 
   useEffect(() => {
     loadCollections();
@@ -186,6 +197,7 @@ export default function DynamicCrmPage() {
       setShowNewCol(false);
       await loadCollections();
       setActiveSlug(data.collection.slug);
+      setActiveView('records');
     } finally {
       setCreatingCol(false);
     }
@@ -218,6 +230,7 @@ export default function DynamicCrmPage() {
       setShowNewCol(false);
       await loadCollections();
       setActiveSlug(data.collection.slug);
+      setActiveView('records');
     } finally {
       setCreatingCol(false);
     }
@@ -365,256 +378,658 @@ export default function DynamicCrmPage() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (!activeSlug || selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/crm/collections/${activeSlug}/records/${id}`, { method: 'DELETE' }),
+        ),
+      );
+      toast.success(`Deleted ${ids.length} record${ids.length === 1 ? '' : 's'}`);
+      setSelectedIds(new Set());
+      await loadRecords();
+    } catch {
+      toast.error('Failed to delete selected records');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
+  function toggleAllRows(checked: boolean) {
+    if (checked) {
+      setSelectedIds(new Set(records.map((r) => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function handleExport(format: 'csv' | 'json') {
     if (!activeSlug) return;
     window.open(`/api/crm/collections/${activeSlug}/export?format=${format}`, '_blank');
   }
 
-  const visibleFields = fields.filter((f) => f.show_in_table !== false);
-  const totalPages = Math.max(1, Math.ceil(total / 25));
+  const allSelected = records.length > 0 && selectedIds.size === records.length;
+  const totalPages = Math.max(1, Math.ceil(total / 50));
+
+  const sections: WorkspaceNavSection[] = [
+    {
+      title: 'Collections',
+      items: collections.map((col) => ({
+        id: `col-${col.slug}`,
+        label: col.name,
+        icon:
+          col.slug === 'appointments'
+            ? Calendar
+            : col.slug === 'orders'
+              ? ShoppingBag
+              : col.slug === 'tickets'
+                ? LifeBuoy
+                : Database,
+        badge: col.fields?.length ?? 0,
+        active: activeSlug === col.slug,
+        onClick: () => {
+          setActiveSlug(col.slug);
+          setPage(1);
+        },
+      })),
+    },
+    ...(activeCollection
+      ? [
+          {
+            title: 'Workspace',
+            items: [
+              {
+                id: 'view-records',
+                label: 'Records',
+                icon: Table2,
+                badge: total,
+                active: activeView === 'records',
+                onClick: () => setActiveView('records'),
+              },
+              ...(isAdmin
+                ? [
+                    {
+                      id: 'view-schema',
+                      label: 'Schema & Fields',
+                      icon: Settings2,
+                      badge: fields.length,
+                      active: activeView === 'schema',
+                      onClick: () => setActiveView('schema'),
+                    },
+                    {
+                      id: 'view-export',
+                      label: 'Export & API',
+                      icon: Code2,
+                      active: activeView === 'export',
+                      onClick: () => setActiveView('export'),
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  const viewTitle =
+    activeView === 'schema'
+      ? 'Schema & Fields'
+      : activeView === 'export'
+        ? 'Export & API'
+        : activeCollection?.name || 'Dynamic CRM';
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Database className="h-6 w-6 text-primary" />
-            Dynamic CRM Collections
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Create custom tables (Appointments, Orders, Tickets), manage records, connect Flows, and feed AI context.
-          </p>
-        </div>
-        {isAdmin && (
-          <Button onClick={() => setShowNewCol(true)} size="sm" className="gap-1.5">
-            <Plus className="h-4 w-4" /> New Collection
-          </Button>
-        )}
-      </div>
-
-      {/* Collection Tabs */}
-      {loadingCols ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading collections...
-        </div>
-      ) : collections.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center space-y-4 bg-card">
-          <Sparkles className="h-8 w-8 text-primary mx-auto" />
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold">Start your Dynamic CRM</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Launch a ready-to-use collection in one click, or build your own custom table from scratch.
-            </p>
-          </div>
-          {isAdmin && (
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              {templates.map((tpl) => (
-                <Button
-                  key={tpl.id}
-                  variant="outline"
-                  onClick={() => handleCreateFromTemplate(tpl.id)}
-                  disabled={creatingCol}
-                  className="gap-2"
-                >
-                  {tpl.id === 'appointments' && <Calendar className="h-4 w-4 text-sky-500" />}
-                  {tpl.id === 'orders' && <ShoppingBag className="h-4 w-4 text-emerald-500" />}
-                  {tpl.id === 'tickets' && <LifeBuoy className="h-4 w-4 text-amber-500" />}
-                  {tpl.name}
-                </Button>
-              ))}
-              <Button onClick={() => setShowNewCol(true)}>
-                <Plus className="mr-1.5 h-4 w-4" /> Custom Collection
+    <>
+      <WorkspaceShell
+        sidebarTitle="CRM Collections"
+        sections={sections}
+        noPadding={activeView === 'records' && Boolean(activeCollection) && !loadingCols}
+        breadcrumbs={[
+          { label: 'CRM', onClick: () => setActiveView('records') },
+          { label: activeCollection?.name || 'Collections' },
+          ...(activeCollection ? [{ label: viewTitle }] : []),
+        ]}
+        title={viewTitle}
+        subtitle={activeCollection?.description || 'Define custom tables, connect Flows, and feed AI Context Hub.'}
+        sidebarFooter={
+          isAdmin ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start gap-1.5 h-8 text-xs"
+              onClick={() => setShowNewCol(true)}
+            >
+              <Plus className="h-3.5 w-3.5" /> New Collection
+            </Button>
+          ) : null
+        }
+        headerActions={
+          <>
+            {activeCollection && isAdmin && (
+              <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="h-8 text-xs gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Export CSV
               </Button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-border">
-            {collections.map((col) => (
-              <button
-                key={col.id}
-                type="button"
-                onClick={() => {
-                  setActiveSlug(col.slug);
-                  setPage(1);
-                }}
-                className={cn(
-                  'px-3.5 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors whitespace-nowrap',
-                  activeSlug === col.slug
-                    ? 'border-primary text-foreground bg-muted/40'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {col.name}
-              </button>
-            ))}
+            )}
+            {activeCollection && canWriteRecords ? (
+              <Button size="sm" onClick={openNewRecordModal} className="h-8 text-xs gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Insert
+              </Button>
+            ) : isAdmin && !activeCollection ? (
+              <Button size="sm" onClick={() => setShowNewCol(true)} className="h-8 text-xs gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> New Collection
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        {loadingCols ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground p-8">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading collections...
           </div>
+        ) : collections.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-10 text-center space-y-4 bg-card">
+            <Sparkles className="h-8 w-8 text-primary mx-auto" />
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold">Start your Dynamic CRM</h2>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                Launch a ready-to-use collection in one click, or build your own custom table from scratch.
+              </p>
+            </div>
+            {isAdmin && (
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                {templates.map((tpl) => (
+                  <Button
+                    key={tpl.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCreateFromTemplate(tpl.id)}
+                    disabled={creatingCol}
+                    className="gap-2"
+                  >
+                    {tpl.id === 'appointments' && <Calendar className="h-4 w-4 text-sky-500" />}
+                    {tpl.id === 'orders' && <ShoppingBag className="h-4 w-4 text-emerald-500" />}
+                    {tpl.id === 'tickets' && <LifeBuoy className="h-4 w-4 text-amber-500" />}
+                    {tpl.name}
+                  </Button>
+                ))}
+                <Button size="sm" onClick={() => setShowNewCol(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" /> Custom Collection
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          activeCollection && (
+            <>
+              {activeView === 'records' && (
+                <div className="flex flex-1 flex-col min-w-0">
+                  {/* Supabase-style Table Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3 py-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder={`Filter ${activeCollection.name} by any text field...`}
+                          value={search}
+                          onChange={(e) => {
+                            setSearch(e.target.value);
+                            setPage(1);
+                          }}
+                          className="pl-8 h-7.5 text-xs bg-background border-border"
+                        />
+                      </div>
 
-          {activeCollection && (
-            <div className="space-y-4">
-              {/* Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-sm">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder={`Search ${activeCollection.name}...`}
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value);
-                        setPage(1);
-                      }}
-                      className="pl-8 h-9 text-sm"
-                    />
+                      {selectedIds.size > 0 && canWriteRecords && (
+                        <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 text-xs">
+                          <span className="font-medium text-foreground">
+                            {selectedIds.size} selected
+                          </span>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-6 px-2 text-[11px] gap-1"
+                            onClick={handleBulkDelete}
+                            disabled={bulkDeleting}
+                          >
+                            {bulkDeleting ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                            Delete
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 rounded-md border border-border bg-background px-2 h-7.5">
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                        <select
+                          className="bg-transparent text-xs text-foreground focus:outline-none"
+                          value={`${sortBy}:${sortDir}`}
+                          onChange={(e) => {
+                            const [col, dir] = e.target.value.split(':');
+                            setSortBy(col);
+                            setSortDir((dir as 'asc' | 'desc') || 'desc');
+                            setPage(1);
+                          }}
+                        >
+                          <option value="created_at:desc" className="bg-popover">Sort: Newest</option>
+                          <option value="created_at:asc" className="bg-popover">Sort: Oldest</option>
+                          {fields.map((fld) => (
+                            <option key={fld.id} value={`${fld.key}:asc`} className="bg-popover">
+                              Sort: {fld.label} (A-Z)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7.5 w-7.5"
+                        onClick={loadRecords}
+                        title="Refresh"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${loadingRecs ? 'animate-spin' : ''}`} />
+                      </Button>
+
+                      {isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleExport('csv')}
+                          className="h-7.5 px-2.5 text-xs gap-1"
+                        >
+                          <Download className="h-3.5 w-3.5" /> CSV
+                        </Button>
+                      )}
+
+                      {canWriteRecords && (
+                        <Button size="sm" onClick={openNewRecordModal} className="h-7.5 px-2.5 text-xs gap-1">
+                          <Plus className="h-3.5 w-3.5" /> Insert
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Horizontally Scrollable Fixed-Column Supabase Grid */}
+                  <div className="flex-1 overflow-x-auto bg-background">
+                    <table className="w-max min-w-full border-collapse text-xs">
+                      <thead className="sticky top-0 z-10 bg-card text-left">
+                        <tr className="border-b border-border">
+                          <th className="w-10 min-w-[40px] max-w-[40px] border-r border-border px-2.5 py-2 text-center">
+                            <Checkbox
+                              checked={allSelected}
+                              onCheckedChange={(v) => toggleAllRows(Boolean(v))}
+                              aria-label="Select all rows"
+                            />
+                          </th>
+                          <th className="w-[170px] min-w-[170px] max-w-[170px] border-r border-border px-3 py-2 font-medium text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <KeyRound className="h-3 w-3 text-emerald-500 shrink-0" />
+                              <span className="truncate">id</span>
+                              <span className="text-[11px] font-normal text-muted-foreground">uuid</span>
+                            </div>
+                          </th>
+                          <th className="w-[200px] min-w-[200px] max-w-[200px] border-r border-border px-3 py-2 font-medium text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <Link2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                              <span className="truncate">contact_id</span>
+                              <span className="text-[11px] font-normal text-muted-foreground">uuid</span>
+                            </div>
+                          </th>
+                          {fields.map((fld) => (
+                            <th
+                              key={fld.id}
+                              className="w-[190px] min-w-[190px] max-w-[190px] border-r border-border px-3 py-2 font-medium text-foreground"
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span className="truncate">{fld.key}</span>
+                                <span className="text-[11px] font-normal text-muted-foreground shrink-0">
+                                  {fld.field_type}
+                                </span>
+                              </div>
+                            </th>
+                          ))}
+                          <th className="w-[120px] min-w-[120px] max-w-[120px] border-r border-border px-3 py-2 font-medium text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>source</span>
+                              <span className="text-[11px] font-normal text-muted-foreground">text</span>
+                            </div>
+                          </th>
+                          <th className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-medium text-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <span>created_at</span>
+                              <span className="text-[11px] font-normal text-muted-foreground">timestamptz</span>
+                            </div>
+                          </th>
+                          {isAdmin && (
+                            <th className="w-12 min-w-[48px] px-2 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setActiveView('schema')}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                                title="Add column in Schema & Fields"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loadingRecs ? (
+                          <tr>
+                            <td
+                              colSpan={fields.length + 6}
+                              className="py-10 text-center text-muted-foreground border-b border-border"
+                            >
+                              <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                              Loading records...
+                            </td>
+                          </tr>
+                        ) : records.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={fields.length + 6}
+                              className="py-10 text-center text-muted-foreground border-b border-border"
+                            >
+                              No records yet. Click <strong>Insert</strong> to add a row or connect a Flow.
+                            </td>
+                          </tr>
+                        ) : (
+                          records.map((rec) => {
+                            const isChecked = selectedIds.has(rec.id);
+                            return (
+                              <tr
+                                key={rec.id}
+                                className={`border-b border-border transition-colors hover:bg-muted/40 ${
+                                  isChecked ? 'bg-accent/50' : ''
+                                }`}
+                              >
+                                <td className="w-10 min-w-[40px] max-w-[40px] border-r border-border px-2.5 py-2 text-center">
+                                  <Checkbox
+                                    checked={isChecked}
+                                    onCheckedChange={() => toggleRow(rec.id)}
+                                    aria-label={`Select row ${rec.id}`}
+                                  />
+                                </td>
+                                <td className="w-[170px] min-w-[170px] max-w-[170px] border-r border-border px-3 py-2 font-mono text-[11px] text-foreground/90 truncate">
+                                  {rec.id}
+                                </td>
+                                <td className="w-[200px] min-w-[200px] max-w-[200px] border-r border-border px-3 py-2">
+                                  {rec.contact ? (
+                                    <div className="flex items-center justify-between gap-1.5">
+                                      <span className="truncate text-foreground font-medium" title={rec.contact.id}>
+                                        {rec.contact.name || rec.contact.phone || rec.contact.id}
+                                      </span>
+                                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground">
+                                        <ArrowRight className="h-3 w-3" />
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="font-mono text-[11px] text-muted-foreground">NULL</span>
+                                  )}
+                                </td>
+                                {fields.map((fld) => {
+                                  const val = rec.data?.[fld.key];
+                                  const isEmpty = val === undefined || val === null || val === '';
+                                  return (
+                                    <td
+                                      key={fld.id}
+                                      className="w-[190px] min-w-[190px] max-w-[190px] border-r border-border px-3 py-2 truncate"
+                                      title={isEmpty ? 'NULL' : String(val)}
+                                    >
+                                      {isEmpty ? (
+                                        <span className="font-mono text-[11px] text-muted-foreground">NULL</span>
+                                      ) : fld.field_type === 'select' ? (
+                                        <Badge variant="secondary" className="text-[11px] font-normal">
+                                          {String(val)}
+                                        </Badge>
+                                      ) : typeof val === 'boolean' ? (
+                                        <span className="font-mono text-[11px]">{val ? 'true' : 'false'}</span>
+                                      ) : typeof val === 'object' ? (
+                                        <span className="font-mono text-[11px]">{JSON.stringify(val)}</span>
+                                      ) : (
+                                        <span className="text-foreground">{String(val)}</span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                                <td className="w-[120px] min-w-[120px] max-w-[120px] border-r border-border px-3 py-2">
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {rec.created_by_type}
+                                  </Badge>
+                                </td>
+                                <td className="w-[180px] min-w-[180px] max-w-[180px] border-r border-border px-3 py-2 font-mono text-[11px] text-muted-foreground truncate">
+                                  {new Date(rec.created_at).toISOString().replace('T', ' ').slice(0, 19)}
+                                </td>
+                                <td className="w-20 min-w-[80px] px-2 py-1.5 text-right">
+                                  {canWriteRecords && (
+                                    <div className="inline-flex items-center gap-0.5">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => openEditRecordModal(rec)}
+                                        title="Edit row"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                        onClick={() => handleDeleteRecord(rec.id)}
+                                        title="Delete row"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Supabase-style Bottom Pagination Footer */}
+                  <div className="flex items-center justify-between border-t border-border bg-card px-4 py-2 text-xs text-muted-foreground">
+                    <span>
+                      {total} record{total === 1 ? '' : 's'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={page <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <span>
+                        Page {page} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={page >= totalPages}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {isAdmin && (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => setShowSchemaModal(true)}>
-                        <Settings2 className="mr-1.5 h-4 w-4" /> Fields ({fields.length})
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
-                        <Download className="mr-1.5 h-4 w-4" /> CSV
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleExport('json')}>
-                        <Download className="mr-1.5 h-4 w-4" /> JSON
-                      </Button>
-                    </>
-                  )}
-                  {canWriteRecords && (
-                    <Button size="sm" onClick={openNewRecordModal}>
-                      <Plus className="mr-1.5 h-4 w-4" /> Add Record
-                    </Button>
-                  )}
-                </div>
-              </div>
+              {activeView === 'schema' && isAdmin && (
+                <div className="space-y-6">
+                  <div className="rounded-lg border border-border bg-card p-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-primary" />
+                        Include in AI &amp; Context Hub
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Allow AI Auto-Reply &amp; Flow AI nodes to read a customer&apos;s records from this collection.
+                      </div>
+                    </div>
+                    <Switch
+                      checked={activeCollection.include_in_ai_context}
+                      onCheckedChange={handleToggleAiContext}
+                    />
+                  </div>
 
-              {/* Records Table */}
-              <div className="rounded-md border border-border bg-card overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Contact</TableHead>
-                      {visibleFields.map((fld) => (
-                        <TableHead key={fld.id}>{fld.label}</TableHead>
-                      ))}
-                      <TableHead>Source</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loadingRecs ? (
-                      <TableRow>
-                        <TableCell colSpan={visibleFields.length + 3} className="text-center py-8 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                          Loading records...
-                        </TableCell>
-                      </TableRow>
-                    ) : records.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={visibleFields.length + 3} className="text-center py-8 text-muted-foreground">
-                          No records yet. Add one manually or connect a Flow!
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      records.map((rec) => (
-                        <TableRow key={rec.id}>
-                          <TableCell className="text-xs font-medium">
-                            {rec.contact ? (
-                              <span>{rec.contact.name || rec.contact.phone || rec.contact.email}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          {visibleFields.map((fld) => {
-                            const val = rec.data?.[fld.key];
-                            return (
-                              <TableCell key={fld.id} className="text-xs">
-                                {val === undefined || val === null || val === '' ? (
-                                  <span className="text-muted-foreground">—</span>
-                                ) : fld.field_type === 'select' ? (
-                                  <Badge variant="secondary" className="text-[11px]">
-                                    {String(val)}
-                                  </Badge>
-                                ) : typeof val === 'boolean' ? (
-                                  val ? 'Yes' : 'No'
-                                ) : typeof val === 'object' ? (
-                                  JSON.stringify(val)
-                                ) : (
-                                  String(val)
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px]">
-                              {rec.created_by_type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {canWriteRecords && (
-                              <div className="inline-flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => openEditRecordModal(rec)}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleDeleteRecord(rec.id)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                      <h3 className="text-sm font-semibold">Existing Fields</h3>
+                      <div className="space-y-2">
+                        {fields.map((fld) => (
+                          <div
+                            key={fld.id}
+                            className="flex items-center justify-between p-2.5 rounded-md border border-border/70 text-xs"
+                          >
+                            <div>
+                              <span className="font-semibold">{fld.label}</span>{' '}
+                              <span className="text-muted-foreground font-mono">({fld.key})</span>
+                              <div className="text-[11px] text-muted-foreground">
+                                Type: {fld.field_type}
+                                {fld.is_required ? ' · Required' : ''}
+                                {fld.is_unique ? ' · Unique' : ''}
+                                {fld.options?.length ? ` · [${fld.options.join(', ')}]` : ''}
                               </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteField(fld.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {total} total record{total === 1 ? '' : 's'}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span>
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                    <div className="rounded-lg border border-border bg-card p-5 space-y-4 h-fit">
+                      <h3 className="text-sm font-semibold">Add New Field</h3>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Field Label</Label>
+                          <Input
+                            placeholder="e.g. Doctor Name"
+                            value={newFieldLabel}
+                            onChange={(e) => setNewFieldLabel(e.target.value)}
+                            className="h-9 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Type</Label>
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs"
+                            value={newFieldType}
+                            onChange={(e) => setNewFieldType(e.target.value as CrmFieldType)}
+                          >
+                            {FIELD_TYPES.map((ft) => (
+                              <option key={ft} value={ft}>
+                                {ft}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      {newFieldType === 'select' && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Options (comma-separated)</Label>
+                          <Input
+                            placeholder="pending, confirmed, cancelled"
+                            value={newFieldOptions}
+                            onChange={(e) => setNewFieldOptions(e.target.value)}
+                            className="h-9 text-xs"
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 text-xs pt-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newFieldRequired}
+                            onChange={(e) => setNewFieldRequired(e.target.checked)}
+                          />
+                          Required
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newFieldUnique}
+                            onChange={(e) => setNewFieldUnique(e.target.checked)}
+                          />
+                          Unique
+                        </label>
+                        <Button size="sm" onClick={handleAddField} disabled={savingSchema || !newFieldLabel.trim()} className="ml-auto">
+                          {savingSchema ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+                          Add Field
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+              )}
+
+              {activeView === 'export' && isAdmin && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                    <h3 className="text-sm font-semibold">Export Collection Data</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Download all records from <strong>{activeCollection.name}</strong> including linked contact info.
+                    </p>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5">
+                        <Download className="h-3.5 w-3.5" /> Download CSV
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleExport('json')} className="gap-1.5">
+                        <Download className="h-3.5 w-3.5" /> Download JSON
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                    <h3 className="text-sm font-semibold">Public REST API v1</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Access or create records from external apps using your API key:
+                    </p>
+                    <pre className="rounded-md bg-muted p-3 text-[11px] font-mono overflow-x-auto">
+{`GET  /api/v1/crm/collections/${activeCollection.slug}/records
+POST /api/v1/crm/collections/${activeCollection.slug}/records`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        )}
+      </WorkspaceShell>
 
       {/* New Collection Modal */}
       <Dialog open={showNewCol} onOpenChange={setShowNewCol}>
@@ -669,113 +1084,6 @@ export default function DynamicCrmPage() {
               Create Custom
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Schema / Fields Modal */}
-      <Dialog open={showSchemaModal} onOpenChange={setShowSchemaModal}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Manage Fields — {activeCollection?.name}</DialogTitle>
-            <DialogDescription>
-              Configure columns, validation, and AI Context Hub visibility.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-            {activeCollection && (
-              <div className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
-                <div>
-                  <div className="text-xs font-semibold">Include in AI &amp; Context Hub</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Allow AI Auto-Reply &amp; Flow AI nodes to read a customer&apos;s records from this collection.
-                  </div>
-                </div>
-                <Switch
-                  checked={activeCollection.include_in_ai_context}
-                  onCheckedChange={handleToggleAiContext}
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Existing Fields</Label>
-              {fields.map((fld) => (
-                <div
-                  key={fld.id}
-                  className="flex items-center justify-between p-2.5 rounded-md border text-xs"
-                >
-                  <div>
-                    <span className="font-semibold">{fld.label}</span>{' '}
-                    <span className="text-muted-foreground font-mono">({fld.key})</span>
-                    <div className="text-[11px] text-muted-foreground">
-                      Type: {fld.field_type}
-                      {fld.is_required ? ' · Required' : ''}
-                      {fld.is_unique ? ' · Unique' : ''}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDeleteField(fld.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t pt-4 space-y-3">
-              <Label className="text-xs font-medium">Add New Field</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder="Field Label (e.g. Doctor Name)"
-                  value={newFieldLabel}
-                  onChange={(e) => setNewFieldLabel(e.target.value)}
-                />
-                <select
-                  className="h-9 rounded-md border border-input bg-background px-2.5 text-xs"
-                  value={newFieldType}
-                  onChange={(e) => setNewFieldType(e.target.value as CrmFieldType)}
-                >
-                  {FIELD_TYPES.map((ft) => (
-                    <option key={ft} value={ft}>
-                      {ft}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {newFieldType === 'select' && (
-                <Input
-                  placeholder="Options (comma-separated, e.g. pending, confirmed, cancelled)"
-                  value={newFieldOptions}
-                  onChange={(e) => setNewFieldOptions(e.target.value)}
-                />
-              )}
-              <div className="flex items-center gap-4 text-xs">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newFieldRequired}
-                    onChange={(e) => setNewFieldRequired(e.target.checked)}
-                  />
-                  Required
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newFieldUnique}
-                    onChange={(e) => setNewFieldUnique(e.target.checked)}
-                  />
-                  Unique
-                </label>
-                <Button size="sm" onClick={handleAddField} disabled={savingSchema || !newFieldLabel.trim()} className="ml-auto">
-                  {savingSchema ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
-                  Add Field
-                </Button>
-              </div>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 
@@ -857,6 +1165,6 @@ export default function DynamicCrmPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

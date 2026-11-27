@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-import { SettingsRail } from '@/components/settings/settings-rail';
+import { WorkspaceShell, type WorkspaceNavSection } from '@/components/layout/workspace-shell';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
@@ -23,6 +23,9 @@ import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { BillingPanel } from '@/components/settings/billing-panel';
 import { SettingsPageSkeleton, SettingsTabSkeleton } from '@/components/skeletons/page-skeletons';
 import {
+  RAIL_GROUPS,
+  SECTION_META,
+  SETTINGS_SECTIONS,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -99,25 +102,44 @@ function SettingsPageInner() {
     api: <ApiKeysSettings />,
   };
 
-  return (
-    <div>
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {t('pageTitle')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('pageDesc')}
-        </p>
-      </div>
+  const workspaceSections: WorkspaceNavSection[] = useMemo(
+    () =>
+      RAIL_GROUPS.map((grp) => ({
+        title: grp.label ?? undefined,
+        items: SETTINGS_SECTIONS.filter((id) => SECTION_META[id].group === grp.group).map((id) => {
+          const meta = SECTION_META[id];
+          const hint = hints[id];
+          return {
+            id,
+            label: meta.label,
+            icon: meta.icon,
+            badge: typeof hint === 'string' ? hint : undefined,
+            active: section === id,
+            onClick: () => go(id),
+          };
+        }),
+      })),
+    [section, hints, go],
+  );
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">
-          <Suspense key={section} fallback={<SettingsTabSkeleton />}>
-            {panel[section]}
-          </Suspense>
-        </div>
+  const activeMeta = SECTION_META[section];
+
+  return (
+    <WorkspaceShell
+      sidebarTitle="Settings"
+      sections={workspaceSections}
+      breadcrumbs={[
+        { label: t('pageTitle'), onClick: () => go('overview') },
+        { label: activeMeta.label },
+      ]}
+      title={activeMeta.label}
+      subtitle={t('pageDesc')}
+    >
+      <div className="min-w-0 max-w-5xl">
+        <Suspense key={section} fallback={<SettingsTabSkeleton />}>
+          {panel[section]}
+        </Suspense>
       </div>
-    </div>
+    </WorkspaceShell>
   );
 }

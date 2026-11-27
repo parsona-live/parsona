@@ -1039,7 +1039,7 @@ export function Sidebar({
 
             active
               ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              : "text-foreground/90 hover:bg-muted/60 hover:text-foreground"
           )}
         >
           {/* Neutral active indicator */}
@@ -1056,7 +1056,7 @@ export function Sidebar({
                 "transition-colors",
                 active
                   ? "text-foreground"
-                  : "text-muted-foreground group-hover:text-foreground"
+                  : "text-foreground/90 group-hover:text-foreground"
               )}
             />
 
@@ -1073,7 +1073,7 @@ export function Sidebar({
                 "sidebar-nav-label min-w-0 flex-1 truncate text-[13.5px]",
                 active
                   ? "font-semibold text-foreground"
-                  : "font-medium text-muted-foreground group-hover:text-foreground"
+                  : "font-medium text-foreground/90 group-hover:text-foreground"
               )}
             >
               {getLabel(item)}
@@ -1155,7 +1155,7 @@ export function Sidebar({
                 "transition-colors",
                 groupActive
                   ? "text-foreground"
-                  : "text-muted-foreground group-hover:text-foreground"
+                  : "text-foreground/90 group-hover:text-foreground"
               )}
             />
           </span>
@@ -1167,7 +1167,7 @@ export function Sidebar({
                   "min-w-0 flex-1 truncate text-left text-[13.5px] font-medium",
                   groupActive
                     ? "font-semibold text-foreground"
-                    : "text-muted-foreground group-hover:text-foreground"
+                    : "text-foreground/90 group-hover:text-foreground"
                 )}
               >
                 {group.label}
@@ -1177,7 +1177,7 @@ export function Sidebar({
                 size={15}
                 strokeWidth={1.8}
                 className={cn(
-                  "shrink-0 text-muted-foreground transition-transform duration-200",
+                  "shrink-0 text-foreground/80 transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )}
               />
@@ -1214,7 +1214,7 @@ export function Sidebar({
                           "transition-colors duration-150",
                           active
                             ? "bg-muted text-foreground"
-                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                            : "text-foreground/90 hover:bg-muted/60 hover:text-foreground"
                         )}
                       >
                         {/* Clean monochrome icon */}
@@ -1226,7 +1226,7 @@ export function Sidebar({
                               "transition-colors",
                               active
                                 ? "text-foreground"
-                                : "text-muted-foreground group-hover/submenu:text-foreground"
+                                : "text-foreground/90 group-hover/submenu:text-foreground"
                             )}
                           />
                         </span>
@@ -1237,7 +1237,7 @@ export function Sidebar({
                             "min-w-0 flex-1 truncate text-[13px]",
                             active
                               ? "font-semibold text-foreground"
-                              : "font-medium text-muted-foreground group-hover/submenu:text-foreground"
+                              : "font-medium text-foreground/90 group-hover/submenu:text-foreground"
                           )}
                         >
                           {getLabel(child)}

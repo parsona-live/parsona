@@ -72,6 +72,7 @@ import {
 import { pageAfterRangeError, pageAfterShrink } from '@/lib/contacts/page-bounds';
 import { formatContactsCsv, downloadCsv } from '@/lib/contacts/export-csv';
 import { ChannelIcon, AvatarChannelBadge } from '@/components/channels/channel-badge';
+import { WorkspaceShell, type WorkspaceNavSection } from '@/components/layout/workspace-shell';
 
 const PAGE_SIZE = 25;
 
@@ -721,37 +722,161 @@ export default function ContactsPage() {
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const activeGroup = groups.find((g) => g.id === selectedGroupId);
 
+  const workspaceSections: WorkspaceNavSection[] = [
+    {
+      title: 'Directory',
+      items: [
+        {
+          id: 'all-contacts',
+          label: 'All Contacts',
+          icon: Users,
+          active: !selectedGroupId,
+          onClick: () => {
+            setSelectedGroupId(null);
+            setPage(0);
+          },
+        },
+      ],
+    },
+    {
+      title: 'Segments & Groups',
+      items: groups.map((g) => ({
+        id: `group-${g.id}`,
+        label: g.name,
+        icon: FolderKanban,
+        badge: g.member_count ?? 0,
+        active: selectedGroupId === g.id,
+        onClick: () => {
+          setSelectedGroupId(g.id);
+          setPage(0);
+        },
+      })),
+    },
+    {
+      title: 'Tools',
+      items: [
+        ...(canEditSettings
+          ? [
+              {
+                id: 'custom-fields',
+                label: t('customFieldsBtn'),
+                icon: SlidersHorizontal,
+                onClick: () => setCustomFieldsOpen(true),
+              },
+            ]
+          : []),
+        ...(canEdit
+          ? [
+              {
+                id: 'import-csv',
+                label: t('importBtn'),
+                icon: Upload,
+                onClick: () => setImportOpen(true),
+              },
+            ]
+          : []),
+        {
+          id: 'export-csv',
+          label: 'Export CSV',
+          icon: Download,
+          onClick: () => handleExportCsv('all'),
+        },
+      ],
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
+    <WorkspaceShell
+      sidebarTitle="Contacts"
+      sections={workspaceSections}
+      sidebarExtra={
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground/75 uppercase tracking-wider block px-0.5">
+            Filter by Contact Info
+          </span>
+          <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-md">
+            <button
+              type="button"
+              onClick={() => {
+                setProfileFilter('actionable');
+                setPage(0);
+              }}
+              className={`text-[11px] py-1 px-1.5 rounded font-medium text-center transition-all ${
+                profileFilter === 'actionable'
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Actionable
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setProfileFilter('all');
+                setPage(0);
+              }}
+              className={`text-[11px] py-1 px-1.5 rounded font-medium text-center transition-all ${
+                profileFilter === 'all'
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All Profiles
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground px-0.5 leading-snug">
+            {profileFilter === 'actionable'
+              ? 'Contacts with Phone or Email'
+              : 'Showing all social leads & profiles'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+      }
+      breadcrumbs={[
+        {
+          label: t('title'),
+          onClick: () => {
+            setSelectedGroupId(null);
+            setPage(0);
+          },
+        },
+        { label: activeGroup ? activeGroup.name : 'All Contacts' },
+      ]}
+      title={activeGroup ? activeGroup.name : t('title')}
+      subtitle={totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
+      sidebarFooter={
+        canEdit ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-1.5 h-8 text-xs"
+            onClick={() => setNewGroupOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" /> New Group
+          </Button>
+        ) : null
+      }
+      headerActions={
+        <>
           <GatedButton
             canAct={canEditSettings}
             gateReason={tGate('reasons.manageCustomFields')}
             variant="outline"
             size="sm"
             onClick={() => setCustomFieldsOpen(true)}
-            className="border-border text-muted-foreground hover:bg-muted"
+            className="border-border text-muted-foreground hover:bg-muted h-8 px-2.5 text-xs gap-1.5"
           >
-            <SlidersHorizontal className="size-4" />
-            {t('customFieldsBtn')}
+            <SlidersHorizontal className="size-3.5" />
+            <span>{t('customFieldsBtn')}</span>
           </GatedButton>
 
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleExportCsv('all')}
-            className="border-border text-muted-foreground hover:bg-muted"
+            className="border-border text-muted-foreground hover:bg-muted h-8 px-2.5 text-xs gap-1.5"
           >
-            <Download className="size-4" />
-            Export CSV
+            <Download className="size-3.5" />
+            <span>Export</span>
           </Button>
 
           <GatedButton
@@ -760,10 +885,10 @@ export default function ContactsPage() {
             variant="outline"
             size="sm"
             onClick={() => setImportOpen(true)}
-            className="border-border text-muted-foreground hover:bg-muted"
+            className="border-border text-muted-foreground hover:bg-muted h-8 px-2.5 text-xs gap-1.5"
           >
-            <Upload className="size-4" />
-            {t('importBtn')}
+            <Upload className="size-3.5" />
+            <span>{t('importBtn')}</span>
           </GatedButton>
 
           <GatedButton
@@ -771,193 +896,72 @@ export default function ContactsPage() {
             gateReason={tGate('reasons.addOrImportContacts')}
             size="sm"
             onClick={openAddForm}
+            className="h-8 px-3 text-xs gap-1.5"
           >
-            <Plus className="size-4" />
-            {t('addContactBtn')}
+            <Plus className="size-3.5" />
+            <span>{t('addContactBtn')}</span>
           </GatedButton>
-        </div>
-      </div>
-
-      {/* Main 2-Column Responsive Layout */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        {/* Left Sidebar: Contact Groups & Audience Segments */}
-        <div className="w-full lg:w-64 shrink-0 rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <span className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <FolderKanban className="size-3.5 text-primary" />
-              Contact Groups
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-base font-semibold tracking-tight text-foreground">
+              {activeGroup ? activeGroup.name : t('title')}
+            </h1>
+            <span className="text-xs text-muted-foreground">
+              {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
             </span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <GatedButton
+              canAct={canEditSettings}
+              gateReason={tGate('reasons.manageCustomFields')}
+              variant="outline"
+              size="sm"
+              onClick={() => setCustomFieldsOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted h-7.5 px-2.5 text-xs gap-1"
+            >
+              <SlidersHorizontal className="size-3.5" />
+              <span>{t('customFieldsBtn')}</span>
+            </GatedButton>
+
             <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setNewGroupOpen(true)}
-              title="Create New Group"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted"
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportCsv('all')}
+              className="border-border text-muted-foreground hover:bg-muted h-7.5 px-2.5 text-xs gap-1"
             >
-              <Plus className="size-4" />
+              <Download className="size-3.5" />
+              <span>Export</span>
             </Button>
-          </div>
 
-          {/* All Contacts (Inbox Default) */}
-          <div className="space-y-1">
-            <button
-              onClick={() => {
-                setSelectedGroupId(null);
-                setPage(0);
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                selectedGroupId === null
-                  ? 'bg-primary/10 text-primary border border-primary/20 font-semibold'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
+            <GatedButton
+              canAct={canEdit}
+              gateReason={tGate('reasons.addOrImportContacts')}
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+              className="border-border text-muted-foreground hover:bg-muted h-7.5 px-2.5 text-xs gap-1"
             >
-              <div className="flex items-center gap-2 truncate">
-                <Users className="size-3.5 shrink-0" />
-                <span className="truncate">All Contacts</span>
-              </div>
-              <span className="text-[10px] bg-muted/80 px-2 py-0.5 rounded-full font-mono">
-                {selectedGroupId === null ? totalCount : 'All'}
-              </span>
-            </button>
-          </div>
+              <Upload className="size-3.5" />
+              <span>{t('importBtn')}</span>
+            </GatedButton>
 
-          {/* Actionable Reachability Pill Filter */}
-          <div className="pt-2 border-t border-border space-y-1.5">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block px-1">
-              Filter by Contact Info
-            </span>
-            <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg">
-              <button
-                onClick={() => {
-                  setProfileFilter('actionable');
-                  setPage(0);
-                }}
-                className={`text-[11px] py-1 px-1.5 rounded-md font-medium text-center transition-all ${
-                  profileFilter === 'actionable'
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Actionable
-              </button>
-              <button
-                onClick={() => {
-                  setProfileFilter('all');
-                  setPage(0);
-                }}
-                className={`text-[11px] py-1 px-1.5 rounded-md font-medium text-center transition-all ${
-                  profileFilter === 'all'
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                All Profiles
-              </button>
-            </div>
-            <p className="text-[10px] text-muted-foreground px-1">
-              {profileFilter === 'actionable'
-                ? 'Showing contacts with Phone or Email (ready for broadcast campaigns)'
-                : 'Showing all social leads & profiles'}
-            </p>
-          </div>
-
-          {/* User-Created Groups List */}
-          <div className="pt-2 border-t border-border space-y-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block px-1 pb-1">
-              Your Broadcast Groups
-            </span>
-            {loadingGroups ? (
-              <div className="py-4 text-center">
-                <Loader2 className="size-4 animate-spin text-muted-foreground mx-auto" />
-              </div>
-            ) : groups.length === 0 ? (
-              <p className="text-xs text-muted-foreground px-2 py-3 text-center border border-dashed rounded-lg">
-                No groups created yet. Click + to create one for broadcasts!
-              </p>
-            ) : (
-              <div className="max-h-72 overflow-y-auto space-y-1">
-                {groups.map((group) => {
-                  const isSelected = selectedGroupId === group.id;
-                  return (
-                    <div
-                      key={group.id}
-                      className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all ${
-                        isSelected
-                          ? 'bg-primary/10 text-primary border border-primary/20 font-semibold'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      }`}
-                    >
-                      <button
-                        onClick={() => {
-                          setSelectedGroupId(group.id);
-                          setPage(0);
-                        }}
-                        className="flex items-center gap-2 flex-1 text-left truncate"
-                      >
-                        <span
-                          className="size-2 rounded-full shrink-0"
-                          style={{ backgroundColor: group.color || '#3b82f6' }}
-                        />
-                        <span className="truncate">{group.name}</span>
-                      </button>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] bg-muted/80 px-1.5 py-0.5 rounded-full font-mono text-muted-foreground">
-                          {group.member_count ?? 0}
-                        </span>
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <button
-                                onClick={(e) => e.stopPropagation()}
-                                className="opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity p-0.5"
-                              />
-                            }
-                          >
-                            <MoreHorizontal className="size-3.5" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 bg-popover border-border">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedGroupId(group.id);
-                                handleExportCsv('all');
-                              }}
-                            >
-                              <Download className="size-3.5 mr-2" />
-                              Export CSV
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setGroupToRename(group);
-                                setRenameGroupName(group.name);
-                                setRenameGroupOpen(true);
-                              }}
-                            >
-                              <Pencil className="size-3.5 mr-2" />
-                              Rename Group
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => {
-                                setGroupToDelete(group);
-                                setDeleteGroupOpen(true);
-                              }}
-                            >
-                              <Trash2 className="size-3.5 mr-2" />
-                              Delete Group
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <GatedButton
+              canAct={canEdit}
+              gateReason={tGate('reasons.addOrImportContacts')}
+              size="sm"
+              onClick={openAddForm}
+              className="h-7.5 px-2.5 text-xs gap-1"
+            >
+              <Plus className="size-3.5" />
+              <span>{t('addContactBtn')}</span>
+            </GatedButton>
           </div>
         </div>
+      <div className="space-y-4">
 
         {/* Right Content: Table, Search, Bulk Bar */}
         <div className="flex-1 w-full space-y-4">
@@ -1807,6 +1811,7 @@ export default function ContactsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </WorkspaceShell>
   );
 }
