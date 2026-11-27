@@ -101,6 +101,7 @@ export interface FlowEditorContextValue {
   // (a NodeCard "Add" button or canvas "+" button) can scroll to /
   // focus / open the new node.
   addNode: (type: NodeType) => string;
+  duplicateNodes: (keys: string[]) => string[];
   updateNode: (key: string, patch: Partial<BuilderNode>) => void;
   updateNodeConfig: (key: string, patch: Record<string, unknown>) => void;
   updateNodePosition: (key: string, x: number, y: number) => void;
@@ -108,6 +109,7 @@ export interface FlowEditorContextValue {
     positions: Record<string, { x: number; y: number }>,
   ) => void;
   removeNode: (key: string) => void;
+  removeNodes: (keys: string[]) => void;
   /**
    * Run the dagre auto-layout over the current node graph and persist
    * the resulting positions. Unlike the lazy initial-layout hook this
@@ -802,6 +804,119 @@ export function FlowEditorProvider({
     [setState],
   );
 
+  const removeNodes = useCallback(
+    (keys: string[]) => {
+      if (keys.length === 0) return;
+      const keySet = new Set(keys);
+      setState((s) => {
+        let remainingNodes = s.nodes.filter((n) => !keySet.has(n.node_key));
+        for (const k of keys) {
+          remainingNodes = unlinkNodeReferences(remainingNodes, k);
+        }
+        const nextEntry =
+          s.entry_node_id && keySet.has(s.entry_node_id)
+            ? (remainingNodes.find((n) => n.node_type === "trigger")?.node_key ?? remainingNodes[0]?.node_key ?? null)
+            : s.entry_node_id;
+        return {
+          ...s,
+          nodes: remainingNodes,
+          entry_node_id: nextEntry,
+        };
+      });
+    },
+    [setState],
+  );
+
+  const duplicateNodes = useCallback(
+    (keys: string[]): string[] => {
+      if (keys.length === 0) return [];
+      const current = latestNodesRef.current;
+      const keySet = new Set(keys);
+      const originals = current.filter((n) => keySet.has(n.node_key) && n.node_type !== "trigger");
+      if (originals.length === 0) return [];
+
+      // Map old node_key -> new node_key so internal edges within a multi-node
+      // selection stay connected to their cloned counterparts.
+      const workingList = [...current];
+      const keyMap = new Map<string, string>();
+      for (const orig of originals) {
+        const base = slugify(NODE_META[orig.node_type]?.slugSeed || orig.node_type, orig.node_type);
+        const newKey = uniqueNodeKey(base, workingList);
+        keyMap.set(orig.node_key, newKey);
+        workingList.push({ ...orig, node_key: newKey });
+      }
+
+      const remapTarget = (val: unknown): string => {
+        if (typeof val !== "string" || !val) return "";
+        if (keyMap.has(val)) return keyMap.get(val)!;
+        // When duplicating a single node, clear outgoing edges so it doesn't
+        // unexpectedly hijack existing branches; when duplicating a group, clear
+        // external edges outside the selection.
+        return "";
+      };
+
+      const EDGE_KEYS = [
+        "next_node_key",
+        "true_next",
+        "false_next",
+        "found_next",
+        "not_found_next",
+        "failure_next",
+        "success_next",
+        "cancel_next",
+        "fallback_next",
+        "fallback_node_key",
+        "missing_fields_next",
+        "conflict_next",
+      ];
+
+      const clones: BuilderNode[] = originals.map((orig) => {
+        const clonedConfig = JSON.parse(JSON.stringify(orig.config || {})) as Record<string, unknown>;
+        for (const ek of EDGE_KEYS) {
+          if (ek in clonedConfig) {
+            clonedConfig[ek] = remapTarget(clonedConfig[ek]);
+          }
+        }
+        if (Array.isArray(clonedConfig.buttons)) {
+          clonedConfig.buttons = clonedConfig.buttons.map((b: any) => ({
+            ...b,
+            next_node_key: remapTarget(b?.next_node_key),
+          }));
+        }
+        if (Array.isArray(clonedConfig.sections)) {
+          clonedConfig.sections = clonedConfig.sections.map((sec: any) => ({
+            ...sec,
+            rows: Array.isArray(sec?.rows)
+              ? sec.rows.map((r: any) => ({ ...r, next_node_key: remapTarget(r?.next_node_key) }))
+              : [],
+          }));
+        }
+        if (Array.isArray(clonedConfig.branches)) {
+          clonedConfig.branches = clonedConfig.branches.map((br: any) => ({
+            ...br,
+            next_node_key: remapTarget(br?.next_node_key),
+          }));
+        }
+
+        return {
+          node_key: keyMap.get(orig.node_key)!,
+          node_type: orig.node_type,
+          config: clonedConfig,
+          position_x: (orig.position_x ?? 0) + 48,
+          position_y: (orig.position_y ?? 0) + 48,
+        };
+      });
+
+      latestNodesRef.current = [...current, ...clones];
+      setState((s) => ({
+        ...s,
+        nodes: [...s.nodes, ...clones],
+      }));
+      return clones.map((c) => c.node_key);
+    },
+    [setState],
+  );
+
 const value = useMemo<FlowEditorContextValue>(
     () => ({
       flow: initialFlow,
@@ -813,11 +928,13 @@ const value = useMemo<FlowEditorContextValue>(
       issues,
       canActivate,
       addNode,
+      duplicateNodes,
       updateNode,
       updateNodeConfig,
       updateNodePosition,
       updateNodePositions,
       removeNode,
+      removeNodes,
       arrangeNodes,
       save,
       setStatus,
@@ -835,11 +952,13 @@ const value = useMemo<FlowEditorContextValue>(
       issues,
       canActivate,
       addNode,
+      duplicateNodes,
       updateNode,
       updateNodeConfig,
       updateNodePosition,
       updateNodePositions,
       removeNode,
+      removeNodes,
       arrangeNodes,
       save,
       setStatus,

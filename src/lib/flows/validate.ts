@@ -1622,10 +1622,11 @@ function outgoingEdges(node: NodeInput): string[] {
       return out;
     }
     case "crm_fetch": {
-      const cfg = node.config as { found_next?: string; not_found_next?: string };
+      const cfg = node.config as { found_next?: string; not_found_next?: string; next_node_key?: string };
       const out: string[] = [];
       if (cfg.found_next) out.push(cfg.found_next);
       if (cfg.not_found_next) out.push(cfg.not_found_next);
+      if (cfg.next_node_key) out.push(cfg.next_node_key);
       return out;
     }
     case "crm_mutate": {

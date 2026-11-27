@@ -74,75 +74,176 @@ export function CrmFetchForm({
           </Button>
         </div>
 
-        {filters.map((f, idx) => (
-          <div key={idx} className="space-y-1 rounded-md border border-border/60 p-2 bg-muted/20">
-            <div className="grid grid-cols-[1fr_72px_28px] gap-1.5 items-center">
-              <Input
-                className="h-8 text-xs"
-                placeholder="field (e.g. status)"
-                list={`crm-fields-${slug}`}
-                value={f.field}
-                onChange={(e) => {
-                  const next = [...filters];
-                  next[idx] = { ...f, field: e.target.value };
-                  onChange({ filters: next });
-                }}
-              />
-              <select
-                className="h-8 rounded-md border border-input bg-background px-1.5 text-xs"
-                value={f.operator}
-                onChange={(e) => {
-                  const next = [...filters];
-                  next[idx] = { ...f, operator: e.target.value as CrmFetchFilterConfig['operator'] };
-                  onChange({ filters: next });
-                }}
-              >
-                <option value="eq">=</option>
-                <option value="neq">!=</option>
-                <option value="contains">~</option>
-                <option value="gte">&gt;=</option>
-                <option value="lte">&lt;=</option>
-              </select>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-7 text-muted-foreground hover:text-destructive"
-                onClick={() => onChange({ filters: filters.filter((_, i) => i !== idx) })}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Input
-                className="h-8 text-xs flex-1"
-                placeholder="Value or {{contact.id}}"
-                value={f.value}
-                onChange={(e) => {
-                  const next = [...filters];
-                  next[idx] = { ...f, value: e.target.value };
-                  onChange({ filters: next });
-                }}
-              />
-              <VariableDropdown
-                onSelect={(tag) => {
-                  const next = [...filters];
-                  next[idx] = { ...f, value: `${f.value || ''}${tag}` };
-                  onChange({ filters: next });
-                }}
-              />
-            </div>
-          </div>
-        ))}
+        {filters.map((f, idx) => {
+          const fieldOptions = [
+            { key: 'contact_id', label: 'Linked Contact (contact_id)' },
+            { key: 'created_at', label: 'Created At' },
+            { key: 'updated_at', label: 'Updated At' },
+            ...(selectedCol?.fields ?? []).map((fld) => ({
+              key: fld.key,
+              label: `${fld.label} (${fld.key})`,
+            })),
+          ];
+          const isKnownField = fieldOptions.some((opt) => opt.key === f.field);
 
-        {selectedCol?.fields && (
-          <datalist id={`crm-fields-${slug}`}>
-            <option value="contact_id" />
-            {selectedCol.fields.map((fld) => (
-              <option key={fld.id} value={fld.key} />
+          return (
+            <div key={idx} className="space-y-1.5 rounded-md border border-border/60 p-2 bg-muted/20">
+              <div className="grid grid-cols-[1fr_72px_28px] gap-1.5 items-center">
+                <select
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  value={isKnownField ? f.field : '__custom__'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const next = [...filters];
+                    next[idx] = { ...f, field: val === '__custom__' ? '' : val };
+                    onChange({ filters: next });
+                  }}
+                >
+                  <option value="">Select field...</option>
+                  {fieldOptions.map((opt) => (
+                    <option key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {!isKnownField && f.field && (
+                    <option value="__custom__">Custom: {f.field}</option>
+                  )}
+                  <option value="__custom__">Custom field key...</option>
+                </select>
+                <select
+                  className="h-8 rounded-md border border-input bg-background px-1.5 text-xs"
+                  value={f.operator}
+                  onChange={(e) => {
+                    const next = [...filters];
+                    next[idx] = { ...f, operator: e.target.value as CrmFetchFilterConfig['operator'] };
+                    onChange({ filters: next });
+                  }}
+                >
+                  <option value="eq">=</option>
+                  <option value="neq">!=</option>
+                  <option value="contains">~</option>
+                  <option value="gte">&gt;=</option>
+                  <option value="lte">&lt;=</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => onChange({ filters: filters.filter((_, i) => i !== idx) })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {!isKnownField && (
+                <Input
+                  className="h-8 text-xs"
+                  placeholder="Enter custom field key (e.g. status)"
+                  value={f.field}
+                  onChange={(e) => {
+                    const next = [...filters];
+                    next[idx] = { ...f, field: e.target.value };
+                    onChange({ filters: next });
+                  }}
+                />
+              )}
+              {(() => {
+                const matchedField = selectedCol?.fields?.find((fld) => fld.key === f.field);
+                const enumOpts =
+                  matchedField?.field_type === 'select' && Array.isArray(matchedField.options)
+                    ? matchedField.options
+                    : matchedField?.field_type === 'boolean'
+                      ? ['true', 'false']
+                      : null;
+                const isCustomVal = Boolean(f.value && f.value.includes('{{')) || (enumOpts ? Boolean(f.value && !enumOpts.includes(f.value)) : false);
+
+                if (enumOpts && enumOpts.length > 0 && !isCustomVal) {
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        className="h-8 text-xs flex-1 rounded-md border border-input bg-background px-2"
+                        value={f.value ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const next = [...filters];
+                          next[idx] = { ...f, value: val === '__custom__' ? '{{vars.' : val };
+                          onChange({ filters: next });
+                        }}
+                      >
+                        <option value="">Select {matchedField?.label || 'option'}...</option>
+                        {enumOpts.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                        <option value="__custom__">Use variable / custom value...</option>
+                      </select>
+                      <VariableDropdown
+                        onSelect={(tag) => {
+                          const next = [...filters];
+                          next[idx] = { ...f, value: tag };
+                          onChange({ filters: next });
+                        }}
+                      />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      className="h-8 text-xs flex-1"
+                      placeholder="Value or {{contact.id}}"
+                      value={f.value}
+                      onChange={(e) => {
+                        const next = [...filters];
+                        next[idx] = { ...f, value: e.target.value };
+                        onChange({ filters: next });
+                      }}
+                    />
+                    <VariableDropdown
+                      onSelect={(tag) => {
+                        const next = [...filters];
+                        next[idx] = { ...f, value: `${f.value || ''}${tag}` };
+                        onChange({ filters: next });
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Sort By</Label>
+          <select
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+            value={String(config.sort_by ?? 'created_at')}
+            onChange={(e) => onChange({ sort_by: e.target.value })}
+          >
+            <option value="created_at">Created At</option>
+            <option value="updated_at">Updated At</option>
+            {(selectedCol?.fields ?? []).map((fld) => (
+              <option key={fld.id} value={fld.key}>
+                {fld.label}
+              </option>
             ))}
-          </datalist>
-        )}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-medium">Order</Label>
+          <select
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+            value={String(config.sort_dir ?? 'desc')}
+            onChange={(e) => onChange({ sort_dir: e.target.value })}
+          >
+            <option value="desc">Newest / Desc</option>
+            <option value="asc">Oldest / Asc</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -154,12 +255,9 @@ export function CrmFetchForm({
             onChange={(e) => onChange({ target_var: e.target.value })}
             placeholder="crm_records"
           />
-          <p className="text-[10px] text-muted-foreground">
-            Also sets _count &amp; _text
-          </p>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs font-medium">Limit</Label>
+          <Label className="text-xs font-medium">Limit (1 = single object)</Label>
           <Input
             type="number"
             min={1}
@@ -168,6 +266,21 @@ export function CrmFetchForm({
             value={Number(config.limit ?? 5)}
             onChange={(e) => onChange({ limit: Number(e.target.value) || 5 })}
           />
+        </div>
+      </div>
+
+      <div className="rounded-md border border-border/60 bg-muted/30 p-2.5 text-[11px] space-y-1">
+        <div className="font-semibold text-foreground">Output Variables Available Downstream</div>
+        <div className="font-mono text-muted-foreground space-y-0.5">
+          <div>
+            <span className="text-foreground">{`{{vars.${String(config.target_var || 'crm_records')}}}`}</span> — JSON {Number(config.limit ?? 5) === 1 ? 'object' : 'array'}
+          </div>
+          <div>
+            <span className="text-foreground">{`{{vars.${String(config.target_var || 'crm_records')}_text}}`}</span> — Formatted list
+          </div>
+          <div>
+            <span className="text-foreground">{`{{vars.${String(config.target_var || 'crm_records')}_count}}`}</span> — Record count
+          </div>
         </div>
       </div>
     </div>
@@ -232,10 +345,14 @@ export function CrmMutateForm({
           </div>
           <Input
             className="h-8 text-xs"
-            placeholder="{{vars.existing_record.id}}"
+            placeholder="{{vars.crm_records_first_id}}"
             value={String(config.record_id ?? '')}
             onChange={(e) => onChange({ record_id: e.target.value })}
           />
+          <p className="text-[10px] text-muted-foreground">
+            Tip: Use a <span className="font-mono">Fetch CRM Data</span> node before this and pick{' '}
+            <span className="font-mono">{'{{vars.crm_records_first_id}}'}</span> from Add Variable.
+          </p>
         </div>
       )}
 
@@ -284,20 +401,63 @@ export function CrmMutateForm({
                         />
                       </div>
                     </div>
-                    <Input
-                      className="h-8 text-xs"
-                      placeholder={
-                        isDateField
-                          ? `YYYY-MM-DD or ${currentDateToken}`
-                          : `Value or {{vars.${fld.key}}}`
+                    {(() => {
+                      const enumOpts =
+                        fld.field_type === 'select' && Array.isArray(fld.options) && fld.options.length > 0
+                          ? fld.options
+                          : fld.field_type === 'boolean'
+                            ? ['true', 'false']
+                            : null;
+                      const currentVal = mappings[fld.key] ?? '';
+                      const isCustomVal =
+                        currentVal.includes('{{') ||
+                        (enumOpts ? Boolean(currentVal && !enumOpts.includes(currentVal)) : false);
+
+                      if (enumOpts && !isCustomVal) {
+                        return (
+                          <select
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                            value={currentVal}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              onChange({
+                                field_mappings: {
+                                  ...mappings,
+                                  [fld.key]: val === '__custom__' ? '{{vars.' : val,
+                                },
+                              });
+                            }}
+                          >
+                            <option value="">
+                              {fld.default_value ? `Default (${String(fld.default_value)})` : `Select ${fld.label}...`}
+                            </option>
+                            {enumOpts.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                            <option value="__custom__">Use variable / custom value...</option>
+                          </select>
+                        );
                       }
-                      value={mappings[fld.key] ?? ''}
-                      onChange={(e) =>
-                        onChange({
-                          field_mappings: { ...mappings, [fld.key]: e.target.value },
-                        })
-                      }
-                    />
+
+                      return (
+                        <Input
+                          className="h-8 text-xs"
+                          placeholder={
+                            isDateField
+                              ? `YYYY-MM-DD or ${currentDateToken}`
+                              : `Value or {{vars.${fld.key}}}`
+                          }
+                          value={currentVal}
+                          onChange={(e) =>
+                            onChange({
+                              field_mappings: { ...mappings, [fld.key]: e.target.value },
+                            })
+                          }
+                        />
+                      );
+                    })()}
                   </div>
                 );
               })}

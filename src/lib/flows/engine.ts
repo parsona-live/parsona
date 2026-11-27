@@ -2359,6 +2359,8 @@ async function advanceFromNodeKey(
             ...r.data,
           }));
           run.vars[targetVar] = limit === 1 ? (mapped[0] ?? null) : mapped;
+          run.vars[`${targetVar}_first`] = mapped[0] ?? null;
+          run.vars[`${targetVar}_first_id`] = mapped[0]?.id ?? "";
           run.vars[`${targetVar}_count`] = res.records.length;
           run.vars[`${targetVar}_text`] = formatCrmRecordsText(
             res.collection.name,
@@ -2370,16 +2372,25 @@ async function advanceFromNodeKey(
           await logEvent(db, run.id, "node_entered", node.node_key, {
             action: "crm_fetch",
             collection: cfg.collection_slug,
+            filters_applied: filters,
             count: res.records.length,
           });
         }
       } catch (err) {
-        console.warn("[flows] crm_fetch error:", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.warn("[flows] crm_fetch error:", errMsg);
         run.vars[targetVar] = null;
         run.vars[`${targetVar}_count`] = 0;
         run.vars[`${targetVar}_text`] = "";
+        run.vars.crm_error = errMsg;
+        await db.from("flow_runs").update({ vars: run.vars }).eq("id", run.id);
+        await logEvent(db, run.id, "error", node.node_key, {
+          action: "crm_fetch_failed",
+          collection: cfg.collection_slug,
+          error: errMsg,
+        });
       }
-      currentKey = found ? (cfg.found_next || "") : (cfg.not_found_next || "");
+      currentKey = (found ? cfg.found_next : cfg.not_found_next) || cfg.next_node_key || "";
       continue;
     }
     if (node.node_type === "crm_mutate") {

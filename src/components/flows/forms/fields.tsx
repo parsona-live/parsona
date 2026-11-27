@@ -70,6 +70,22 @@ export function VariableDropdown({
           flowVars.push(key);
         }
       }
+    } else if (n.node_type === "crm_fetch") {
+      const target = String(cfg.target_var || "crm_records").trim();
+      for (const k of [`${target}_first_id`, target, `${target}_text`, `${target}_count`]) {
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          flowVars.push(k);
+        }
+      }
+    } else if (n.node_type === "crm_mutate" && cfg.save_result_var) {
+      const target = String(cfg.save_result_var).trim();
+      for (const k of [`${target}.id`, target]) {
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          flowVars.push(k);
+        }
+      }
     }
   }
 

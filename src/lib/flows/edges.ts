@@ -181,6 +181,7 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
       case "crm_fetch": {
         const foundNext = (cfg as { found_next?: string }).found_next;
         const notFoundNext = (cfg as { not_found_next?: string }).not_found_next;
+        const defaultNext = (cfg as { next_node_key?: string }).next_node_key;
         if (foundNext && knownKeys.has(foundNext)) {
           edges.push({
             id: `${node.node_key}--found--${foundNext}`,
@@ -197,6 +198,15 @@ export function deriveCanvasEdges(nodes: BuilderNode[]): CanvasEdge[] {
             target: notFoundNext,
             sourceHandle: "not_found",
             label: "Not Found",
+          });
+        }
+        if (defaultNext && knownKeys.has(defaultNext)) {
+          edges.push({
+            id: `${node.node_key}--next--${defaultNext}`,
+            source: node.node_key,
+            target: defaultNext,
+            sourceHandle: "next",
+            label: "Next",
           });
         }
         break;
@@ -413,6 +423,7 @@ export function outgoingSlots(node: BuilderNode): OutgoingSlot[] {
 
     case "crm_fetch":
       return [
+        { id: "next", label: "Next" },
         { id: "found", label: "Found" },
         { id: "not_found", label: "Not Found" },
       ];
@@ -578,6 +589,7 @@ export function applyEdgeConnection(
     case "crm_fetch":
       if (sourceHandle === "found") return { found_next: targetKey };
       if (sourceHandle === "not_found") return { not_found_next: targetKey };
+      if (sourceHandle === "next") return { next_node_key: targetKey };
       return null;
 
     case "crm_mutate":
@@ -791,14 +803,16 @@ function patchedConfigWithoutKey(
     }
 
     case "crm_fetch": {
-      const c = cfg as { found_next?: string; not_found_next?: string };
+      const c = cfg as { found_next?: string; not_found_next?: string; next_node_key?: string };
       const foundMatch = c.found_next === deletedKey;
       const notFoundMatch = c.not_found_next === deletedKey;
-      if (!foundMatch && !notFoundMatch) return null;
+      const nextMatch = c.next_node_key === deletedKey;
+      if (!foundMatch && !notFoundMatch && !nextMatch) return null;
       return {
         ...cfg,
         ...(foundMatch ? { found_next: "" } : {}),
         ...(notFoundMatch ? { not_found_next: "" } : {}),
+        ...(nextMatch ? { next_node_key: "" } : {}),
       };
     }
 

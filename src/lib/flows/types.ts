@@ -573,8 +573,9 @@ export interface CrmFetchNodeConfig {
   sort_dir?: "asc" | "desc";
   limit?: number;
   target_var: string;
-  found_next: string;
-  not_found_next: string;
+  found_next?: string;
+  not_found_next?: string;
+  next_node_key?: string;
 }
 
 export interface CrmMutateNodeConfig {

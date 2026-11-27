@@ -9,6 +9,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   useReactFlow,
   type Connection,
   type Node as RfNode,
@@ -43,6 +44,9 @@ import {
   Globe,
   Flag,
   CheckCircle2,
+  Copy,
+  Hand,
+  MousePointer2,
 } from 'lucide-react';
 
 import { useTranslations } from 'next-intl';
@@ -86,6 +90,7 @@ interface NodeData extends Record<string, unknown> {
    *  ~1.6s. Drives a CSS animation, doesn't change layout. */
   isFlashed: boolean;
   onDeleteNode?: (key: string) => void;
+  onDuplicateNode?: (key: string) => void;
   onTestNode?: (node: BuilderNode) => void;
   onUpdateNodeConfig?: (key: string, patch: Record<string, unknown>) => void;
   onUpdateTrigger?: (
@@ -1109,6 +1114,7 @@ function FlowNodeCard({ data, selected }: NodeProps) {
     isEntry,
     isFlashed,
     onDeleteNode,
+    onDuplicateNode,
     onTestNode,
     onUpdateNodeConfig,
     onUpdateTrigger,
@@ -1191,6 +1197,17 @@ function FlowNodeCard({ data, selected }: NodeProps) {
             title="Preview from this node"
           >
             <Eye className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicateNode?.(node.node_key);
+            }}
+            className="text-slate-400 hover:bg-slate-100 hover:text-slate-800 rounded p-1 transition-colors"
+            title="Duplicate node"
+          >
+            <Copy className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
@@ -1303,6 +1320,8 @@ function FlowCanvasInner({
     updateNodePosition,
     updateNodePositions,
     removeNode,
+    removeNodes,
+    duplicateNodes,
     addNode,
     arrangeNodes,
     flashKey,
@@ -1328,6 +1347,19 @@ function FlowCanvasInner({
   // Tracks whether a drag from the Node Library is currently hovering
   // over the canvas so we can render a drop affordance.
   const [isDragOver, setIsDragOver] = useState(false);
+  // Canvas interaction mode: false = Pan (Shift+drag to box-select), true = Select Area
+  const [selectAreaMode, setSelectAreaMode] = useState(false);
+  const [selectedNodeKeys, setSelectedNodeKeys] = useState<string[]>([]);
+
+  const handleSelectionChange = useCallback(({ nodes: sel }: { nodes: RfNode[] }) => {
+    const next = sel.map((n) => n.id);
+    setSelectedNodeKeys((prev) => {
+      if (prev.length === next.length && prev.every((id, i) => id === next[i])) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
   const selectedNode = useMemo(
     () =>
       selectedNodeKey
@@ -1382,6 +1414,10 @@ function FlowCanvasInner({
           isEntry: n.node_key === entryNodeId,
           isFlashed: n.node_key === flashKey,
           onDeleteNode: (key: string) => removeNode(key),
+          onDuplicateNode: (key: string) => {
+            const [clonedKey] = duplicateNodes([key]);
+            if (clonedKey) setSelectedNodeKeys([clonedKey]);
+          },
           onTestNode: (node: BuilderNode) => onTestNode?.(node),
           onUpdateNodeConfig: (key: string, patch: Record<string, unknown>) =>
             updateNodeConfig(key, patch),
@@ -1406,6 +1442,7 @@ function FlowCanvasInner({
     flashKey,
     autoLayoutPositions,
     removeNode,
+    duplicateNodes,
     onTestNode,
     updateNodeConfig,
     setState,
@@ -1614,7 +1651,53 @@ function FlowCanvasInner({
     if (!selectedNodeKey) return;
     removeNode(selectedNodeKey);
     setSelectedNodeKey(null);
-  }, [selectedNodeKey, removeNode]);
+  }, [selectedNodeKey, removeNode, setSelectedNodeKey]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    if (!selectedNodeKey) return;
+    const [clonedKey] = duplicateNodes([selectedNodeKey]);
+    if (clonedKey) {
+      setSelectedNodeKey(clonedKey);
+      setSelectedNodeKeys([clonedKey]);
+    }
+  }, [selectedNodeKey, duplicateNodes, setSelectedNodeKey]);
+
+  const handleBulkDuplicate = useCallback(() => {
+    if (selectedNodeKeys.length === 0) return;
+    const clonedKeys = duplicateNodes(selectedNodeKeys);
+    if (clonedKeys.length > 0) {
+      setSelectedNodeKeys(clonedKeys);
+    }
+  }, [selectedNodeKeys, duplicateNodes]);
+
+  const handleBulkDelete = useCallback(() => {
+    const deletable = selectedNodeKeys.filter((k) => {
+      const n = builderNodes.find((b) => b.node_key === k);
+      return n && n.node_type !== 'trigger' && n.node_type !== 'start';
+    });
+    if (deletable.length === 0) return;
+    removeNodes(deletable);
+    setSelectedNodeKeys([]);
+    if (selectedNodeKey && deletable.includes(selectedNodeKey)) {
+      setSelectedNodeKey(null);
+    }
+  }, [selectedNodeKeys, builderNodes, removeNodes, selectedNodeKey, setSelectedNodeKey]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+        const targets = selectedNodeKeys.length > 0 ? selectedNodeKeys : selectedNodeKey ? [selectedNodeKey] : [];
+        if (targets.length === 0) return;
+        e.preventDefault();
+        const clonedKeys = duplicateNodes(targets);
+        if (clonedKeys.length > 0) setSelectedNodeKeys(clonedKeys);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedNodeKeys, selectedNodeKey, duplicateNodes]);
 
   const handleSetEntry = useCallback(() => {
     if (!selectedNodeKey) return;
@@ -1656,6 +1739,10 @@ function FlowCanvasInner({
           onConnect={handleConnect}
           onNodesDelete={handleNodesDelete}
           onEdgesDelete={handleEdgesDelete}
+          onSelectionChange={handleSelectionChange}
+          selectionOnDrag={selectAreaMode}
+          panOnDrag={selectAreaMode ? [1, 2] : true}
+          selectionMode={SelectionMode.Partial}
           // Default is "Backspace" only — accept both so Mac users
           // hitting Delete (Fn+Backspace) get the same behavior.
           deleteKeyCode={['Backspace', 'Delete']}
@@ -1695,6 +1782,78 @@ function FlowCanvasInner({
             className="!border-slate-200 !bg-white !rounded-xl !border !shadow-sm"
           />
         </ReactFlow>
+
+        {/* Top-left Canvas Mode Toggle: Pan vs Select Area */}
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-1 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setSelectAreaMode(false)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+              !selectAreaMode
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-100',
+            )}
+            title="Pan canvas (hold Shift + drag to select area)"
+          >
+            <Hand className="h-3.5 w-3.5" />
+            Pan
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectAreaMode(true)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+              selectAreaMode
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100',
+            )}
+            title="Drag to select multiple nodes"
+          >
+            <MousePointer2 className="h-3.5 w-3.5" />
+            Select Area
+          </button>
+        </div>
+
+        {/* Floating Selection Action Bar */}
+        {selectedNodeKeys.length > 0 && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+            <span className="text-xs font-semibold text-slate-700 pr-1">
+              {selectedNodeKeys.length} node{selectedNodeKeys.length === 1 ? '' : 's'} selected
+            </span>
+            <div className="h-4 w-px bg-slate-200" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleBulkDuplicate}
+              className="h-7 px-2.5 text-xs text-slate-700 hover:bg-slate-100 gap-1.5"
+              title="Duplicate selected (Ctrl+D)"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Duplicate
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleBulkDelete}
+              className="h-7 px-2.5 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 gap-1.5"
+              title="Delete selected"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSelectedNodeKeys([])}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              title="Clear selection"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       <NodeEditPanel
@@ -1704,6 +1863,7 @@ function FlowCanvasInner({
         onClose={() => setSelectedNodeKey(null)}
         onUpdateConfig={onSelectedUpdateConfig}
         onDelete={handleDeleteSelected}
+        onDuplicate={handleDuplicateSelected}
         onSetEntry={handleSetEntry}
         t={t}
       />
@@ -1727,6 +1887,7 @@ function NodeEditPanel({
   onClose,
   onUpdateConfig,
   onDelete,
+  onDuplicate,
   onSetEntry,
   t,
 }: {
@@ -1736,6 +1897,7 @@ function NodeEditPanel({
   onClose: () => void;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onSetEntry: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -1788,15 +1950,26 @@ function NodeEditPanel({
           <span />
         )}
         {node.node_type !== 'start' && node.node_type !== 'trigger' && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDelete}
-            className="gap-1.5"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete Node
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDuplicate}
+              className="gap-1.5"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Duplicate
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDelete}
+              className="gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Node
+            </Button>
+          </div>
         )}
       </div>
     </aside>

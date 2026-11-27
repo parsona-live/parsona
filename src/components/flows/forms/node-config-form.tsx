@@ -498,18 +498,25 @@ export function NodeConfigForm({
         <div className="space-y-4">
           <CrmFetchForm config={cfg} onChange={onUpdateConfig} />
           <NextNodeRow
+            value={(cfg as { next_node_key?: string }).next_node_key ?? ""}
+            allNodes={allNodes}
+            currentKey={node.node_key}
+            onChange={(v) => onUpdateConfig({ next_node_key: v })}
+            label="Next Step (Always / Fallback)"
+          />
+          <NextNodeRow
             value={(cfg as { found_next?: string }).found_next ?? ""}
             allNodes={allNodes}
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ found_next: v })}
-            label="When Found"
+            label="When Found (Optional)"
           />
           <NextNodeRow
             value={(cfg as { not_found_next?: string }).not_found_next ?? ""}
             allNodes={allNodes}
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ not_found_next: v })}
-            label="When Not Found"
+            label="When Not Found (Optional)"
           />
         </div>
       );
