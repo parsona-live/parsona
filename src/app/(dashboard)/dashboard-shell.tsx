@@ -10,7 +10,7 @@ import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BrowserNotificationsListener } from "@/components/notifications/browser-notifications-listener";
 import { ImpersonationBanner } from "@/components/layout/impersonation-banner";
-import { DashboardSkeleton } from "@/components/skeletons/page-skeletons";
+import { Loader2 } from "lucide-react";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -51,7 +51,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               Renders nothing unless the account/role failed to resolve. */}
           <AccountAccessAlert />
           {loading ? (
-            <DashboardSkeleton />
+            <div className="flex min-h-[60vh] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
           ) : !user ? null : (
             children
           )}

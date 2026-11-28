@@ -1,45 +1,31 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, UsersRound } from "lucide-react";
-import { AuthCardSkeleton } from "@/components/skeletons/page-skeletons";
+import { Loader2 } from "lucide-react";
+import { SignInPage } from "@/components/ui/sign-in";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless it sits under a Suspense boundary. We split the form into
-// a child component so the outer page can prerender the chrome
-// (background, card frame) while the form hydrates with the query
-// string on the client.
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AuthCardSkeleton />}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
       <LoginPageInner />
     </Suspense>
   );
 }
 
 function LoginPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  // Forwarded from `/join/<token>` when the visitor already has an
-  // account. After a successful sign-in we send them to the join
-  // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
   const t = useTranslations("LoginPage");
-  // Set by /auth/callback when an emailed link (confirmation, password
-  // reset) could not be turned into a session — see src/lib/auth/callback.ts.
   const linkError = searchParams.get("error");
   const linkErrorMessage =
     linkError === "link_expired"
@@ -54,7 +40,7 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -70,14 +56,6 @@ function LoginPageInner() {
       return;
     }
 
-    // Full-page navigation (not router.push) so the browser issues a
-    // fresh top-level request that carries the just-written Supabase
-    // auth cookies to the middleware gating /dashboard. A soft
-    // client-side navigation can reach the protected route before the
-    // server observes the new session, so the middleware bounces it
-    // back to /login — which looks like the page "just refreshing"
-    // instead of signing in (issue #365). Mirrors the deliberate full
-    // reload the invite-accept flow already uses in join/[token].
     const redirectParam = searchParams.get("redirect");
     let destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
@@ -105,99 +83,38 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
-          </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? t('titleAccept') : t('titleWelcome')}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {inviteToken
-              ? t('descAccept')
-              : t('descWelcome')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            {linkErrorMessage && !error && (
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-                {linkErrorMessage}
-              </div>
-            )}
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                {t('emailLabel')}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-muted-foreground">
-                {t('passwordLabel')}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t('passwordPlaceholder')}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-              {/* Below the input so Tab goes email -> password -> link. */}
-              <Link
-                href="/forgot-password"
-                className="self-end text-sm text-primary hover:text-primary/80"
-              >
-                {t('forgotPassword')}
-              </Link>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? t('signingIn') : t('signIn')}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t('noAccount')}{" "}
-            <Link
-              href={
-                inviteToken
-                  ? `/signup?invite=${encodeURIComponent(inviteToken)}`
-                  : "/signup"
-              }
-              className="text-primary hover:text-primary/80"
-            >
-              {t('createAccount')}
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <SignInPage
+      title={
+        <span className="font-light tracking-tighter text-foreground">
+          {inviteToken ? t("titleAccept") : t("titleWelcome")}
+        </span>
+      }
+      description={inviteToken ? t("descAccept") : t("descWelcome")}
+      email={email}
+      onEmailChange={setEmail}
+      password={password}
+      onPasswordChange={setPassword}
+      error={error}
+      warning={!error ? linkErrorMessage : null}
+      loading={loading}
+      emailLabel={t("emailLabel")}
+      emailPlaceholder={t("emailPlaceholder")}
+      passwordLabel={t("passwordLabel")}
+      passwordPlaceholder={t("passwordPlaceholder")}
+      forgotPasswordLabel={t("forgotPassword")}
+      submitLabel={t("signIn")}
+      loadingLabel={t("signingIn")}
+      noAccountLabel={t("noAccount")}
+      createAccountLabel={t("createAccount")}
+      onSignIn={handleLogin}
+      onResetPassword={() => router.push("/forgot-password")}
+      onCreateAccount={() =>
+        router.push(
+          inviteToken
+            ? `/signup?invite=${encodeURIComponent(inviteToken)}`
+            : "/signup"
+        )
+      }
+    />
   );
 }

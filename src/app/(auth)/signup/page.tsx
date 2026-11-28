@@ -5,24 +5,22 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
-import { AuthCardSkeleton } from "@/components/skeletons/page-skeletons";
+  AuthSplitShell,
+  GlassInputWrapper,
+  GlassPasswordInput,
+} from "@/components/ui/sign-in";
 
-// `useSearchParams` opts the component out of static prerendering
-// unless wrapped in Suspense — same pattern as /login.
 export default function SignupPage() {
   return (
-    <Suspense fallback={<AuthCardSkeleton />}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
       <SignupPageInner />
     </Suspense>
   );
@@ -30,11 +28,6 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // sends the verified user to /join/<token> so they land on the
-  // redeem step instead of being dropped on /dashboard.
   const inviteToken = searchParams.get("invite");
   const t = useTranslations("SignupPage");
 
@@ -63,16 +56,6 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // Always name our own origin as the place the confirmation link
-    // returns to. Previously this was left unset unless an invite was
-    // involved, so Supabase fell back to its Site URL — which on a
-    // freshly-created or self-hosted project is `http://localhost:3000`
-    // (issue #595) — and even when the Site URL was right the link
-    // landed on `/` with an unexchanged `?code=`, so the user had to
-    // sign in again after verifying. /auth/callback exchanges the link
-    // for a session and forwards to `next` (issue #592). Supabase still
-    // has to allow this origin under Authentication → URL Configuration
-    // → Redirect URLs; see docs/auth-emails.md.
     const next = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
       : "/dashboard";
@@ -101,155 +84,133 @@ function SignupPageInner() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CheckCircle className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-xl text-foreground">
-              {t("checkEmailTitle")}
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {t.rich("checkEmailDesc", {
-                email,
-                strong: (chunks) => (
-                  <span className="text-foreground">{chunks}</span>
-                ),
-              })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-            >
-              <Button
-                variant="outline"
-                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {t("backToSignIn")}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthSplitShell
+        title={
+          <span className="font-light tracking-tighter text-foreground">
+            {t("checkEmailTitle")}
+          </span>
+        }
+        description={t.rich("checkEmailDesc", {
+          email,
+          strong: (chunks) => (
+            <span className="font-medium text-foreground">{chunks}</span>
+          ),
+        })}
+      >
+        <Link
+          href={
+            inviteToken
+              ? `/login?invite=${encodeURIComponent(inviteToken)}`
+              : "/login"
+          }
+          className="animate-element animate-delay-300 flex w-full items-center justify-center rounded-2xl border border-border py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+        >
+          {t("backToSignIn")}
+        </Link>
+      </AuthSplitShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+    <AuthSplitShell
+      title={
+        <span className="font-light tracking-tighter text-foreground">
+          {inviteToken ? t("titleJoin") : t("title")}
+        </span>
+      }
+      description={inviteToken ? t("descJoin") : t("desc")}
+    >
+      <form onSubmit={handleSignup} className="space-y-4">
+        {error && (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
           </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? t("titleJoin") : t("title")}
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {inviteToken ? t("descJoin") : t("desc")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
-            )}
+        )}
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="fullName" className="text-muted-foreground">
-                {t("fullNameLabel")}
-              </Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder={t("fullNamePlaceholder")}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
+        <div className="animate-element animate-delay-300 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("fullNameLabel")}
+          </label>
+          <GlassInputWrapper>
+            <input
+              type="text"
+              autoComplete="name"
+              placeholder={t("fullNamePlaceholder")}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              className="w-full rounded-2xl bg-transparent p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+          </GlassInputWrapper>
+        </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                {t("emailLabel")}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t("emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
+        <div className="animate-element animate-delay-400 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("emailLabel")}
+          </label>
+          <GlassInputWrapper>
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder={t("emailPlaceholder")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-2xl bg-transparent p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+          </GlassInputWrapper>
+        </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password" className="text-muted-foreground">
-                {t("passwordLabel")}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder={t("passwordPlaceholder")}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
+        <div className="animate-element animate-delay-500 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("passwordLabel")}
+          </label>
+          <GlassPasswordInput
+            name="password"
+            value={password}
+            onChange={setPassword}
+            placeholder={t("passwordPlaceholder")}
+            autoComplete="new-password"
+            required
+          />
+        </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPassword" className="text-muted-foreground">
-                {t("confirmPasswordLabel")}
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder={t("confirmPasswordPlaceholder")}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
+        <div className="animate-element animate-delay-600 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("confirmPasswordLabel")}
+          </label>
+          <GlassPasswordInput
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder={t("confirmPasswordPlaceholder")}
+            autoComplete="new-password"
+            required
+          />
+        </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? t("creating") : t("submit")}
-            </Button>
-          </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="animate-element animate-delay-700 w-full rounded-2xl bg-primary py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? t("creating") : t("submit")}
+        </button>
+      </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t("haveAccount")}{" "}
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-              className="text-primary hover:text-primary/80"
-            >
-              {t("signIn")}
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+      <p className="animate-element animate-delay-800 text-center text-sm text-muted-foreground">
+        {t("haveAccount")}{" "}
+        <Link
+          href={
+            inviteToken
+              ? `/login?invite=${encodeURIComponent(inviteToken)}`
+              : "/login"
+          }
+          className="text-primary transition-colors hover:underline"
+        >
+          {t("signIn")}
+        </Link>
+      </p>
+    </AuthSplitShell>
   );
 }

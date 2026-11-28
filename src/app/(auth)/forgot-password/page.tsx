@@ -4,17 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MessageSquare, CheckCircle, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { AuthSplitShell, GlassInputWrapper } from "@/components/ui/sign-in";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("ForgotPasswordPage");
@@ -29,11 +20,6 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
 
-    // The emailed link returns to /auth/callback, which exchanges it
-    // for a recovery session and forwards to /reset-password (issue
-    // #592). Supabase must allow this origin under Authentication →
-    // URL Configuration → Redirect URLs, or it silently falls back to
-    // its Site URL; see docs/auth-emails.md.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
     });
@@ -50,92 +36,78 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md border-border bg-card">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <CheckCircle className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-xl text-foreground">
-              {t("checkEmailTitle")}
-            </CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {t.rich("checkEmailDesc", {
-                email,
-                strong: (chunks) => (
-                  <span className="text-foreground">{chunks}</span>
-                ),
-              })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/login">
-              <Button
-                variant="outline"
-                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                {t("backToSignIn")}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthSplitShell
+        title={
+          <span className="font-light tracking-tighter text-foreground">
+            {t("checkEmailTitle")}
+          </span>
+        }
+        description={t.rich("checkEmailDesc", {
+          email,
+          strong: (chunks) => (
+            <span className="font-medium text-foreground">{chunks}</span>
+          ),
+        })}
+      >
+        <Link
+          href="/login"
+          className="animate-element animate-delay-300 flex w-full items-center justify-center rounded-2xl border border-border py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+        >
+          {t("backToSignIn")}
+        </Link>
+      </AuthSplitShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <MessageSquare className="h-6 w-6 text-primary" />
+    <AuthSplitShell
+      title={
+        <span className="font-light tracking-tighter text-foreground">
+          {t("title")}
+        </span>
+      }
+      description={t("desc")}
+    >
+      <form onSubmit={handleReset} className="space-y-4">
+        {error && (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
           </div>
-          <CardTitle className="text-xl text-foreground">{t("title")}</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            {t("desc")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleReset} className="flex flex-col gap-4">
-            {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
-            )}
+        )}
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
-                {t("emailLabel")}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t("emailPlaceholder")}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
-              />
-            </div>
+        <div className="animate-element animate-delay-300 space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
+            {t("emailLabel")}
+          </label>
+          <GlassInputWrapper>
+            <input
+              type="email"
+              autoComplete="email"
+              placeholder={t("emailPlaceholder")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-2xl bg-transparent p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+          </GlassInputWrapper>
+        </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? t("sending") : t("sendLink")}
-            </Button>
-          </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="animate-element animate-delay-400 w-full rounded-2xl bg-primary py-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          {loading ? t("sending") : t("sendLink")}
+        </button>
+      </form>
 
-          <Link
-            href="/login"
-            className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            {t("backToSignIn")}
-          </Link>
-        </CardContent>
-      </Card>
-    </div>
+      <Link
+        href="/login"
+        className="animate-element animate-delay-500 flex items-center justify-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t("backToSignIn")}
+      </Link>
+    </AuthSplitShell>
   );
 }
